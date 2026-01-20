@@ -2688,7 +2688,7 @@ local HashThree
 LPH_NO_VIRTUALIZE(function()
     for Index, Value in next, getgc() do
         if rawequal(typeof(Value), "function") and islclosure(Value) and getrenv().debug.info(Value, "s"):find("SwordsController") then
-            if rawequal(getrenv().debug.info(Value, "l"), 263) then
+            if rawequal(getrenv().debug.info(Value, "l"), 273) then
                 HashOne = getconstant(Value, 62)
                 HashTwo = getconstant(Value, 64)
                 HashThree = getconstant(Value, 65)
