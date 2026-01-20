@@ -1,3 +1,4 @@
+
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -47,14 +48,14 @@ local CoreGui = cloneref(game:GetService('CoreGui'))
 local Debris = cloneref(game:GetService('Debris'))
 
 local mouse = Players.LocalPlayer:GetMouse()
-local old_LostHub = CoreGui:FindFirstChild('LostHub')
+local old_C5least = CoreGui:FindFirstChild('C5least')
 
-if old_LostHub then
-    Debris:AddItem(old_LostHub, 0)
+if old_C5least then
+    Debris:AddItem(old_C5least, 0)
 end
 
-if not isfolder("LostHub") then
-    makefolder("LostHub")
+if not isfolder("C5leastprivate") then
+    makefolder("C5leastprivate")
 end
 
 
@@ -283,7 +284,7 @@ local Config = setmetatable({
     save = function(self: any, file_name: any, config: any)
         local success_save, result = pcall(function()
             local flags = HttpService:JSONEncode(config)
-            writefile('LostHub/'..file_name..'.json', flags)
+            writefile('C5least/'..file_name..'.json', flags)
         end)
     
         if not success_save then
@@ -292,13 +293,13 @@ local Config = setmetatable({
     end,
     load = function(self: any, file_name: any, config: any)
         local success_load, result = pcall(function()
-            if not isfile('LostHub/'..file_name..'.json') then
+            if not isfile('C5least/'..file_name..'.json') then
                 self:save(file_name, config)
         
                 return
             end
         
-            local flags = readfile('LostHub/'..file_name..'.json')
+            local flags = readfile('C5least/'..file_name..'.json')
         
             if not flags then
                 self:save(file_name, config)
@@ -515,154 +516,159 @@ end
 
 
 function Library:create_ui()
-    local old_LostHub = CoreGui:FindFirstChild('LostHub')
+    local old_C5least = CoreGui:FindFirstChild('C5least')
 
-    if old_LostHub then
-        Debris:AddItem(old_LostHub, 0)
+    if old_C5least then
+        Debris:AddItem(old_C5least, 0)
     end
 
-    local LostHub = Instance.new('ScreenGui')
-    LostHub.ResetOnSpawn = false
-    LostHub.Name = 'LostHub'
-    LostHub.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    LostHub.Parent = CoreGui
+    local C5least = Instance.new('ScreenGui')
+    C5least.ResetOnSpawn = false
+    C5least.Name = 'C5least'
+    C5least.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    C5least.Parent = CoreGui
     
     local Container = Instance.new('Frame')
-    Container.ClipsDescendants = true
-    Container.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    Container.AnchorPoint = Vector2.new(0.5, 0.5)
-    Container.Name = 'Container'
-    Container.BackgroundTransparency = 0.05000000074505806
-    Container.BackgroundColor3 = Color3.fromRGB(12, 13, 15)
-    Container.Position = UDim2.new(0.5, 0, 0.5, 0)
-    Container.Size = UDim2.new(0, 0, 0, 0)
-    Container.Active = true
-    Container.BorderSizePixel = 0
-    Container.Parent = LostHub
-    
-    local UICorner = Instance.new('UICorner')
-    UICorner.CornerRadius = UDim.new(0, 10)
-    UICorner.Parent = Container
-    
-    local UIStroke = Instance.new('UIStroke')
-    UIStroke.Color = Color3.fromRGB(52, 66, 89)
-    UIStroke.Transparency = 0.5
-    UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    UIStroke.Parent = Container
-    
-    local Handler = Instance.new('Frame')
-    Handler.BackgroundTransparency = 1
-    Handler.Name = 'Handler'
-    Handler.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    Handler.Size = UDim2.new(0, 698, 0, 479)
-    Handler.BorderSizePixel = 0
-    Handler.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Handler.Parent = Container
-    
-    local Tabs = Instance.new('ScrollingFrame')
-    Tabs.ScrollBarImageTransparency = 1
-    Tabs.ScrollBarThickness = 0
-    Tabs.Name = 'Tabs'
-    Tabs.Size = UDim2.new(0, 129, 0, 401)
-    Tabs.Selectable = false
-    Tabs.AutomaticCanvasSize = Enum.AutomaticSize.XY
-    Tabs.BackgroundTransparency = 1
-    Tabs.Position = UDim2.new(0.026097271591424942, 0, 0.1111111119389534, 0)
-    Tabs.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    Tabs.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Tabs.BorderSizePixel = 0
-    Tabs.CanvasSize = UDim2.new(0, 0, 0.5, 0)
-    Tabs.Parent = Handler
-    
-    local UIListLayout = Instance.new('UIListLayout')
-    UIListLayout.Padding = UDim.new(0, 4)
-    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    UIListLayout.Parent = Tabs
-    
-    local ClientName = Instance.new('TextLabel')
-    ClientName.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-    ClientName.TextColor3 = Color3.fromRGB(152, 181, 255)
-    ClientName.TextTransparency = 0.20000000298023224
-    ClientName.Text = 'LostHub'
-    ClientName.Name = 'ClientName'
-    ClientName.Size = UDim2.new(0, 31, 0, 13)
-    ClientName.AnchorPoint = Vector2.new(0, 0.5)
-    ClientName.Position = UDim2.new(0.0560000017285347, 0, 0.054999999701976776, 0)
-    ClientName.BackgroundTransparency = 1
-    ClientName.TextXAlignment = Enum.TextXAlignment.Left
-    ClientName.BorderSizePixel = 0
-    ClientName.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    ClientName.TextSize = 13
-    ClientName.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    ClientName.Parent = Handler
-    
-    local UIGradient = Instance.new('UIGradient')
-    UIGradient.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(155, 155, 155)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
-    }
-    UIGradient.Parent = ClientName
+Container.ClipsDescendants = true
+Container.BorderColor3 = Color3.fromRGB(80, 80, 80) -- cinza escuro neutro
+Container.AnchorPoint = Vector2.new(0.5, 0.5)
+Container.Name = 'Container'
+Container.BackgroundTransparency = 0.2 -- transparĂªncia leve
+Container.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- base escura para o gradiente
+Container.Position = UDim2.new(0.5, 0, 0.5, 0)
+Container.Size = UDim2.new(0, 0, 0, 0)
+Container.Active = true
+Container.BorderSizePixel = 0
+Container.Parent = C5least
+
+local UICorner = Instance.new('UICorner')
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = Container
+
+local UIStroke = Instance.new('UIStroke')
+UIStroke.Color = Color3.fromRGB(200, 200, 200) -- borda cinza claro
+UIStroke.Transparency = 0.4 -- bem sutil
+UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke.Parent = Container
+
+local Handler = Instance.new('Frame')
+Handler.BackgroundTransparency = 1
+Handler.Name = 'Handler'
+Handler.BorderColor3 = Color3.fromRGB(80, 80, 80)
+Handler.Size = UDim2.new(0, 698, 0, 479)
+Handler.BorderSizePixel = 0
+Handler.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Handler.Parent = Container
+
+local Tabs = Instance.new('ScrollingFrame')
+Tabs.ScrollBarImageTransparency = 1
+Tabs.ScrollBarThickness = 0
+Tabs.Name = 'Tabs'
+Tabs.Size = UDim2.new(0, 129, 0, 401)
+Tabs.Selectable = false
+Tabs.AutomaticCanvasSize = Enum.AutomaticSize.XY
+Tabs.BackgroundTransparency = 1
+Tabs.Position = UDim2.new(0.026, 0, 0.111, 0)
+Tabs.BorderColor3 = Color3.fromRGB(200, 200, 200)
+Tabs.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Tabs.BorderSizePixel = 0
+Tabs.CanvasSize = UDim2.new(0, 0, 0.5, 0)
+Tabs.Parent = Handler
+
+local UIListLayout = Instance.new('UIListLayout')
+UIListLayout.Padding = UDim.new(0, 4)
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Parent = Tabs
+
+local ClientName = Instance.new('TextLabel')
+ClientName.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+ClientName.TextColor3 = Color3.fromRGB(240, 240, 240) -- branco suave
+ClientName.TextTransparency = 0.05
+ClientName.Text = 'C5least private'
+ClientName.Name = 'C5least private'
+ClientName.Size = UDim2.new(0, 31, 0, 13)
+ClientName.AnchorPoint = Vector2.new(0, 0.5)
+ClientName.Position = UDim2.new(0.056, 0, 0.055, 0)
+ClientName.BackgroundTransparency = 1
+ClientName.TextXAlignment = Enum.TextXAlignment.Left
+ClientName.BorderSizePixel = 0
+ClientName.BorderColor3 = Color3.fromRGB(80, 80, 80)
+ClientName.TextSize = 13
+ClientName.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+ClientName.Parent = Handler
+
+local UIGradient = Instance.new('UIGradient')
+UIGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(240, 240, 240)), -- topo branco
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 20))     -- fundo preto
+}
+UIGradient.Rotation = 90 -- vertical (branco em cima, preto embaixo)
+UIGradient.Transparency = NumberSequence.new{
+    NumberSequenceKeypoint.new(0, 0.1),
+    NumberSequenceKeypoint.new(1, 0.3)
+}
+UIGradient.Parent = Container
     
     local Pin = Instance.new('Frame')
-    Pin.Name = 'Pin'
-    Pin.Position = UDim2.new(0.026000000536441803, 0, 0.13600000739097595, 0)
-    Pin.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    Pin.Size = UDim2.new(0, 2, 0, 16)
-    Pin.BorderSizePixel = 0
-    Pin.BackgroundColor3 = Color3.fromRGB(152, 181, 255)
-    Pin.Parent = Handler
+Pin.Name = 'Pin'
+Pin.Position = UDim2.new(0.026, 0, 0.136, 0)
+Pin.BorderColor3 = Color3.fromRGB(0, 0, 0)
+Pin.Size = UDim2.new(0, 2, 0, 16)
+Pin.BorderSizePixel = 0
+Pin.BackgroundColor3 = Color3.fromRGB(190, 150, 255) -- lilĂ¡s suave
+Pin.Parent = Handler
+
+local UICorner = Instance.new('UICorner')
+UICorner.CornerRadius = UDim.new(1, 0)
+UICorner.Parent = Pin
+
+local Icon = Instance.new('ImageLabel')
+Icon.ImageColor3 = Color3.fromRGB(220, 200, 255) -- branco puxado pro roxo
+Icon.ScaleType = Enum.ScaleType.Fit
+Icon.BorderColor3 = Color3.fromRGB(0, 0, 0)
+Icon.AnchorPoint = Vector2.new(0, 0.5)
+Icon.Image = 'rbxassetid://107819132007001'
+Icon.BackgroundTransparency = 1
+Icon.Position = UDim2.new(0.025, 0, 0.055, 0)
+Icon.Name = 'Icon'
+Icon.Size = UDim2.new(0, 18, 0, 18)
+Icon.BorderSizePixel = 0
+Icon.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- deixa como estĂ¡, mas invisĂ­vel com `BackgroundTransparency = 1`
+Icon.Parent = Handler
+
+local Divider = Instance.new('Frame')
+Divider.Name = 'Divider'
+Divider.BackgroundTransparency = 0.3
+Divider.Position = UDim2.new(0.235, 0, 0, 0)
+Divider.BorderColor3 = Color3.fromRGB(0, 0, 0)
+Divider.Size = UDim2.new(0, 1, 0, 479)
+Divider.BorderSizePixel = 0
+Divider.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- roxo escuro suave
+Divider.Parent = Handler
+
+local Sections = Instance.new('Folder')
+Sections.Name = 'Sections'
+Sections.Parent = Handler
+
+local Minimize = Instance.new('TextButton')
+Minimize.FontFace = Font.new('rbxasset://fonts/families/SourceSansPro.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+Minimize.TextColor3 = Color3.fromRGB(255, 255, 255) -- branco suave
+Minimize.BorderColor3 = Color3.fromRGB(0, 0, 0)
+Minimize.Text = ''
+Minimize.AutoButtonColor = false
+Minimize.Name = 'Minimize'
+Minimize.BackgroundTransparency = 1
+Minimize.Position = UDim2.new(0.020, 0, 0.029, 0)
+Minimize.Size = UDim2.new(0, 24, 0, 24)
+Minimize.BorderSizePixel = 0
+Minimize.TextSize = 14
+Minimize.BackgroundColor3 = Color3.fromRGB(220, 200, 255) -- fundo invisĂ­vel, mas coerente
+Minimize.Parent = Handler
+
+local UIScale = Instance.new('UIScale')
+UIScale.Parent = Container
     
-    local UICorner = Instance.new('UICorner')
-    UICorner.CornerRadius = UDim.new(1, 0)
-    UICorner.Parent = Pin
-    
-    local Icon = Instance.new('ImageLabel')
-    Icon.ImageColor3 = Color3.fromRGB(152, 181, 255)
-    Icon.ScaleType = Enum.ScaleType.Fit
-    Icon.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    Icon.AnchorPoint = Vector2.new(0, 0.5)
-    Icon.Image = 'rbxassetid://107819132007001'
-    Icon.BackgroundTransparency = 1
-    Icon.Position = UDim2.new(0.02500000037252903, 0, 0.054999999701976776, 0)
-    Icon.Name = 'Icon'
-    Icon.Size = UDim2.new(0, 18, 0, 18)
-    Icon.BorderSizePixel = 0
-    Icon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Icon.Parent = Handler
-    
-    local Divider = Instance.new('Frame')
-    Divider.Name = 'Divider'
-    Divider.BackgroundTransparency = 0.5
-    Divider.Position = UDim2.new(0.23499999940395355, 0, 0, 0)
-    Divider.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    Divider.Size = UDim2.new(0, 1, 0, 479)
-    Divider.BorderSizePixel = 0
-    Divider.BackgroundColor3 = Color3.fromRGB(52, 66, 89)
-    Divider.Parent = Handler
-    
-    local Sections = Instance.new('Folder')
-    Sections.Name = 'Sections'
-    Sections.Parent = Handler
-    
-    local Minimize = Instance.new('TextButton')
-    Minimize.FontFace = Font.new('rbxasset://fonts/families/SourceSansPro.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
-    Minimize.TextColor3 = Color3.fromRGB(0, 0, 0)
-    Minimize.BorderColor3 = Color3.fromRGB(0, 0, 0)
-    Minimize.Text = ''
-    Minimize.AutoButtonColor = false
-    Minimize.Name = 'Minimize'
-    Minimize.BackgroundTransparency = 1
-    Minimize.Position = UDim2.new(0.020057305693626404, 0, 0.02922755666077137, 0)
-    Minimize.Size = UDim2.new(0, 24, 0, 24)
-    Minimize.BorderSizePixel = 0
-    Minimize.TextSize = 14
-    Minimize.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Minimize.Parent = Handler
-    
-    local UIScale = Instance.new('UIScale')
-    UIScale.Parent = Container    
-    
-    self._ui = LostHub
+    self._ui = C5least
 
     local function on_drag(input: InputObject, process: boolean)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
@@ -719,7 +725,7 @@ function Library:create_ui()
     end;
 
     function self:UIVisiblity()
-        LostHub.Enabled = not LostHub.Enabled;
+        C5least.Enabled = not C5least.Enabled;
     end;
 
     function self:change_visiblity(state: boolean)
@@ -738,7 +744,7 @@ function Library:create_ui()
     function self:load()
         local content = {}
     
-        for _, object in LostHub:GetDescendants() do
+        for _, object in C5least:GetDescendants() do
             if not object:IsA('ImageLabel') then
                 continue
             end
@@ -991,187 +997,150 @@ function Library:create_ui()
             end
 
             local Module = Instance.new('Frame')
-            Module.ClipsDescendants = true
-            Module.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            Module.BackgroundTransparency = 0.5
-            Module.Position = UDim2.new(0.004115226212888956, 0, 0, 0)
-            Module.Name = 'Module'
-            Module.Size = UDim2.new(0, 241, 0, 93)
-            Module.BorderSizePixel = 0
-            Module.BackgroundColor3 = Color3.fromRGB(22, 28, 38)
-            Module.Parent = settings.section
+Module.ClipsDescendants = true
+Module.Name = 'Module'
+Module.Size = UDim2.new(0, 241, 0, 93)
+Module.Position = UDim2.new(0.0041, 0, 0, 0)
+Module.BackgroundTransparency = 0.15
+Module.BackgroundColor3 = Color3.fromRGB(30, 22, 50) -- roxo escuro elegante
+Module.BorderSizePixel = 0
+Module.BorderColor3 = Color3.fromRGB(0, 0, 0)
+Module.Parent = settings.section
 
-            local UIListLayout = Instance.new('UIListLayout')
-            UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-            UIListLayout.Parent = Module
-            
-            local UICorner = Instance.new('UICorner')
-            UICorner.CornerRadius = UDim.new(0, 5)
-            UICorner.Parent = Module
-            
-            local UIStroke = Instance.new('UIStroke')
-            UIStroke.Color = Color3.fromRGB(52, 66, 89)
-            UIStroke.Transparency = 0.5
-            UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-            UIStroke.Parent = Module
-            
-            local Header = Instance.new('TextButton')
-            Header.FontFace = Font.new('rbxasset://fonts/families/SourceSansPro.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
-            Header.TextColor3 = Color3.fromRGB(0, 0, 0)
-            Header.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            Header.Text = ''
-            Header.AutoButtonColor = false
-            Header.BackgroundTransparency = 1
-            Header.Name = 'Header'
-            Header.Size = UDim2.new(0, 241, 0, 93)
-            Header.BorderSizePixel = 0
-            Header.TextSize = 14
-            Header.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            Header.Parent = Module
-            
-            local Icon = Instance.new('ImageLabel')
-            Icon.ImageColor3 = Color3.fromRGB(152, 181, 255)
-            Icon.ScaleType = Enum.ScaleType.Fit
-            Icon.ImageTransparency = 0.699999988079071
-            Icon.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            Icon.AnchorPoint = Vector2.new(0, 0.5)
-            Icon.Image = 'rbxassetid://79095934438045'
-            Icon.BackgroundTransparency = 1
-            Icon.Position = UDim2.new(0.07100000232458115, 0, 0.8199999928474426, 0)
-            Icon.Name = 'Icon'
-            Icon.Size = UDim2.new(0, 15, 0, 15)
-            Icon.BorderSizePixel = 0
-            Icon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            Icon.Parent = Header
-            
-            local ModuleName = Instance.new('TextLabel')
-            ModuleName.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-            ModuleName.TextColor3 = Color3.fromRGB(152, 181, 255)
-            ModuleName.TextTransparency = 0.20000000298023224
-            if not settings.rich then
-                ModuleName.Text = settings.title or "Skibidi"
-            else
-                ModuleName.RichText = true
-                ModuleName.Text = settings.richtext or "<font color='rgb(255,0,0)'>LostHub</font> user"
-            end;
-            ModuleName.Name = 'ModuleName'
-            ModuleName.Size = UDim2.new(0, 205, 0, 13)
-            ModuleName.AnchorPoint = Vector2.new(0, 0.5)
-            ModuleName.Position = UDim2.new(0.0729999989271164, 0, 0.23999999463558197, 0)
-            ModuleName.BackgroundTransparency = 1
-            ModuleName.TextXAlignment = Enum.TextXAlignment.Left
-            ModuleName.BorderSizePixel = 0
-            ModuleName.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            ModuleName.TextSize = 13
-            ModuleName.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            ModuleName.Parent = Header
-            
-            local Description = Instance.new('TextLabel')
-            Description.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-            Description.TextColor3 = Color3.fromRGB(152, 181, 255)
-            Description.TextTransparency = 0.699999988079071
-            Description.Text = settings.description
-            Description.Name = 'Description'
-            Description.Size = UDim2.new(0, 205, 0, 13)
-            Description.AnchorPoint = Vector2.new(0, 0.5)
-            Description.Position = UDim2.new(0.0729999989271164, 0, 0.41999998688697815, 0)
-            Description.BackgroundTransparency = 1
-            Description.TextXAlignment = Enum.TextXAlignment.Left
-            Description.BorderSizePixel = 0
-            Description.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            Description.TextSize = 10
-            Description.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            Description.Parent = Header
-            
-            local Toggle = Instance.new('Frame')
-            Toggle.Name = 'Toggle'
-            Toggle.BackgroundTransparency = 0.699999988079071
-            Toggle.Position = UDim2.new(0.8199999928474426, 0, 0.7570000290870667, 0)
-            Toggle.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            Toggle.Size = UDim2.new(0, 25, 0, 12)
-            Toggle.BorderSizePixel = 0
-            Toggle.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            Toggle.Parent = Header
-            
-            local UICorner = Instance.new('UICorner')
-            UICorner.CornerRadius = UDim.new(1, 0)
-            UICorner.Parent = Toggle
-            
-            local Circle = Instance.new('Frame')
-            Circle.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            Circle.AnchorPoint = Vector2.new(0, 0.5)
-            Circle.BackgroundTransparency = 0.20000000298023224
-            Circle.Position = UDim2.new(0, 0, 0.5, 0)
-            Circle.Name = 'Circle'
-            Circle.Size = UDim2.new(0, 12, 0, 12)
-            Circle.BorderSizePixel = 0
-            Circle.BackgroundColor3 = Color3.fromRGB(66, 80, 115)
-            Circle.Parent = Toggle
-            
-            local UICorner = Instance.new('UICorner')
-            UICorner.CornerRadius = UDim.new(1, 0)
-            UICorner.Parent = Circle
-            
-            local Keybind = Instance.new('Frame')
-            Keybind.Name = 'Keybind'
-            Keybind.BackgroundTransparency = 0.699999988079071
-            Keybind.Position = UDim2.new(0.15000000596046448, 0, 0.7350000143051147, 0)
-            Keybind.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            Keybind.Size = UDim2.new(0, 33, 0, 15)
-            Keybind.BorderSizePixel = 0
-            Keybind.BackgroundColor3 = Color3.fromRGB(152, 181, 255)
-            Keybind.Parent = Header
-            
-            local UICorner = Instance.new('UICorner')
-            UICorner.CornerRadius = UDim.new(0, 3)
-            UICorner.Parent = Keybind
-            
-            local TextLabel = Instance.new('TextLabel')
-            TextLabel.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-            TextLabel.TextColor3 = Color3.fromRGB(209, 222, 255)
-            TextLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            TextLabel.Text = 'None'
-            TextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-            TextLabel.Size = UDim2.new(0, 25, 0, 13)
-            TextLabel.BackgroundTransparency = 1
-            TextLabel.TextXAlignment = Enum.TextXAlignment.Left
-            TextLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
-            TextLabel.BorderSizePixel = 0
-            TextLabel.TextSize = 10
-            TextLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            TextLabel.Parent = Keybind
-            
-            local Divider = Instance.new('Frame')
-            Divider.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            Divider.AnchorPoint = Vector2.new(0.5, 0)
-            Divider.BackgroundTransparency = 0.5
-            Divider.Position = UDim2.new(0.5, 0, 0.6200000047683716, 0)
-            Divider.Name = 'Divider'
-            Divider.Size = UDim2.new(0, 241, 0, 1)
-            Divider.BorderSizePixel = 0
-            Divider.BackgroundColor3 = Color3.fromRGB(52, 66, 89)
-            Divider.Parent = Header
-            
-            local Divider = Instance.new('Frame')
-            Divider.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            Divider.AnchorPoint = Vector2.new(0.5, 0)
-            Divider.BackgroundTransparency = 0.5
-            Divider.Position = UDim2.new(0.5, 0, 1, 0)
-            Divider.Name = 'Divider'
-            Divider.Size = UDim2.new(0, 241, 0, 1)
-            Divider.BorderSizePixel = 0
-            Divider.BackgroundColor3 = Color3.fromRGB(52, 66, 89)
-            Divider.Parent = Header
-            
-            local Options = Instance.new('Frame')
-            Options.Name = 'Options'
-            Options.BackgroundTransparency = 1
-            Options.Position = UDim2.new(0, 0, 1, 0)
-            Options.BorderColor3 = Color3.fromRGB(0, 0, 0)
-            Options.Size = UDim2.new(0, 241, 0, 8)
-            Options.BorderSizePixel = 0
-            Options.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            Options.Parent = Module
+local UIListLayout = Instance.new('UIListLayout')
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Parent = Module
+
+local UICorner = Instance.new('UICorner')
+UICorner.CornerRadius = UDim.new(0, 5)
+UICorner.Parent = Module
+
+local UIStroke = Instance.new('UIStroke')
+UIStroke.Color = Color3.fromRGB(90, 70, 150) -- detalhe sutil roxo
+UIStroke.Transparency = 0.4
+UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke.Parent = Module
+
+local Header = Instance.new('TextButton')
+Header.Name = 'Header'
+Header.Size = UDim2.new(0, 241, 0, 93)
+Header.BackgroundTransparency = 1
+Header.Text = ''
+Header.AutoButtonColor = false
+Header.BorderSizePixel = 0
+Header.Parent = Module
+
+local Icon = Instance.new('ImageLabel')
+Icon.Name = 'Icon'
+Icon.Image = 'rbxassetid://79095934438045'
+Icon.Position = UDim2.new(0.071, 0, 0.82, 0)
+Icon.Size = UDim2.new(0, 15, 0, 15)
+Icon.ImageTransparency = 0.4
+Icon.ImageColor3 = Color3.fromRGB(180, 160, 230)
+Icon.BackgroundTransparency = 1
+Icon.Parent = Header
+
+local ModuleName = Instance.new('TextLabel')
+ModuleName.Name = 'ModuleName'
+ModuleName.Size = UDim2.new(0, 205, 0, 13)
+ModuleName.Position = UDim2.new(0.073, 0, 0.24, 0)
+ModuleName.TextXAlignment = Enum.TextXAlignment.Left
+ModuleName.TextSize = 13
+ModuleName.TextTransparency = 0.05
+ModuleName.TextColor3 = Color3.fromRGB(220, 200, 255) -- lilĂ¡s suave
+ModuleName.BackgroundTransparency = 1
+ModuleName.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold)
+ModuleName.Text = settings.rich and settings.richtext or (settings.title or "Skibidi")
+ModuleName.RichText = settings.rich or false
+ModuleName.Parent = Header
+
+local Description = Instance.new('TextLabel')
+Description.Name = 'Description'
+Description.Size = UDim2.new(0, 205, 0, 13)
+Description.Position = UDim2.new(0.073, 0, 0.42, 0)
+Description.TextXAlignment = Enum.TextXAlignment.Left
+Description.TextSize = 10
+Description.TextTransparency = 0.45
+Description.TextColor3 = Color3.fromRGB(180, 160, 230)
+Description.BackgroundTransparency = 1
+Description.FontFace = ModuleName.FontFace
+Description.Text = settings.description or "DescriĂ§Ă£o aqui"
+Description.Parent = Header
+
+local Toggle = Instance.new('Frame')
+Toggle.Name = 'Toggle'
+Toggle.Position = UDim2.new(0.82, 0, 0.757, 0)
+Toggle.Size = UDim2.new(0, 25, 0, 12)
+Toggle.BackgroundColor3 = Color3.fromRGB(20, 15, 35)
+Toggle.BackgroundTransparency = 0.3
+Toggle.BorderSizePixel = 0
+Toggle.Parent = Header
+
+local ToggleCorner = Instance.new('UICorner')
+ToggleCorner.CornerRadius = UDim.new(1, 0)
+ToggleCorner.Parent = Toggle
+
+local Circle = Instance.new('Frame')
+Circle.Name = 'Circle'
+Circle.Size = UDim2.new(0, 12, 0, 12)
+Circle.Position = UDim2.new(0, 0, 0.5, 0)
+Circle.AnchorPoint = Vector2.new(0, 0.5)
+Circle.BackgroundColor3 = Color3.fromRGB(150, 130, 220)
+Circle.BackgroundTransparency = 0.1
+Circle.BorderSizePixel = 0
+Circle.Parent = Toggle
+
+local CircleCorner = Instance.new('UICorner')
+CircleCorner.CornerRadius = UDim.new(1, 0)
+CircleCorner.Parent = Circle
+
+local Keybind = Instance.new('Frame')
+Keybind.Name = 'Keybind'
+Keybind.Position = UDim2.new(0.15, 0, 0.735, 0)
+Keybind.Size = UDim2.new(0, 33, 0, 15)
+Keybind.BackgroundColor3 = Color3.fromRGB(130, 110, 200)
+Keybind.BackgroundTransparency = 0.3
+Keybind.BorderSizePixel = 0
+Keybind.Parent = Header
+
+local KeybindCorner = Instance.new('UICorner')
+KeybindCorner.CornerRadius = UDim.new(0, 3)
+KeybindCorner.Parent = Keybind
+
+local TextLabel = Instance.new('TextLabel')
+TextLabel.Name = 'KeyText'
+TextLabel.Size = UDim2.new(0, 25, 0, 13)
+TextLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
+TextLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+TextLabel.Text = "None"
+TextLabel.TextColor3 = Color3.fromRGB(230, 220, 255)
+TextLabel.TextSize = 10
+TextLabel.BackgroundTransparency = 1
+TextLabel.TextXAlignment = Enum.TextXAlignment.Left
+TextLabel.FontFace = ModuleName.FontFace
+TextLabel.Parent = Keybind
+
+local Divider1 = Instance.new('Frame')
+Divider1.Name = 'DividerTop'
+Divider1.Position = UDim2.new(0.5, 0, 0.62, 0)
+Divider1.AnchorPoint = Vector2.new(0.5, 0)
+Divider1.Size = UDim2.new(0, 241, 0, 1)
+Divider1.BackgroundColor3 = Color3.fromRGB(60, 50, 90)
+Divider1.BackgroundTransparency = 0.4
+Divider1.BorderSizePixel = 0
+Divider1.Parent = Header
+
+local Divider2 = Divider1:Clone()
+Divider2.Name = 'DividerBottom'
+Divider2.Position = UDim2.new(0.5, 0, 1, 0)
+Divider2.Parent = Header
+
+local Options = Instance.new('Frame')
+Options.Name = 'Options'
+Options.Position = UDim2.new(0, 0, 1, 0)
+Options.Size = UDim2.new(0, 241, 0, 8)
+Options.BackgroundTransparency = 1
+Options.Parent = Module
 
             local UIPadding = Instance.new('UIPadding')
             UIPadding.PaddingTop = UDim.new(0, 8)
@@ -1246,7 +1215,8 @@ function Library:create_ui()
                     font_params.Text = keybind_string
                     font_params.Font = Font.new('rbxasset://fonts/families/Montserrat.json', Enum.FontWeight.Bold)
                     font_params.Size = 10
-                    font_params.Width = 10000            
+                    font_params.Width = 10000
+            
                     local font_size = TextService:GetTextBoundsAsync(font_params)
                     
                     Keybind.Size = UDim2.fromOffset(font_size.X + 6, 15)
@@ -1399,7 +1369,7 @@ function Library:create_ui()
                     Body.Text = settings.text or "Skibidi"
                 else
                     Body.RichText = true
-                    Body.Text = settings.richtext or "<font color='rgb(255,0,0)'>LostHub</font> user"
+                    Body.Text = settings.richtext or "<font color='rgb(255,0,0)'>C5least</font> user"
                 end
                 
                 Body.Size = UDim2.new(1, -10, 0, 20)
@@ -1469,7 +1439,7 @@ function Library:create_ui()
                     Body.Text = settings.text or "Skibidi" -- Default text
                 else
                     Body.RichText = true
-                    Body.Text = settings.richtext or "<font color='rgb(255,0,0)'>LostHub</font> user" -- Default rich text
+                    Body.Text = settings.richtext or "<font color='rgb(255,0,0)'>C5least</font> user" -- Default rich text
                 end
             
                 Body.Size = UDim2.new(1, -10, 1, 0)
@@ -1500,7 +1470,7 @@ function Library:create_ui()
                         Body.Text = new_settings.text or "Skibidi" -- Default text
                     else
                         Body.RichText = true
-                        Body.Text = new_settings.richtext or "<font color='rgb(255,0,0)'>LostHub</font> user" -- Default rich text
+                        Body.Text = new_settings.richtext or "<font color='rgb(255,0,0)'>C5least</font> user" -- Default rich text
                     end
                 end;
             
@@ -2494,7 +2464,8 @@ function Library:create_ui()
                 RightLayout.Parent = RightContainer
             
                 local KeybindBox = Instance.new("TextLabel")
-                KeybindBox.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal);                KeybindBox.Size = UDim2.new(0, 15, 0, 15)
+                KeybindBox.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal);
+                KeybindBox.Size = UDim2.new(0, 15, 0, 15)
                 KeybindBox.BackgroundColor3 = Color3.fromRGB(152, 181, 255)
                 KeybindBox.TextColor3 = Color3.fromRGB(255, 255, 255)
                 KeybindBox.TextSize = 11
@@ -2656,8 +2627,6 @@ local misc = main:create_tab('Misc', 'rbxassetid://132243429647479')
 
 
 repeat task.wait() until game:IsLoaded()
-
-
 local Players = game:GetService('Players')
 local Player = Players.LocalPlayer
 local ReplicatedStorage = game:GetService('ReplicatedStorage')
@@ -2678,7 +2647,8 @@ local firstParryType = 'F_Key'
 local Previous_Positions = {}
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local VirtualInputService = game:GetService("VirtualInputManager")
-
+local parryCooldown = 0.0
+local lastParryTime = 0
 
 local GuiService = game:GetService('GuiService')
 
@@ -2696,7 +2666,7 @@ local function performFirstPress(parryType)
         updateNavigation(button)
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
-        task.wait(0.01)
+        task.wait(0.0)
         updateNavigation(nil)
     end
 end
@@ -2766,17 +2736,33 @@ local GetOpponentPosition = PropertyChangeOrder[3]
 
 ]]
 
-local Parry_Key
+local Remotes = {}
+local Parry_Key = nil
 
-for Index, Value in pairs(getconnections(game:GetService("Players").LocalPlayer.PlayerGui.Hotbar.Block.Activated)) do
-    if Value and Value.Function and not iscclosure(Value.Function)  then
-        for Index2,Value2 in pairs(getupvalues(Value.Function)) do
-            if type(Value2) == "function" then
-                Parry_Key = getupvalue(getupvalue(Value2, 2), 17);
-            end;
-        end;
-    end;
-end;
+local activeMethod = "Remote"
+
+task.spawn(function()
+    for _, Value in getgc() do
+        if type(Value) == 'function' and islclosure(Value) then
+            local Protos = debug.getprotos(Value)
+            local Upvalues = debug.getupvalues(Value)
+            local Constants = debug.getconstants(Value)
+            if #Protos == 4 and #Upvalues == 24 and #Constants >= 102 then
+                local c62 = Constants[62]
+                local c64 = Constants[64]
+                local c65 = Constants[65]
+                Remotes[debug.getupvalue(Value, 16)] = c62
+                Parry_Key = debug.getupvalue(Value, 17)
+                Remotes[debug.getupvalue(Value, 18)] = c64
+                Remotes[debug.getupvalue(Value, 19)] = c65
+                break
+            end
+        end
+    end
+end)
+
+local Key = Parry_Key
+
 
 local function Parry(...)
     ShouldPlayerJump:FireServer(HashOne, Parry_Key, ...)
@@ -2806,7 +2792,7 @@ local function getFunction(t:functionInfo)
     t = t or {}
     local functions = {}
     local function findMatches()
-        setthreadidentity(6)
+        Setthreadidentity(6)
         for i,v in getgc() do
             if type(v) == "function" and islclosure(v) then
                 local match = true
@@ -3241,6 +3227,16 @@ function Auto_Parry.Parry_Data(Parry_Type)
         return {0, CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + High_Direction), Events, Vector2_Mouse_Location}
     end
     
+    if Parry_Type == 'High' then
+    local High_Direction = Vector3.new(0, -1, 0) * 10000 -- reto pra baixo seco
+    return {0, CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + High_Direction), Events, Vector2_Mouse_Location}
+end
+    
+    if Parry_Type == 'Slowball' then
+    local Slowball_Direction = Vector3.new(0, -1, 0) * 99999 -- Super reto pra baixo
+    return {0, CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + Slowball_Direction), Events, Vector2_Mouse_Location}
+end
+    
     if Parry_Type == 'Left' then
         local Left_Direction = Camera.CFrame.RightVector * 10000
         return {0, CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position - Left_Direction), Events, Vector2_Mouse_Location}
@@ -3277,13 +3273,36 @@ function Auto_Parry.Parry_Data(Parry_Type)
 end
 
 function Auto_Parry.Parry(Parry_Type)
-    local Parry_Data = Auto_Parry.Parry_Data(Parry_Type)
+    if tick() - lastParryTime < parryCooldown then return false end
+    lastParryTime = tick()
 
-    if not firstParryFired then
-        performFirstPress(firstParryType)
-        firstParryFired = true
+    local presses = isSpam and spamSpeed or 1
+
+    if activeMethod == "F Key" then
+        for i = 1, presses do
+            VirtualInput:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+            VirtualInput:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+        end
     else
-        Parry(Parry_Data[1], Parry_Data[2], Parry_Data[3], Parry_Data[4])
+        local foundFake = false
+        for _, Args in pairs(Remotes) do
+            if Args == "PARRY_HASH_FAKE_1" or Args == "_G" then
+                foundFake = true
+                break
+            end
+        end
+        local Parry_Data = Auto_Parry.Parry_Data(Parry_Type)
+        for i = 1, presses do
+            for Remote, Args in pairs(Remotes) do
+                local Hash
+                if foundFake then
+                    Hash = nil
+                else
+                    Hash = Args
+                end
+                Remote:FireServer(Hash, Parry_Key, Parry_Data[1], Parry_Data[2], Parry_Data[3], Parry_Data[4])
+            end
+        end
     end
 
     if Parries > 7 then
@@ -3356,106 +3375,98 @@ function Auto_Parry.Is_Curved()
         end
     end
 
-    local Enough_Speed = Speed > 160
-    if Enough_Speed and Reach_Time > Ping / 10 then
-        if Speed < 300 then
-            Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 15, 15)
-        elseif Speed > 300 and Speed < 600 then
-            Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 16, 16)
-        elseif Speed > 600 and Speed < 1000 then
-            Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 17, 17)
-        elseif Speed > 1000 and Speed < 1500 then
-            Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 19, 19)
-        elseif Speed > 1500 then
-            Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 20, 20)
-        end
-    end
-
-    if Distance < Ball_Distance_Threshold then
-        return false
-    end
-
+local Enough_Speed = Speed > 160
+if Enough_Speed and Reach_Time > (Ping / 10 + 0.03) then
     if Speed < 300 then
-        if (tick() - Curving) < (Reach_Time / 1.2) then
-            return true
-        end
-    elseif Speed >= 300 and Speed < 450 then
-        if (tick() - Curving) < (Reach_Time / 1.21) then
-            return true
-        end
-    elseif Speed > 450 and Speed < 600 then
-        if (tick() - Curving) < (Reach_Time / 1.335) then
-            return true
-        end
-    elseif Speed > 600 then
-        if (tick() - Curving) < (Reach_Time / 1.5) then
-            return true
-        end
+        Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 15, 15)
+    elseif Speed <= 600 then
+        Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 17, 17)
+    elseif Speed <= 1000 then
+        Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 19, 19)
+    else
+        Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 20, 20)
     end
-    
-    local Dot_Threshold = (0.5 - Ping / 1000)
-    local Direction_Difference = (Ball_Direction - Velocity.Unit)
-    local Direction_Similarity = Direction:Dot(Direction_Difference.Unit)
-    local Dot_Difference = Dot - Direction_Similarity
+end
 
-    if Dot_Difference < Dot_Threshold then
+if Distance < Ball_Distance_Threshold then
+    return false
+end
+
+local adjustedReachTime = Reach_Time + 0.03 -- compensaĂ§Ă£o real de ping
+
+if Speed < 300 then
+    if (tick() - Curving) < (adjustedReachTime / 1.2) then return true end
+elseif Speed < 450 then
+    if (tick() - Curving) < (adjustedReachTime / 1.21) then return true end
+elseif Speed < 600 then
+    if (tick() - Curving) < (adjustedReachTime / 1.335) then return true end
+else
+    if (tick() - Curving) < (adjustedReachTime / 1.5) then return true end
+end
+
+-- đŸ§  CorreĂ§Ă£o por Ă¢ngulo invertido (dot reverso)
+local Dot_Threshold = (0 - Ping / 1000)
+local Direction_Difference = (Ball_Direction - Velocity.Unit)
+local Direction_Similarity = Direction:Dot(Direction_Difference.Unit)
+local Dot_Difference = Dot - Direction_Similarity
+
+if Dot_Difference < Dot_Threshold then
+    return true
+end
+
+-- đŸ¯ DetecĂ§Ă£o angular (curva real)
+local Clamped_Dot = math.clamp(Dot, -1, 1)
+local Radians = math.deg(math.asin(Clamped_Dot))
+Lerp_Radians = Auto_Parry.Linear_Interpolation(Lerp_Radians, Radians, 0.8)
+
+if Speed < 300 then
+    if Lerp_Radians < 0.02 then
+        Last_Warping = tick()
+    end
+    if (tick() - Last_Warping) < (adjustedReachTime / 1.19) then
         return true
     end
-
-    local Clamped_Dot = math.clamp(Dot, -1, 1)
-    local Radians = math.deg(math.asin(Clamped_Dot))
-
-    Lerp_Radians = Auto_Parry.Linear_Interpolation(Lerp_Radians, Radians, 0.8)
-    if Speed < 300 then
-        if Lerp_Radians < 0.02 then
-            Last_Warping = tick()
-        end
-        if (tick() - Last_Warping) < (Reach_Time / 1.19) then
-            return true
-        end
-    else
-        if Lerp_Radians < 0.018 then
-            Last_Warping = tick()
-        end
-        if (tick() - Last_Warping) < (Reach_Time / 1.5) then
-            return true
-        end
+else
+    if Lerp_Radians < 0.018 then
+        Last_Warping = tick()
     end
+    if (tick() - Last_Warping) < (adjustedReachTime / 1.5) then
+        return true
+    end
+end
 
-    if #Previous_Velocity == 4 then
-        local Intended_Direction_Difference = (Ball_Direction - Previous_Velocity[1].Unit).Unit
-        local Intended_Dot = Direction:Dot(Intended_Direction_Difference)
-        local Intended_Dot_Difference = Dot - Intended_Dot
-
-        local Intended_Direction_Difference2 = (Ball_Direction - Previous_Velocity[2].Unit).Unit
-        local Intended_Dot2 = Direction:Dot(Intended_Direction_Difference2)
-        local Intended_Dot_Difference2 = Dot - Intended_Dot2
-
-        if Intended_Dot_Difference < Dot_Threshold or Intended_Dot_Difference2 < Dot_Threshold then
+-- đŸ§ª VerificaĂ§Ă£o de intenĂ§Ă£o (histĂ³rico de curva anterior)
+if #Previous_Velocity == 4 then
+    for i = 1, 2 do
+        local prevDir = (Ball_Direction - Previous_Velocity[i].Unit).Unit
+        local prevDot = Direction:Dot(prevDir)
+        if (Dot - prevDot) < Dot_Threshold then
             return true
         end
     end
+end
 
-    local backwardsCurveDetected = false
-    local backwardsAngleThreshold = 85
+-- đŸ¨ DetecĂ§Ă£o de curva pra trĂ¡s real
+local backwardsCurveDetected = false
+local backwardsAngleThreshold = 60
+local horizDirection = Vector3.new(playerPos.X - ballPos.X, 0, playerPos.Z - ballPos.Z)
 
-    local horizDirection = Vector3.new(playerPos.X - ballPos.X, 0, playerPos.Z - ballPos.Z)
-    if horizDirection.Magnitude > 0 then
-        horizDirection = horizDirection.Unit
+if horizDirection.Magnitude > 0 then
+    horizDirection = horizDirection.Unit
+end
+
+local awayFromPlayer = -horizDirection
+local horizBallDir = Vector3.new(Ball_Direction.X, 0, Ball_Direction.Z)
+
+if horizBallDir.Magnitude > 0 then
+    horizBallDir = horizBallDir.Unit
+    local backwardsAngle = math.deg(math.acos(math.clamp(awayFromPlayer:Dot(horizBallDir), -1, 1)))
+    if backwardsAngle < backwardsAngleThreshold then
+        backwardsCurveDetected = true
     end
+end
 
-    local awayFromPlayer = -horizDirection
-
-    local horizBallDir = Vector3.new(Ball_Direction.X, 0, Ball_Direction.Z)
-    if horizBallDir.Magnitude > 0 then
-        horizBallDir = horizBallDir.Unit
-        local backwardsAngle = math.deg(math.acos(math.clamp(awayFromPlayer:Dot(horizBallDir), -1, 1)))
-        if backwardsAngle < backwardsAngleThreshold then
-            backwardsCurveDetected = true
-        end
-    end
-
-    return (Dot < Dot_Threshold) or backwardsCurveDetected
+return (Dot < Dot_Threshold) or backwardsCurveDetected
 end
 
 function Auto_Parry:Get_Ball_Properties()
@@ -3489,37 +3500,71 @@ function Auto_Parry.Spam_Service(self)
         return false
     end
 
+
     local Spam_Accuracy = 0
 
     local Velocity = Ball.AssemblyLinearVelocity
-    local Speed = Velocity.Magnitude
+local Speed = Velocity.Magnitude
 
-    local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
-    local Dot = Direction:Dot(Velocity.Unit)
+local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
+local Dot = Direction:Dot(Velocity.Unit)
 
-    local Target_Position = Entity.PrimaryPart.Position
-    local Target_Distance = Player:DistanceFromCharacter(Target_Position)
+local Target_Position = Entity.PrimaryPart.Position
+local Target_Distance = Player:DistanceFromCharacter(Target_Position)
 
-    local Maximum_Spam_Distance = self.Ping + math.min(Speed / 6, 95)
+local Movement_Factor = 1
+local MoveDir = Player.Character.Humanoid.MoveDirection
+local TargetDir = (Target_Position - Player.Character.PrimaryPart.Position).Unit
+local TargetMoveDir = Entity.Humanoid.MoveDirection
 
-    if self.Entity_Properties.Distance > Maximum_Spam_Distance then
-        return Spam_Accuracy
-    end
+_G.Last_Close_Contact = _G.Last_Close_Contact or 0
+_G.In_Close_Contact = _G.In_Close_Contact or false
 
-    if self.Ball_Properties.Distance > Maximum_Spam_Distance then
-        return Spam_Accuracy
-    end
+local now = tick()
 
-    if Target_Distance > Maximum_Spam_Distance then
-        return Spam_Accuracy
-    end
+-- đŸ¯ DetecĂ§Ă£o de contato prĂ³ximo
+if Target_Distance <= 3 then
+    _G.In_Close_Contact = true
+end
 
-    local Maximum_Speed = 5 - math.min(Speed / 5, 5)
-    local Maximum_Dot = math.clamp(Dot, -1, 0) * Maximum_Speed
+if _G.In_Close_Contact and Target_Distance > 3.3 then
+    _G.In_Close_Contact = false
+    _G.Last_Close_Contact = now
+end
 
-    Spam_Accuracy = Maximum_Spam_Distance - Maximum_Dot
+-- â ï¸ Mais rigoroso quando estĂ¡ fugindo ou nĂ£o em combate
+local can_use_div10 = (not _G.In_Close_Contact) and ((now - _G.Last_Close_Contact) >= 1.5)
 
+if can_use_div10 and MoveDir.Magnitude > 0.2 and MoveDir:Dot(TargetDir) < -0.4 then
+    Movement_Factor = 10 -- mais rigoroso
+end
+
+if can_use_div10 and TargetMoveDir.Magnitude > 0.2 and TargetMoveDir:Dot(-TargetDir) < -0.4 then
+    Movement_Factor = 10
+end
+
+-- đŸ“ Limite de ativaĂ§Ă£o baseado em ping e distĂ¢ncia
+local Maximum_Spam_Distance = self.Ping * 0.7 + math.min(Speed / (Movement_Factor * 1.2), 80)
+
+if self.Entity_Properties.Distance > Maximum_Spam_Distance then
     return Spam_Accuracy
+end
+
+if self.Ball_Properties.Distance > Maximum_Spam_Distance then
+    return Spam_Accuracy
+end
+
+if Target_Distance > Maximum_Spam_Distance then
+    return Spam_Accuracy
+end
+
+-- đŸ§  Controle mais preciso do Dot para evitar ativaĂ§Ă£o precoce
+local Dot_Reduction = math.clamp(-Dot, 0, 1) -- transforma em positivo
+local Dot_Impact = math.clamp(Dot_Reduction * (Speed / 40), 0, 4)
+
+Spam_Accuracy = Maximum_Spam_Distance - Dot_Impact
+
+return Spam_Accuracy
 end
 
 local Connections_Manager = {}
@@ -3566,7 +3611,7 @@ local AutoParry = true
 local Balls = workspace:WaitForChild('Balls')
 local CurrentBall = nil
 local InputTask = nil
-local Cooldown = 0.02
+local Cooldown = 0
 local RunTime = workspace:FindFirstChild("Runtime")
 
 
@@ -3743,6 +3788,7 @@ do
                     local Balls = Auto_Parry.Get_Balls()
 
                     for _, Ball in pairs(Balls) do
+
                         if not Ball then
                             return
                         end
@@ -3887,6 +3933,7 @@ do
 
     local parryTypeMap = {
         ["Camera"] = "Camera",
+        ["Slowball"] = "Slowball",
         ["Random"] = "Random",
         ["Backwards"] = "Backwards",
         ["Straight"] = "Straight",
@@ -3902,6 +3949,7 @@ do
 
         options = {
             'Camera',
+            'Slowball',
             'Random',
             'Backwards',
             'Straight',
@@ -3924,15 +3972,16 @@ do
     local UserInputService = game:GetService("UserInputService")
 
     local parryOptions = {
-        [Enum.KeyCode.One] = "Camera",
-        [Enum.KeyCode.Two] = "Random",
-        [Enum.KeyCode.Three] = "Backwards",
-        [Enum.KeyCode.Four] = "Straight",
-        [Enum.KeyCode.Five] = "High",
-        [Enum.KeyCode.Six] = "Left",
-        [Enum.KeyCode.Seven] = "Right",
-        [Enum.KeyCode.Eight] = "Random Target"
-    }
+    [Enum.KeyCode.One] = "Camera",
+    [Enum.KeyCode.Two] = "Random",
+    [Enum.KeyCode.Three] = "Backwards",
+    [Enum.KeyCode.Four] = "Straight",
+    [Enum.KeyCode.Five] = "High",
+    [Enum.KeyCode.Six] = "Left",
+    [Enum.KeyCode.Seven] = "Right",
+    [Enum.KeyCode.Eight] = "Random Target",
+    [Enum.KeyCode.Nine] = "Slowball"
+}
 
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then 
@@ -4084,82 +4133,86 @@ do
             end
 
             if value then
-                Connections_Manager['Auto Spam'] = RunService.PreSimulation:Connect(function()
-                    local Ball = Auto_Parry.Get_Ball()
+                Connections_Manager['Auto Spam'] = RunService.Heartbeat:Connect(function()
+    local now = tick()
+    if not lastAutoSpam then lastAutoSpam = 0 end
+    if now - lastAutoSpam < 0.005 then return end
+    lastAutoSpam = now
+                local Ball = Auto_Parry.Get_Ball()
 
-                    if not Ball then
-                        return
-                    end
-
-                    local Zoomies = Ball:FindFirstChild('zoomies')
-
-                    if not Zoomies then
-                        return
-                    end
-
-                    Auto_Parry.Closest_Player()
-
-                    local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
-
-                    local Ping_Threshold = math.clamp(Ping / 10, 1, 16)
-
-                    local Ball_Target = Ball:GetAttribute('target')
-
-                    local Ball_Properties = Auto_Parry:Get_Ball_Properties()
-                    local Entity_Properties = Auto_Parry:Get_Entity_Properties()
-
-                    local Spam_Accuracy = Auto_Parry.Spam_Service({
-                        Ball_Properties = Ball_Properties,
-                        Entity_Properties = Entity_Properties,
-                        Ping = Ping_Threshold
-                    })
-
-                    local Target_Position = Closest_Entity.PrimaryPart.Position
-                    local Target_Distance = Player:DistanceFromCharacter(Target_Position)
-
-                    local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
-                    local Ball_Direction = Zoomies.VectorVelocity.Unit
-
-                    local Dot = Direction:Dot(Ball_Direction)
-
-                    local Distance = Player:DistanceFromCharacter(Ball.Position)
-
-                    if not Ball_Target then
-                        return
-                    end
-
-                    if Target_Distance > Spam_Accuracy or Distance > Spam_Accuracy then
-                        return
-                    end
-                    
-                    local Pulsed = Player.Character:GetAttribute('Pulsed')
-
-                    if Pulsed then
-                        return
-                    end
-
-                    if Ball_Target == tostring(Player) and Target_Distance > 30 and Distance > 30 then
-                        return
-                    end
-
-                    local threshold = ParryThreshold
-
-                    if Distance <= Spam_Accuracy and Parries > threshold then
-                        if getgenv().SpamParryKeypress then
-                            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
-                        else
-                            Auto_Parry.Parry(Selected_Parry_Type)
-                        end
-                    end
-                end)
-            else
-                if Connections_Manager['Auto Spam'] then
-                    Connections_Manager['Auto Spam']:Disconnect()
-                    Connections_Manager['Auto Spam'] = nil
+                if not Ball then
+                    return
                 end
+
+                local Zoomies = Ball:FindFirstChild('zoomies')
+
+                if not Zoomies then
+                    return
+                end
+
+                Auto_Parry.Closest_Player()
+
+                local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+
+                local Ping_Threshold = math.clamp(Ping / 10, 1, 16)
+
+                local Ball_Target = Ball:GetAttribute('target')
+
+                local Ball_Properties = Auto_Parry:Get_Ball_Properties()
+                local Entity_Properties = Auto_Parry:Get_Entity_Properties()
+
+                local Spam_Accuracy = Auto_Parry.Spam_Service({
+                    Ball_Properties = Ball_Properties,
+                    Entity_Properties = Entity_Properties,
+                    Ping = Ping_Threshold
+                })
+
+                local Target_Position = Closest_Entity.PrimaryPart.Position
+                local Target_Distance = Player:DistanceFromCharacter(Target_Position)
+
+                local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
+                local Ball_Direction = Zoomies.VectorVelocity.Unit
+
+                local Dot = Direction:Dot(Ball_Direction)
+
+                local Distance = Player:DistanceFromCharacter(Ball.Position)
+
+                if not Ball_Target then
+                    return
+                end
+
+                if Target_Distance > Spam_Accuracy or Distance > Spam_Accuracy then
+                    return
+                end
+                
+                local Pulsed = Player.Character:GetAttribute('Pulsed')
+
+                if Pulsed then
+                    return
+                end
+
+                if Ball_Target == tostring(Player) and Target_Distance > 30 and Distance > 30 then
+                    return
+                end
+
+                local threshold = ParryThreshold
+
+                if Distance <= Spam_Accuracy and Parries > threshold then
+                    if getgenv().SpamParryKeypress then
+                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
+                    else
+                        Auto_Parry.Parry(Selected_Parry_Type)
+                    end
+                end
+            end)
+        else
+            if Connections_Manager['Auto Spam'] then
+                Connections_Manager['Auto Spam']:Disconnect()
+                Connections_Manager['Auto Spam'] = nil
             end
         end
-    })
+    end
+})
 
     local dropdown2 = SpamParry:create_dropdown({
         title = 'Parry Type',
@@ -4215,7 +4268,7 @@ do
     
                         local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
     
-                        local Ping_Threshold = math.clamp(Ping / 10, 10, 16)
+local Ping_Threshold = math.clamp(Ping / 10, 1, 16)
     
                         local Ball_Target = Ball:GetAttribute('target')
     
@@ -4235,7 +4288,7 @@ do
                         local Ball_Direction = Zoomies.VectorVelocity.Unit
     
                         local Dot = Direction:Dot(Ball_Direction)
-    
+
                         local Distance = Player:DistanceFromCharacter(Ball.Position)
     
                         if not Ball_Target then
@@ -4259,6 +4312,11 @@ do
                         local threshold = ParryThreshold
     
                         if Distance <= Spam_Accuracy and Parries > threshold then
+if Distance > Spam_Accuracy or Target_Distance > Spam_Accuracy then
+    return -- cancela se jĂƒÂ¡ tĂƒÂ¡ longe, evita falso spam
+end
+if tick() - (Last_Parry or 0) < 0.1 then return end
+Last_Parry = tick()
                             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
                         end
                     end)
@@ -4312,26 +4370,31 @@ do
                 end
             end
             if value then
-                Connections_Manager['Manual Spam'] = RunService.PreSimulation:Connect(function()
-                    if getgenv().spamui then
-                        return
-                    end
-
-                    if getgenv().ManualSpamKeypress then
-                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
-                    else
-                        Auto_Parry.Parry(Selected_Parry_Type)
-                    end
-
-                end)
-            else
-                if Connections_Manager['Manual Spam'] then
-                    Connections_Manager['Manual Spam']:Disconnect()
-                    Connections_Manager['Manual Spam'] = nil
+                Connections_Manager['Manual Spam'] = RunService.Heartbeat:Connect(function()
+    local now = tick()
+    if not lastManualSpam then lastManualSpam = 0 end
+    if now - lastManualSpam < 0.005 then return end
+    lastManualSpam = now
+                if getgenv().spamui then
+                    return
                 end
+
+                if getgenv().ManualSpamKeypress then
+                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
+                else
+                    Auto_Parry.Parry(Selected_Parry_Type)
+                end
+
+            end)
+        else
+            if Connections_Manager['Manual Spam'] then
+                Connections_Manager['Manual Spam']:Disconnect()
+                Connections_Manager['Manual Spam'] = nil
             end
         end
-    })
+    end
+})
+							
     
     ManualSpam:change_state(false)
 
@@ -4342,43 +4405,55 @@ do
             callback = function(value: boolean)
                 getgenv().spamui = value
         
-                if value then
-                    local gui = Instance.new("ScreenGui")
-                    gui.Name = "ManualSpamUI"
-                    gui.ResetOnSpawn = false
-                    gui.Parent = game.CoreGui
-        
-                    local frame = Instance.new("Frame")
-                    frame.Name = "MainFrame"
-                    frame.Position = UDim2.new(0, 20, 0, 20)
-                    frame.Size = UDim2.new(0, 200, 0, 100)
-                    frame.BackgroundColor3 = Color3.fromRGB(10, 10, 50)
-                    frame.BackgroundTransparency = 0.3
-                    frame.BorderSizePixel = 0
-                    frame.Active = true
-                    frame.Draggable = true
-                    frame.Parent = gui
-        
-                    local uiCorner = Instance.new("UICorner")
-                    uiCorner.CornerRadius = UDim.new(0, 12)
-                    uiCorner.Parent = frame
-        
-                    local uiStroke = Instance.new("UIStroke")
-                    uiStroke.Thickness = 2
-                    uiStroke.Color = Color3.new(0, 0, 0)
-                    uiStroke.Parent = frame
-        
-                    local button = Instance.new("TextButton")
-                    button.Name = "ClashModeButton"
-                    button.Text = "Clash Mode"
-                    button.Size = UDim2.new(0, 160, 0, 40)
-                    button.Position = UDim2.new(0.5, -80, 0.5, -20)
-                    button.BackgroundTransparency = 1
-                    button.BorderSizePixel = 0
-                    button.Font = Enum.Font.GothamSemibold
-                    button.TextColor3 = Color3.new(1, 1, 1)
-                    button.TextSize = 22
-                    button.Parent = frame
+if value then
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "ManualSpamUI"
+    gui.ResetOnSpawn = false
+    gui.Parent = game.CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Name = "MainFrame"
+    frame.Position = UDim2.new(0, 20, 0, 20)
+    frame.Size = UDim2.new(0, 200, 0, 100)
+    frame.BackgroundColor3 = Color3.fromRGB(90, 60, 180) -- roxo elegante
+    frame.BackgroundTransparency = 0.25 -- mais transparente
+    frame.BorderSizePixel = 0
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = gui
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 12)
+    uiCorner.Parent = frame
+
+    local uiStroke = Instance.new("UIStroke")
+    uiStroke.Thickness = 2
+    uiStroke.Color = Color3.fromRGB(190, 150, 255) -- borda lilĂ¡s suave
+    uiStroke.Transparency = 0.2 -- leve transparĂªncia na borda tambĂ©m
+    uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    uiStroke.Parent = frame
+
+    local uiGradient = Instance.new("UIGradient")
+    uiGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(90, 60, 180)),  -- roxo mĂ©dio
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 10, 25))    -- quase preto
+    }
+    uiGradient.Rotation = 0
+    uiGradient.Parent = frame
+
+    local button = Instance.new("TextButton")
+    button.Name = "ClashModeButton"
+    button.Text = "Clash Mode"
+    button.Size = UDim2.new(0, 160, 0, 40)
+    button.Position = UDim2.new(0.5, -80, 0.5, -20)
+    button.BackgroundTransparency = 1
+    button.BorderSizePixel = 0
+    button.Font = Enum.Font.GothamSemibold
+    button.TextColor3 = Color3.fromRGB(235, 215, 255) -- lilĂ¡s claro com Ă³timo contraste
+    button.TextSize = 22
+    button.Parent = frame
+
+
         
                     local activated = false
         
@@ -4427,6 +4502,175 @@ do
             getgenv().ManualSpamNotify = value
         end
     })
+
+local Module = rage:create_module({
+    title = 'I dont know what is this?',
+    flag = 'Idontknowwhatisthis',
+    description = 'Nahhh',
+    section = 'left',
+    callback = (function()
+        local Players = game:GetService("Players")
+        local Player = Players.LocalPlayer
+        local RunService = game:GetService("RunService")
+        local Workspace = game:GetService("Workspace")
+        local VirtualInputManager = game:GetService("VirtualInputManager")
+
+        local BASE_TRIGGER_DISTANCE = 6.8
+        local MAX_PLAYER_DISTANCE = 23
+        local parryLock = false
+
+        local AutoClickParried = false
+        local BlockedSpawnedShot = false
+        local BallJustSpawned = false
+        local LastValidTarget = "none"
+        local JustTriggered = false
+
+        local function doParry()
+            if AutoClickParried or JustTriggered or parryLock then return end
+            if getgenv().TriggerbotKeypress then
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+            elseif Auto_Parry and Auto_Parry.Parry then
+                Auto_Parry.Parry(Selected_Parry_Type)
+            end
+            AutoClickParried = true
+            JustTriggered = true
+            parryLock = true
+            task.delay(0.2, function() parryLock = false end) -- impede mĂºltiplos parrys em Ă¡rea
+        end
+
+        local function resetState()
+            AutoClickParried = false
+            BlockedSpawnedShot = false
+            JustTriggered = false
+        end
+
+        local function getLastHitPlayerDistance(lastHitName)
+            if not lastHitName then return math.huge end
+            for _, p in pairs(Players:GetPlayers()) do
+                if p.Name == lastHitName and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                    local myPos = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") and Player.Character.HumanoidRootPart.Position
+                    local targetPos = p.Character.HumanoidRootPart.Position
+                    if myPos then
+                        return (targetPos - myPos).Magnitude
+                    end
+                end
+            end
+            return math.huge
+        end
+
+        local function isRunningFrom(lastHitName)
+            local myChar = Player.Character
+            if not myChar or not lastHitName then return false end
+
+            local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+            local lastHitPlayer = Players:FindFirstChild(lastHitName)
+            if not myRoot or not lastHitPlayer or not lastHitPlayer.Character then return false end
+
+            local targetRoot = lastHitPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not targetRoot then return false end
+
+            local toTarget = (targetRoot.Position - myRoot.Position).Unit
+            local myVelocity = myRoot.Velocity.Unit
+
+            local dot = toTarget:Dot(myVelocity)
+            return dot < -0.4 -- se estiver correndo na direĂ§Ă£o oposta
+        end
+
+        Workspace.Balls.ChildAdded:Connect(function()
+            task.defer(function()
+                BallJustSpawned = true
+                resetState()
+            end)
+        end)
+
+        Workspace.Balls.ChildRemoved:Connect(function()
+            task.defer(function()
+                BallJustSpawned = false
+                resetState()
+            end)
+        end)
+
+        Connections_Manager["AutoClick"] = RunService.PreSimulation:Connect(function()
+            local character = Player.Character
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            if not root then
+                resetState()
+                return
+            end
+
+            local myPos = root.Position
+            local Balls = Auto_Parry and Auto_Parry.Get_Balls and Auto_Parry.Get_Balls() or {}
+            if #Balls == 0 then
+                resetState()
+                return
+            end
+
+            local inRangeTargets = {}
+            local detected = false
+
+            for _, Ball in ipairs(Balls) do
+                if not Ball or not Ball:IsDescendantOf(Workspace) then continue end
+                local target = Ball:GetAttribute("target") or "none"
+                local lastHit = Ball:GetAttribute("LastHit")
+                local zoomies = Ball:FindFirstChild("zoomies")
+                if not zoomies then continue end
+
+                local speed = zoomies.VectorVelocity.Magnitude
+                local ballPos = Ball.Position
+                local distance = (myPos - ballPos).Magnitude
+
+                if target ~= LastValidTarget and target ~= "none" then
+                    LastValidTarget = target
+                    resetState()
+                end
+
+                if target == Player.Name then
+                    table.insert(inRangeTargets, Ball)
+
+                    -- â ï¸ Se estiver correndo do lastHit, cancela
+                    if isRunningFrom(lastHit) then
+                        resetState()
+                        return
+                    end
+
+                    local lastHitDistance = getLastHitPlayerDistance(lastHit)
+                    local canParry = false
+
+                    if distance <= BASE_TRIGGER_DISTANCE then
+                        canParry = true
+                    elseif lastHitDistance >= MAX_PLAYER_DISTANCE then
+                        if speed <= 50 and distance <= 7 then
+                            canParry = true
+                        elseif speed <= 150 and distance <= 8.5 then
+                            canParry = true
+                        elseif speed >= 300 and distance <= 15 then
+                            canParry = true
+                        end
+                    end
+
+                    if canParry and not AutoClickParried and not BlockedSpawnedShot then
+                        doParry()
+                        BlockedSpawnedShot = true
+                        BallJustSpawned = false
+                        detected = true
+                        break -- đŸ’¥ Garante que sĂ³ 1 bola seja parriada por vez
+                    end
+                end
+            end
+
+            if #inRangeTargets > 1 then
+                parryLock = true -- Evita spam de parrys em mĂºltiplos players
+                task.delay(0.3, function() parryLock = false end)
+            end
+
+            if not detected then
+                resetState()
+            else
+                JustTriggered = false
+            end
+        end)
+    end)()
+})
 
     local Triggerbot = rage:create_module({
         title = 'Triggerbot',
@@ -4526,23 +4770,115 @@ do
         end
     })
 
-    local HotkeyParryType = rage:create_module({
-        title = 'Hotkey Parry Type',
-        flag = 'HotkeyParryType',
-        description = 'Allows Hotkey Parry Type',
-        section = 'left',
-        callback = function(value: boolean)
-            getgenv().HotkeyParryType = value
-        end
-    })
+    local parryTypeList = {
+    "Camera", "Random", "Backwards", "Straight", "High", "Left", "Right", "Random Target", "Slowball"
+}
 
-    HotkeyParryType:create_checkbox({
-        title = "Notify",
-        flag = "HotkeyParryTypeNotify",
-        callback = function(value: boolean)
-            getgenv().HotkeyParryTypeNotify = value
+local currentIndex = 1
+
+local HotkeyParryType = rage:create_module({
+    title = 'Hotkey Parry Type',
+    flag = 'HotkeyParryType',
+    description = 'Turn on Hotkey Parry type',
+    section = 'left',
+    callback = function(value: boolean)
+        getgenv().HotkeyParryType = value
+    end
+})
+
+HotkeyParryType:create_checkbox({
+    title = "Notify",
+    flag = "HotkeyParryTypeNotify",
+    callback = function(value: boolean)
+        getgenv().HotkeyParryTypeNotify = value
+    end
+})
+
+local SetCurveModule = rage:create_module({
+    title = 'Button select curve',
+    flag = 'SetCurveModule',
+    description = 'Enable UI to click and change parry type',
+    section = 'left',
+    callback = function(value: boolean)
+        if value then
+            local gui = Instance.new("ScreenGui")
+            gui.Name = "SetCurveUI"
+            gui.ResetOnSpawn = false
+            gui.Parent = game.CoreGui
+
+            local frame = Instance.new("Frame")
+            frame.Name = "MainFrame"
+            frame.Position = UDim2.new(0, 20, 0, 20)
+            frame.Size = UDim2.new(0, 200, 0, 100)
+            frame.BackgroundColor3 = Color3.fromRGB(90, 60, 180)
+            frame.BackgroundTransparency = 0.25
+            frame.BorderSizePixel = 0
+            frame.Active = true
+            frame.Draggable = true
+            frame.Parent = gui
+
+            local uiCorner = Instance.new("UICorner")
+            uiCorner.CornerRadius = UDim.new(0, 12)
+            uiCorner.Parent = frame
+
+            local uiStroke = Instance.new("UIStroke")
+            uiStroke.Thickness = 2
+            uiStroke.Color = Color3.fromRGB(190, 150, 255)
+            uiStroke.Transparency = 0.2
+            uiStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            uiStroke.Parent = frame
+
+            local uiGradient = Instance.new("UIGradient")
+            uiGradient.Color = ColorSequence.new{
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(90, 60, 180)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 10, 25))
+            }
+            uiGradient.Rotation = 0
+            uiGradient.Parent = frame
+
+            local button = Instance.new("TextButton")
+            button.Name = "SetCurveButton"
+            button.Text = "Set Curve"
+            button.Size = UDim2.new(0, 160, 0, 40)
+            button.Position = UDim2.new(0.5, -80, 0.5, -20)
+            button.BackgroundTransparency = 1
+            button.BorderSizePixel = 0
+            button.Font = Enum.Font.GothamSemibold
+            button.TextColor3 = Color3.fromRGB(235, 215, 255)
+            button.TextSize = 22
+            button.Parent = frame
+
+            button.MouseButton1Click:Connect(function()
+                -- botĂ£o funciona sempre, mesmo com HotkeyParryType desativado
+                currentIndex += 1
+                if currentIndex > #parryTypeList then currentIndex = 1 end
+
+                local newType = parryTypeList[currentIndex]
+                Selected_Parry_Type = parryTypeMap and parryTypeMap[newType] or newType
+
+                if dropdown and dropdown.update then
+                    dropdown:update(newType)
+                end
+
+                button.Text = newType
+
+                if getgenv().HotkeyParryTypeNotify then
+                    Library.SendNotification({
+                        title = "Module Notification",
+                        text = "Parry Type changed to " .. newType,
+                        duration = 3
+                    })
+                end
+            end)
+
+        else
+            local existing = game.CoreGui:FindFirstChild("SetCurveUI")
+            if existing then
+                existing:Destroy()
+            end
         end
-    })
+    end
+})
 
     local LobbyAP = rage:create_module({
         title = 'Lobby AP',
@@ -4990,7 +5326,8 @@ do
     })
     
     CameraToggle:create_slider({
-        title = 'Camera FOV',        flag = 'Camera_FOV',
+        title = 'Camera FOV',
+        flag = 'Camera_FOV',
     
         maximum_value = 120,
         minimum_value = 50,
@@ -5857,254 +6194,251 @@ do
     })
 
     local BallTrail = world:create_module({
-        title = "Ball Trail",
-        flag = "Ball_Trail",
-        description = "Toggles ball trail effects",
-        section = "left",
-        callback = function(value)
-            getgenv().BallTrailEnabled = value
-            if value then
-                for _, ball in pairs(Auto_Parry.Get_Balls()) do
-                    if not ball:FindFirstChild("Trail") then
-                        local trail = Instance.new("Trail")
-                        trail.Name = "Trail"
-                        
-                        local att0 = Instance.new("Attachment")
-                        att0.Name = "Attachment0"
-                        att0.Parent = ball
-                        
-                        local att1 = Instance.new("Attachment")
-                        att1.Name = "Attachment1"
-                        att1.Parent = ball
-                        
-                        att0.Position = Vector3.new(0, ball.Size.Y/2, 0)
-                        att1.Position = Vector3.new(0, -ball.Size.Y/2, 0)
-                        
-                        trail.Attachment0 = att0
-                        trail.Attachment1 = att1
-                        
-                        trail.Lifetime = 0.4
-                        trail.WidthScale = NumberSequence.new({
-                            NumberSequenceKeypoint.new(0, 0.5),
-                            NumberSequenceKeypoint.new(1, 0.5)
-                        })
-                        trail.Transparency = NumberSequence.new({
-                            NumberSequenceKeypoint.new(0, 0),
-                            NumberSequenceKeypoint.new(1, 1)
-                        })
-                        
-                        trail.Color = ColorSequence.new(getgenv().BallTrailColor or Color3.new(1, 1, 1))
-                        
-                        trail.Parent = ball
-                    else
-                        local trail = ball:FindFirstChild("Trail")
-                        trail.Color = ColorSequence.new(getgenv().BallTrailColor or Color3.new(1, 1, 1))
-                        trail.Lifetime = 0.4
-                        trail.WidthScale = NumberSequence.new({
-                            NumberSequenceKeypoint.new(0, 0.5),
-                            NumberSequenceKeypoint.new(1, 0.5)
-                        })
-                        trail.Transparency = NumberSequence.new({
-                            NumberSequenceKeypoint.new(0, 0),
-                            NumberSequenceKeypoint.new(1, 1)
-                        })
-                    end
-                end
-            else
-                for _, ball in pairs(Auto_Parry.Get_Balls()) do
-                    local trail = ball:FindFirstChild("Trail")
-                    if trail then
-                        trail:Destroy()
-                    end
-                end
-            end
-        end
-    })
+	title = "Ball Trail",
+	flag = "Ball_Trail",
+	description = "Toggles ball trail effects",
+	section = "left",
+	callback = function(value)
+		getgenv().BallTrailEnabled = value
+	end
+})
 
-    BallTrail:create_slider({
-        title = "Ball Trail Hue",
-        flag = "Ball_Trail_Hue",
-        minimum_value = 0,
-        maximum_value = 360,
-        value = 0,
-        round_number = true,
-        callback = function(value)
-            if not getgenv().BallTrailRainbowEnabled then
-                local newColor = Color3.fromHSV(value / 360, 1, 1)
-                getgenv().BallTrailColor = newColor
-                if getgenv().BallTrailEnabled then
-                    for _, ball in pairs(Auto_Parry.Get_Balls()) do
-                        local trail = ball:FindFirstChild("Trail")
-                        if trail then
-                            trail.Color = ColorSequence.new(newColor)
-                        end
-                    end
-                end
-            end
-        end
-    })  
+BallTrail:create_slider({
+	title = "Ball Trail Hue",
+	flag = "Ball_Trail_Hue",
+	minimum_value = 0,
+	maximum_value = 360,
+	value = 0,
+	round_number = true,
+	callback = function(value)
+		if not getgenv().BallTrailRainbowEnabled then
+			local newColor = Color3.fromHSV(value / 360, 1, 1)
+			getgenv().BallTrailColor = newColor
+		end
+	end
+})
 
-    BallTrail:create_checkbox({
-        title = "Rainbow Trail",
-        flag = "Ball_Trail_Rainbow",
-        callback = function(value)
-            getgenv().BallTrailRainbowEnabled = value
-        end
-    })
+BallTrail:create_checkbox({
+	title = "Rainbow Trail",
+	flag = "Ball_Trail_Rainbow",
+	callback = function(value)
+		getgenv().BallTrailRainbowEnabled = value
+	end
+})
 
-    BallTrail:create_checkbox({
-        title = "Particle Emitter",
-        flag = "Ball_Trail_Particle",
-        callback = function(value)
-            getgenv().BallTrailParticleEnabled = value
-            for _, ball in pairs(Auto_Parry.Get_Balls()) do
-                if value then
-                    if not ball:FindFirstChild("ParticleEmitter") then
-                        local emitter = Instance.new("ParticleEmitter")
-                        emitter.Name = "ParticleEmitter"
-                        emitter.Rate = 100
-                        emitter.Lifetime = NumberRange.new(0.5, 1)
-                        emitter.Speed = NumberRange.new(0, 1)
-                        emitter.Size = NumberSequence.new({
-                            NumberSequenceKeypoint.new(0, 0.5),
-                            NumberSequenceKeypoint.new(1, 0)
-                        })
-                        emitter.Transparency = NumberSequence.new({
-                            NumberSequenceKeypoint.new(0, 0),
-                            NumberSequenceKeypoint.new(1, 1)
-                        })
-                        emitter.Parent = ball
-                    end
-                else
-                    local emitter = ball:FindFirstChild("ParticleEmitter")
-                    if emitter then
-                        emitter:Destroy()
-                    end
-                end
-            end
-        end
-    })
+BallTrail:create_checkbox({
+	title = "Particle Emitter",
+	flag = "Ball_Trail_Particle",
+	callback = function(value)
+		getgenv().BallTrailParticleEnabled = value
+	end
+})
 
-    BallTrail:create_checkbox({
-        title = "Glow Effect",
-        flag = "Ball_Trail_Glow",
-        callback = function(value)
-            getgenv().BallTrailGlowEnabled = value
-            for _, ball in pairs(Auto_Parry.Get_Balls()) do
-                if value then
-                    if not ball:FindFirstChild("BallGlow") then
-                        local glow = Instance.new("PointLight")
-                        glow.Name = "BallGlow"
-                        glow.Range = 15
-                        glow.Brightness = 2
-                        glow.Parent = ball
-                    end
-                else
-                    local glow = ball:FindFirstChild("BallGlow")
-                    if glow then
-                        glow:Destroy()
-                    end
-                end
-            end
-        end
-    })
+BallTrail:create_checkbox({
+	title = "Glow Effect",
+	flag = "Ball_Trail_Glow",
+	callback = function(value)
+		getgenv().BallTrailGlowEnabled = value
+	end
+})
 
-    local hue = 0
-    game:GetService("RunService").Heartbeat:Connect(function()
-        if getgenv().BallTrailEnabled then
-            for _, ball in pairs(Auto_Parry.Get_Balls()) do
-                local trail = ball:FindFirstChild("Trail")
-                if trail then
-                    if getgenv().BallTrailRainbowEnabled then
-                        hue = (hue + 1) % 360
-                        local newColor = Color3.fromHSV(hue / 360, 1, 1)
-                        trail.Color = ColorSequence.new(newColor)
-                        getgenv().BallTrailColor = newColor
-                    else
-                        trail.Color = ColorSequence.new(getgenv().BallTrailColor or Color3.new(1, 1, 1))
-                    end
-                end
-            end
-        end
-    end)
+-- đŸŒˆ Monitoramento
+local hue = 0
+local trackedBalls = {}
+
+local function clearEffects(ball)
+	local trail = ball:FindFirstChild("Trail")
+	if trail then trail:Destroy() end
+
+	local emitter = ball:FindFirstChild("ParticleEmitter")
+	if emitter then emitter:Destroy() end
+
+	local glow = ball:FindFirstChild("BallGlow")
+	if glow then glow:Destroy() end
+
+	local att0 = ball:FindFirstChild("Attachment0")
+	if att0 then att0:Destroy() end
+	local att1 = ball:FindFirstChild("Attachment1")
+	if att1 then att1:Destroy() end
+end
+
+local function applyEffects(ball)
+	-- â›”ï¸ Se nĂ£o ativado, limpa
+	if not getgenv().BallTrailEnabled then
+		if trackedBalls[ball] then
+			clearEffects(ball)
+			trackedBalls[ball] = nil
+		end
+		return
+	end
+
+	-- âœ… Se jĂ¡ foi aplicado, sĂ³ atualiza cor se necessĂ¡rio
+	if trackedBalls[ball] then
+		local trail = ball:FindFirstChild("Trail")
+		if trail then
+			if getgenv().BallTrailRainbowEnabled then
+				local color = Color3.fromHSV(hue / 360, 1, 1)
+				trail.Color = ColorSequence.new(color)
+				getgenv().BallTrailColor = color
+			else
+				trail.Color = ColorSequence.new(getgenv().BallTrailColor or Color3.new(1, 1, 1))
+			end
+		end
+		return
+	end
+
+	-- đŸ§ª Marca como feito
+	trackedBalls[ball] = true
+
+	-- âœ… Criar Trail
+	local trail = Instance.new("Trail")
+	trail.Name = "Trail"
+
+	local att0 = Instance.new("Attachment")
+	att0.Name = "Attachment0"
+	att0.Position = Vector3.new(0, ball.Size.Y / 2, 0)
+	att0.Parent = ball
+
+	local att1 = Instance.new("Attachment")
+	att1.Name = "Attachment1"
+	att1.Position = Vector3.new(0, -ball.Size.Y / 2, 0)
+	att1.Parent = ball
+
+	trail.Attachment0 = att0
+	trail.Attachment1 = att1
+	trail.Lifetime = 0.4
+	trail.WidthScale = NumberSequence.new(0.5)
+	trail.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(1, 1)
+	})
+	trail.Color = ColorSequence.new(getgenv().BallTrailColor or Color3.new(1, 1, 1))
+	trail.Parent = ball
+
+	-- âœ¨ Particle
+	if getgenv().BallTrailParticleEnabled then
+		local emitter = Instance.new("ParticleEmitter")
+		emitter.Name = "ParticleEmitter"
+		emitter.Rate = 100
+		emitter.Lifetime = NumberRange.new(0.5, 1)
+		emitter.Speed = NumberRange.new(0, 1)
+		emitter.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.5),
+			NumberSequenceKeypoint.new(1, 0)
+		})
+		emitter.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(1, 1)
+		})
+		emitter.Parent = ball
+	end
+
+	-- đŸ’¡ Glow
+	if getgenv().BallTrailGlowEnabled then
+		local glow = Instance.new("PointLight")
+		glow.Name = "BallGlow"
+		glow.Range = 15
+		glow.Brightness = 2
+		glow.Parent = ball
+	end
+end
+
+-- â™»ï¸ Atualizador contĂ­nuo
+game:GetService("RunService").Heartbeat:Connect(function()
+	hue = (hue + 1) % 360
+
+	for _, ball in pairs(Auto_Parry.Get_Balls()) do
+		applyEffects(ball)
+	end
+end)
 
     local billboardLabels = {}
 
-    function qolPlayerNameVisibility()
-        local function createBillboardGui(p)
-            local character = p.Character
-    
-            while (not character) or (not character.Parent) do
-                task.wait()
-                character = p.Character
-            end
-    
-            local head = character:WaitForChild("Head")
-    
-            local billboardGui = Instance.new("BillboardGui")
-            billboardGui.Adornee = head
-            billboardGui.Size = UDim2.new(0, 200, 0, 50)
-            billboardGui.StudsOffset = Vector3.new(0, 3, 0)
-            billboardGui.AlwaysOnTop = true
-            billboardGui.Parent = head
-    
-            local textLabel = Instance.new("TextLabel")
-            textLabel.Size = UDim2.new(1, 0, 1, 0)
-            textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-            textLabel.TextSize = 8
-            textLabel.TextWrapped = false
-            textLabel.BackgroundTransparency = 1
-            textLabel.TextXAlignment = Enum.TextXAlignment.Center
-            textLabel.TextYAlignment = Enum.TextYAlignment.Center
-            textLabel.Parent = billboardGui
-    
-            billboardLabels[p] = textLabel
-    
-            local humanoid = character:FindFirstChild("Humanoid")
-            if humanoid then
-                humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
-            end
-    
-            local heartbeatConnection
-            heartbeatConnection = RunService.Heartbeat:Connect(function()
-                if not (character and character.Parent) then
-                    heartbeatConnection:Disconnect()
-                    billboardGui:Destroy()
-                    billboardLabels[p] = nil
-                    return
-                end
-    
-                if getgenv().AbilityESP then
-                    textLabel.Visible = true
-                    local abilityName = p:GetAttribute("EquippedAbility")
-                    if abilityName then
-                        textLabel.Text = p.DisplayName .. " [" .. abilityName .. "]"
-                    else
-                        textLabel.Text = p.DisplayName
-                    end
-                else
-                    textLabel.Visible = false
-                end
-            end)
-        end
-    
-        for _, p in Players:GetPlayers() do
-            if p ~= plr then
-                p.CharacterAdded:Connect(function()
-                    createBillboardGui(p)
-                end)
-                createBillboardGui(p)
-            end
-        end
-    
-        Players.PlayerAdded:Connect(function(newPlayer)
-            newPlayer.CharacterAdded:Connect(function()
-                createBillboardGui(newPlayer)
-            end)
-        end)
-    end
-    
-    qolPlayerNameVisibility()
+    local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local plr = Players.LocalPlayer
+
+getgenv().AbilityESP = true
+local billboardLabels = {}
+
+function qolPlayerNameVisibility()
+	local function createBillboardGui(p)
+		local character = p.Character
+		while not (character and character.Parent) do
+			task.wait()
+			character = p.Character
+		end
+
+		local head = character:WaitForChild("Head")
+
+		-- đŸ§  Criar o Billboard fixo
+		local billboardGui = Instance.new("BillboardGui")
+		billboardGui.Name = "AbilityBillboard"
+		billboardGui.Adornee = head
+		billboardGui.Size = UDim2.new(0, 200, 0, 25)
+		billboardGui.StudsOffset = Vector3.new(0, 3, 0)
+		billboardGui.AlwaysOnTop = true
+		billboardGui.Parent = head
+
+		local textLabel = Instance.new("TextLabel")
+		textLabel.Size = UDim2.new(1, 0, 1, 0)
+		textLabel.TextColor3 = Color3.fromRGB(0, 255, 255) -- ciano
+		textLabel.TextSize = 12
+		textLabel.Font = Enum.Font.SourceSansSemibold
+		textLabel.BackgroundTransparency = 1
+		textLabel.TextWrapped = false
+		textLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		textLabel.TextXAlignment = Enum.TextXAlignment.Center
+		textLabel.TextYAlignment = Enum.TextYAlignment.Center
+		textLabel.TextScaled = false
+		textLabel.Text = ""
+		textLabel.Parent = billboardGui
+
+		billboardLabels[p] = textLabel
+
+		local humanoid = character:FindFirstChild("Humanoid")
+		if humanoid then
+			humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		end
+
+		RunService.Heartbeat:Connect(function()
+			if not character or not character.Parent then
+				billboardGui:Destroy()
+				billboardLabels[p] = nil
+				return
+			end
+
+			if getgenv().AbilityESP then
+				textLabel.Visible = true
+				local abilityName = p:GetAttribute("EquippedAbility")
+				if abilityName then
+					textLabel.Text = p.DisplayName .. " [" .. tostring(abilityName) .. "]"
+				else
+					textLabel.Text = p.DisplayName .. " [???]"
+				end
+			else
+				textLabel.Visible = false
+			end
+		end)
+	end
+
+	for _, p in Players:GetPlayers() do
+		if p ~= plr then
+			p.CharacterAdded:Connect(function()
+				createBillboardGui(p)
+			end)
+			createBillboardGui(p)
+		end
+	end
+
+	Players.PlayerAdded:Connect(function(newPlayer)
+		newPlayer.CharacterAdded:Connect(function()
+			createBillboardGui(newPlayer)
+		end)
+	end)
+end
+
+qolPlayerNameVisibility()
     
     local AbilityESP = world:create_module({
         title = 'Ability ESP',
@@ -6238,6 +6572,7 @@ do
             getgenv().AbilityExploit = value
         end
     })
+
     AbilityExploit:create_checkbox({
         title = 'Thunder Dash No Cooldown',
         flag = 'ThunderDashNoCooldown',
@@ -6393,12 +6728,12 @@ do
     SkinChanger:change_state(false)
 
     SkinChanger:create_paragraph({
-        title = "Ã¢Å¡Â Ã¯Â¸ÂEVERYONE CAN SEE ANIMATIONS",
+        title = "Ă¢Å¡ Ă¯Â¸ÂEVERYONE CAN SEE ANIMATIONS",
         text = "IF YOU USE SKIN CHANGER BACKSWORD YOU MUST EQUIP AN ACTUAL BACKSWORD"
     })
 
     local skinchangertextbox = SkinChanger:create_textbox({
-        title = "Ã¯Â¿Â¬ Skin Name (Case Sensitive) Ã¯Â¿Â¬",
+        title = "Ă¯Â¿Â¬ Skin Name (Case Sensitive) Ă¯Â¿Â¬",
         placeholder = "Enter Sword Skin Name... ",
         flag = "SkinChangerTextbox",
         callback = function(text)
@@ -7086,129 +7421,68 @@ do
         end
     })
 
-    local ballStatsUI
-    local heartbeatConn
-    local peakVelocity = 0
-    
-    local BallStats = misc:create_module({
-        title = 'Ball Stats', 
-        flag = 'ballStats', 
-        description = 'Toggle ball speed stats display', 
-        section = 'left',
-        callback = function(value)
-            if value then
-                local ballPeaks = {}
+local ballStatsUI
+local updateConn
 
-                if not ballStatsUI then
-                    local player = game.Players.LocalPlayer
-                    ballStatsUI = Instance.new("ScreenGui")
-                    ballStatsUI.ResetOnSpawn = false
-                    ballStatsUI.Parent = player:WaitForChild("PlayerGui")
-                
-                    textLabel = Instance.new("TextLabel")
-                    textLabel.Name = "BallStatsLabel"
-                    textLabel.Size = UDim2.new(0.2, 0, 0.05, 0)
-                    textLabel.Position = UDim2.new(0, 0, 0.1, 0)
-                    textLabel.TextScaled = false
-                    textLabel.TextSize = 26
-                    textLabel.BackgroundTransparency = 1
-                    textLabel.TextColor3 = Color3.new(1, 1, 1)
-                    textLabel.Font = Enum.Font.Gotham
-                    textLabel.ZIndex = 2
-                    textLabel.Parent = ballStatsUI
-                
-                    shadowLabel = Instance.new("TextLabel")
-                    shadowLabel.Name = "BallStatsShadow"
-                    shadowLabel.Size = textLabel.Size
-                    shadowLabel.Position = textLabel.Position + UDim2.new(0, 2, 0, 2)
-                    shadowLabel.TextScaled = textLabel.TextScaled
-                    shadowLabel.TextSize = textLabel.TextSize
-                    shadowLabel.BackgroundTransparency = 1
-                    shadowLabel.TextColor3 = Color3.new(0, 0, 0)
-                    shadowLabel.Font = textLabel.Font
-                    shadowLabel.ZIndex = 1
-                    shadowLabel.Parent = ballStatsUI
-                
-                    peakLabel = Instance.new("TextLabel")
-                    peakLabel.Name = "PeakStatsLabel"
-                    peakLabel.Size = UDim2.new(0.2, 0, 0.05, 0)
-                    peakLabel.Position = UDim2.new(0, 0, 0.135, 0)
-                    peakLabel.TextScaled = false
-                    peakLabel.TextSize = 26
-                    peakLabel.BackgroundTransparency = 1
-                    peakLabel.TextColor3 = Color3.new(1, 1, 1)
-                    peakLabel.Font = Enum.Font.Gotham
-                    peakLabel.ZIndex = 2
-                    peakLabel.Parent = ballStatsUI
-                
-                    peakShadow = Instance.new("TextLabel")
-                    peakShadow.Name = "PeakStatsShadow"
-                    peakShadow.Size = peakLabel.Size
-                    peakShadow.Position = peakLabel.Position + UDim2.new(0, 2, 0, 2)
-                    peakShadow.TextScaled = peakLabel.TextScaled
-                    peakShadow.TextSize = peakLabel.TextSize
-                    peakShadow.BackgroundTransparency = 1
-                    peakShadow.TextColor3 = Color3.new(0, 0, 0)
-                    peakShadow.Font = peakLabel.Font
-                    peakShadow.ZIndex = 1
-                    peakShadow.Parent = ballStatsUI
-                
-                    peakVelocity = 0
-                    
-                    local RunService = game:GetService("RunService")
-                    heartbeatConn = RunService.Heartbeat:Connect(function()
+local BallStats = misc:create_module({
+    title = "Ball Stats",
+    flag = "ballStats",
+    description = "Displays the current ball speed",
+    section = "left",
+    callback = function(value)
+        if value then
+            if not ballStatsUI then
+                local player = game.Players.LocalPlayer
+                ballStatsUI = Instance.new("ScreenGui")
+                ballStatsUI.Name = "BallStatsUI"
+                ballStatsUI.ResetOnSpawn = false
+                ballStatsUI.DisplayOrder = 9999 -- đŸ§  prioridade mĂ¡xima
+                ballStatsUI.ZIndexBehavior = Enum.ZIndexBehavior.Global -- đŸ”¼ permite sobreposiĂ§Ă£o visual
+                ballStatsUI.Parent = player:WaitForChild("PlayerGui") -- âœ… continua no PlayerGui
+
+                local textLabel = Instance.new("TextLabel")
+                textLabel.Name = "SpeedDisplay"
+                textLabel.Size = UDim2.new(0, 180, 0, 24)
+                textLabel.Position = UDim2.new(0, 10, 0, 10) -- â ï¸ EXATO MESMO LUGAR
+                textLabel.BackgroundTransparency = 1
+                textLabel.TextColor3 = Color3.new(1, 1, 1)
+                textLabel.Font = Enum.Font.Gotham
+                textLabel.TextSize = 15 -- sĂ³ um pouco maior
+                textLabel.Text = "0.0"
+                textLabel.ZIndex = 9999 -- đŸ§  por cima de tudo
+                textLabel.Parent = ballStatsUI
+
+                updateConn = game:GetService("RunService").RenderStepped:Connect(function()
                     local Balls = Auto_Parry.Get_Balls() or {}
-
-                    for oldBall,_ in pairs(ballPeaks) do
-                        local stillAlive = false
-                        for _, b in ipairs(Balls) do
-                            if b == oldBall then
-                                stillAlive = true
-                                break
-                            end
-                        end
-                        if not stillAlive then
-                            ballPeaks[oldBall] = nil
-                        end
-                    end
+                    local speedShown = false
 
                     for _, Ball in ipairs(Balls) do
                         local zoomies = Ball:FindFirstChild("zoomies")
                         if zoomies then
                             local speed = zoomies.VectorVelocity.Magnitude
-
-                            ballPeaks[Ball] = ballPeaks[Ball] or 0
-                            
-                            if speed > ballPeaks[Ball] then
-                                ballPeaks[Ball] = speed
-                            end
-
-                            local curText = ("Velocity: %.2f"):format(speed)
-                            textLabel.Text      = curText
-                            shadowLabel.Text    = curText
-
-                            local peakText = ("Peak: %.2f"):format(ballPeaks[Ball])
-                            peakLabel.Text      = peakText
-                            peakShadow.Text     = peakText
-
+                            textLabel.Text = ("%.12f"):format(speed)
+                            speedShown = true
                             break
                         end
                     end
+
+                    if not speedShown then
+                        textLabel.Text = "0.0"
+                    end
                 end)
-                end
-            else
-                if heartbeatConn then
-                    heartbeatConn:Disconnect()
-                    heartbeatConn = nil
-                end
-                if ballStatsUI then
-                    ballStatsUI:Destroy()
-                    ballStatsUI = nil
-                end
-                peakVelocity = 0
+            end
+        else
+            if updateConn then
+                updateConn:Disconnect()
+                updateConn = nil
+            end
+            if ballStatsUI then
+                ballStatsUI:Destroy()
+                ballStatsUI = nil
             end
         end
-    })
+    end
+})
 
     local visualPart
 
@@ -7389,17 +7663,17 @@ do
                 local Announcer = Player.PlayerGui:WaitForChild("announcer")
                 local Winner = Announcer:FindFirstChild("Winner")
                 if Winner then
-                    Winner.Text = Library._config._flags["announcer_text"] or "discord.gg/gGTDH6fWdE"
+                    Winner.Text = Library._config._flags["announcer_text"] or "discord.gg/C5least"
                 end
                 Announcer.ChildAdded:Connect(function(Value)
                     if Value.Name == "Winner" then
                         Value.Changed:Connect(function(Property)
                             if Property == "Text" and Library._config._flags["Custom_Announcer"] then
-                                Value.Text = Library._config._flags["announcer_text"] or "discord.gg/gGTDH6fWdE"
+                                Value.Text = Library._config._flags["announcer_text"] or "discord.gg/C5least"
                             end
                         end)
                         if Library._config._flags["Custom_Announcer"] then
-                            Value.Text = Library._config._flags["announcer_text"] or "discord.gg/gGTDH6fWdE"
+                            Value.Text = Library._config._flags["announcer_text"] or "discord.gg/C5least"
                         end
                     end
                 end)
@@ -7447,7 +7721,7 @@ ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(_, root
 
     local Curve_Detected = Auto_Parry.Is_Curved()
 
-    if Target_Distance < 15 and Distance < 15 and Dot > -0.25 then -- wtf ?? maybe the big issue
+    if Target_Distance < 15 and Distance < 15 and Dot > 0 then -- wtf ?? maybe the big issue
         if Curve_Detected then
             Auto_Parry.Parry(Selected_Parry_Type)
         end
@@ -7483,7 +7757,9 @@ workspace.Balls.ChildRemoved:Connect(function(Value)
     if Connections_Manager['Target Change'] then
         Connections_Manager['Target Change']:Disconnect()
         Connections_Manager['Target Change'] = nil
-    end
+        end
 end)
 
+						
+						
 main:load()
