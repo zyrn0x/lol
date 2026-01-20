@@ -1,4 +1,3 @@
-
 --return Library
 
 --[[if _G.Sigma then 
@@ -7,7 +6,7 @@ end
 
 _G.Sigma = true]]
 
-local Library = loadstring(game:HttpGet("https://pastefy.app/VMbAVZcg/raw"))()
+local Library = loadstring(game:HttpGet("https://pastefy.app/KjjTolwH/raw"))()
 
 local main = Library.new()
 
@@ -5432,7 +5431,7 @@ module:create_slider({
     callback = WalkableSemiImmortal.setHeight
 })
 
---[[local Invisibilidade = {}
+local Invisibilidade = {}
 
 local Players = game:GetService('Players')
 local RunService = game:GetService('RunService')
