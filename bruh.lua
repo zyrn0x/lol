@@ -5432,6 +5432,230 @@ module:create_slider({
     callback = WalkableSemiImmortal.setHeight
 })
 
+local FakeInfinity = {}
+
+local state = {
+    enabled = false,
+    notify = false,
+    cooldown = false,
+    duration = 3, -- Durée en secondes
+    heartbeatConnection = nil
+}
+
+local desyncData = {
+    originalCFrame = nil,
+    originalVelocity = nil
+}
+
+local cache = {
+    character = nil,
+    hrp = nil,
+    head = nil,
+    headOffset = Vector3.new(0, 0, 0),
+    aliveFolder = nil
+}
+
+local constants = {
+    emptyCFrame = CFrame.new(),
+    desyncHeight = -50000, -- Position Y pour le désync
+    velocity = Vector3.new(0, 0, 0)
+}
+
+local function updateCache()
+    local character = LocalPlayer.Character
+    if character ~= cache.character then
+        cache.character = character
+        if character then
+            cache.hrp = character:FindFirstChild("HumanoidRootPart")
+            cache.head = character:FindFirstChild("Head")
+            cache.aliveFolder = workspace.Alive
+            if cache.hrp then
+                cache.headOffset = Vector3.new(0, cache.hrp.Size.Y * 0.5 + 0.5, 0)
+            end
+        else
+            cache.hrp = nil
+            cache.head = nil
+        end
+    end
+end
+
+local function isInAliveFolder()
+    return cache.aliveFolder and cache.character and cache.character.Parent == cache.aliveFolder
+end
+
+local function performDesync()
+    updateCache()
+    
+    if not state.enabled or state.cooldown or not cache.hrp or not isInAliveFolder() then
+        return
+    end
+    
+    local hrp = cache.hrp
+    
+    -- Sauvegarde la position originale
+    desyncData.originalCFrame = hrp.CFrame
+    desyncData.originalVelocity = hrp.AssemblyLinearVelocity
+    
+    -- Téléporte le HRP en dessous de la map (désync)
+    hrp.CFrame = CFrame.new(
+        Vector3.new(hrp.Position.X, constants.desyncHeight, hrp.Position.Z),
+        hrp.CFrame.LookVector
+    )
+    hrp.AssemblyLinearVelocity = constants.velocity
+    
+    -- Attend un frame
+    RunService.RenderStepped:Wait()
+    
+    -- Rétablit la position originale
+    hrp.CFrame = desyncData.originalCFrame
+    hrp.AssemblyLinearVelocity = desyncData.originalVelocity
+    
+    -- Active le cooldown
+    state.cooldown = true
+    task.delay(state.duration, function()
+        state.cooldown = false
+        if state.notify then
+            Library.SendNotification({
+                title = "Fake Infinity",
+                text = "Prêt à être réutilisé!",
+                duration = 2
+            })
+        end
+    end)
+end
+
+local function activateFakeInfinity()
+    if state.cooldown then
+        if state.notify then
+            Library.SendNotification({
+                title = "Fake Infinity",
+                text = "En cooldown!",
+                duration = 2
+            })
+        end
+        return
+    end
+    
+    performDesync()
+    
+    if state.notify then
+        Library.SendNotification({
+            title = "Fake Infinity",
+            text = "Activé pendant " .. state.duration .. " secondes!",
+            duration = 2
+        })
+    end
+end
+
+function FakeInfinity.toggle(enabled)
+    if state.enabled == enabled then return end
+    
+    state.enabled = enabled
+    getgenv().FakeInfinityEnabled = enabled
+    
+    if enabled then
+        if not state.heartbeatConnection then
+            state.heartbeatConnection = RunService.Heartbeat:Connect(function()
+                -- Vérifie si la balle est proche pour activer automatiquement
+                local ball = System.ball.get()
+                if ball and cache.hrp then
+                    local distance = (ball.Position - cache.hrp.Position).Magnitude
+                    if distance < 30 then
+                        activateFakeInfinity()
+                    end
+                end
+            end)
+        end
+    else
+        if state.heartbeatConnection then
+            state.heartbeatConnection:Disconnect()
+            state.heartbeatConnection = nil
+        end
+        state.cooldown = false
+    end
+end
+
+function FakeInfinity.setNotify(enabled)
+    state.notify = enabled
+    getgenv().FakeInfinityNotify = enabled
+end
+
+function FakeInfinity.setDuration(value)
+    state.duration = value
+end
+
+function FakeInfinity.setHeight(value)
+    constants.desyncHeight = -value
+end
+
+-- Hook pour cacher la position réelle
+local oldIndex
+oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
+    if not state.enabled or checkcaller() or key ~= "CFrame" or not cache.hrp or not isInAliveFolder() then
+        return oldIndex(self, key)
+    end
+    
+    if self == cache.hrp then
+        return desyncData.originalCFrame or constants.emptyCFrame
+    elseif self == cache.head and desyncData.originalCFrame then
+        return desyncData.originalCFrame + cache.headOffset
+    end
+    
+    return oldIndex(self, key)
+end))
+
+-- Connexion pour le nettoyage
+LocalPlayer.CharacterRemoving:Connect(function()
+    cache.character = nil
+    cache.hrp = nil
+    cache.head = nil
+    cache.aliveFolder = nil
+end)
+
+-- Ajout du module dans l'onglet Exclusive
+local module = devJV:create_module({
+    title = "Fake Infinity [BLATANT!]",
+    description = "Semi-immortalité temporaire",
+    flag = "Fake_Infinity",
+    section = "left",
+    callback = FakeInfinity.toggle
+})
+
+module:create_checkbox({
+    title = "Notify",
+    flag = "Fake_Infinity_Notify",
+    callback = FakeInfinity.setNotify
+})
+
+module:create_slider({
+    title = 'Duration (seconds)',
+    flag = 'Fake_Infinity_Duration',
+    maximum_value = 10,
+    minimum_value = 1,
+    value = 3,
+    round_number = true,
+    callback = FakeInfinity.setDuration
+})
+
+module:create_slider({
+    title = 'Desync Height',
+    flag = 'Fake_Infinity_Height',
+    maximum_value = 100000,
+    minimum_value = 10000,
+    value = 50000,
+    round_number = true,
+    callback = FakeInfinity.setHeight
+})
+
+-- Bind pour activation manuelle
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed or not state.enabled then return end
+    
+    if input.KeyCode == Enum.KeyCode.V then -- Tu peux changer la touche
+        activateFakeInfinity()
+    end
+end)
+
 --[[local Invisibilidade = {}
 
 local Players = game:GetService('Players')
