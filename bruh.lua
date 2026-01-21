@@ -5464,37 +5464,61 @@ AbilityExploit:create_checkbox({
         getgenv().ContinuityZeroExploit = value
 
         if getgenv().AbilityExploit and getgenv().ContinuityZeroExploit then
-            local ContinuityZeroRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseContinuityPortal")
-            
-            -- Sauvegarder l'original
-            local oldFireServer = ContinuityZeroRemote.FireServer
-            
-            -- Créer une nouvelle fonction pour intercepter
-            ContinuityZeroRemote.FireServer = function(self, ...)
-                local args = {...}
+            -- Activer l'exploit
+            spawn(function()
+                local ContinuityZeroRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseContinuityPortal")
                 
-                -- Si c'est le téléport Continuity Zero
-                if #args >= 1 and typeof(args[1]) == "CFrame" then
-                    -- Modifier les arguments pour téléporter loin
-                    local modifiedArgs = {
-                        CFrame.new(9e17, 9e16, 9e15, 9e14, 9e13, 9e12, 9e11, 9e10, 9e9, 9e8, 9e7, 9e6),
-                        LocalPlayer.Name  -- CORRECTION ICI
-                    }
+                if ContinuityZeroRemote then
+                    -- Sauvegarder la fonction originale
+                    local originalFireServer = ContinuityZeroRemote.FireServer
                     
-                    -- Appeler l'original avec les arguments modifiés
-                    return oldFireServer(self, unpack(modifiedArgs))
+                    -- Remplacer par notre version
+                    ContinuityZeroRemote.FireServer = function(self, ...)
+                        local args = {...}
+                        
+                        -- Vérifier si c'est un appel de téléportation (premier argument CFrame)
+                        if #args > 0 and typeof(args[1]) == "CFrame" then
+                            -- Modifier les arguments pour téléporter loin
+                            local modifiedCFrame = CFrame.new(
+                                9e17, 9e16, 9e15,  -- Position très loin
+                                9e14, 9e13, 9e12,  -- Vecteurs de rotation
+                                9e11, 9e10, 9e9,
+                                9e8, 9e7, 9e6
+                            )
+                            
+                            print("[Continuity Zero Exploit] Téléportation modifiée!")
+                            return originalFireServer(self, modifiedCFrame, LocalPlayer.Name)
+                        end
+                        
+                        -- Pour les autres appels, utiliser la fonction originale
+                        return originalFireServer(self, ...)
+                    end
+                    
+                    print("[Continuity Zero Exploit] Activé!")
+                else
+                    warn("Remote UseContinuityPortal non trouvé!")
                 end
-                
-                -- Pour tous les autres appels, utiliser les arguments originaux
-                return oldFireServer(self, ...)
-            end
+            end)
         else
-            -- Restaurer l'original quand désactivé
-            local ContinuityZeroRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseContinuityPortal")
-            if ContinuityZeroRemote and rawget(ContinuityZeroRemote, "_originalFireServer") then
-                ContinuityZeroRemote.FireServer = ContinuityZeroRemote._originalFireServer
-                rawset(ContinuityZeroRemote, "_originalFireServer", nil)
-            end
+            -- Désactiver l'exploit
+            spawn(function()
+                local ContinuityZeroRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseContinuityPortal")
+                
+                if ContinuityZeroRemote then
+                    -- Restaurer la fonction originale
+                    local mt = getrawmetatable(ContinuityZeroRemote)
+                    if mt and mt.__namecall then
+                        -- Essayons de restaurer le hook
+                        local success = pcall(function()
+                            ContinuityZeroRemote.FireServer = nil  -- Forcer la restauration
+                        end)
+                        
+                        if success then
+                            print("[Continuity Zero Exploit] Désactivé!")
+                        end
+                    end
+                end
+            end)
         end
     end
 })
