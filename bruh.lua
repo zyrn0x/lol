@@ -5432,12 +5432,19 @@ module:create_slider({
     callback = WalkableSemiImmortal.setHeight
 })
 
+-- Cherchez dans votre deuxième script où vous avez les onglets comme :
+-- local rage = main:create_tab('Combat', 'rbxassetid://7485051733')
+-- local world = main:create_tab('World', 'rbxassetid://7485051733')
+-- etc.
+
+-- Ajoutez cette section dans l'onglet que vous voulez (par exemple "World") :
+
 local AbilityExploit = devJV:create_module({
     title = 'Ability Cheat',
     flag = 'AbilityExploit',
     description = 'Ability Exploit',    
     section = 'right',
-
+    
     callback = function(value)
         getgenv().AbilityExploit = value
     end
@@ -5447,8 +5454,8 @@ AbilityExploit:create_checkbox({
     title = 'Thunder Dash No Cooldown',
     flag = 'ThunderDashNoCooldown',
     callback = function(value)
-        getgenv().ThunderDashNoCooldown = value
-        if getgenv().AbilityExploit and getgenv().ThunderDashNoCooldown then
+        ThunderDashNoCooldown = value
+        if AbilityExploit and ThunderDashNoCooldown then
             local thunderModule = game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Abilities"):WaitForChild("Thunder Dash")
             local mod = require(thunderModule)
             mod.cooldown = 0
@@ -5462,62 +5469,21 @@ AbilityExploit:create_checkbox({
     flag  = 'ContinuityZeroExploit',
     callback = function(value)
         getgenv().ContinuityZeroExploit = value
-
+        
         if getgenv().AbilityExploit and getgenv().ContinuityZeroExploit then
-            -- Activer l'exploit
-            spawn(function()
-                local ContinuityZeroRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseContinuityPortal")
+            local ContinuityZeroRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseContinuityPortal")
+            local oldNamecall
+            oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+                local method = getnamecallmethod()
                 
-                if ContinuityZeroRemote then
-                    -- Sauvegarder la fonction originale
-                    local originalFireServer = ContinuityZeroRemote.FireServer
-                    
-                    -- Remplacer par notre version
-                    ContinuityZeroRemote.FireServer = function(self, ...)
-                        local args = {...}
-                        
-                        -- Vérifier si c'est un appel de téléportation (premier argument CFrame)
-                        if #args > 0 and typeof(args[1]) == "CFrame" then
-                            -- Modifier les arguments pour téléporter loin
-                            local modifiedCFrame = CFrame.new(
-                                9e17, 9e16, 9e15,  -- Position très loin
-                                9e14, 9e13, 9e12,  -- Vecteurs de rotation
-                                9e11, 9e10, 9e9,
-                                9e8, 9e7, 9e6
-                            )
-                            
-                            print("[Continuity Zero Exploit] Téléportation modifiée!")
-                            return originalFireServer(self, modifiedCFrame, LocalPlayer.Name)
-                        end
-                        
-                        -- Pour les autres appels, utiliser la fonction originale
-                        return originalFireServer(self, ...)
-                    end
-                    
-                    print("[Continuity Zero Exploit] Activé!")
-                else
-                    warn("Remote UseContinuityPortal non trouvé!")
+                if self == ContinuityZeroRemote and method == "FireServer" then
+                    return oldNamecall(self,
+                        CFrame.new(9e17, 9e16, 9e15, 9e14, 9e13, 9e12, 9e11, 9e10, 9e9, 9e8, 9e7, 9e6),
+                        LocalPlayer.Name
+                    )
                 end
-            end)
-        else
-            -- Désactiver l'exploit
-            spawn(function()
-                local ContinuityZeroRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseContinuityPortal")
                 
-                if ContinuityZeroRemote then
-                    -- Restaurer la fonction originale
-                    local mt = getrawmetatable(ContinuityZeroRemote)
-                    if mt and mt.__namecall then
-                        -- Essayons de restaurer le hook
-                        local success = pcall(function()
-                            ContinuityZeroRemote.FireServer = nil  -- Forcer la restauration
-                        end)
-                        
-                        if success then
-                            print("[Continuity Zero Exploit] Désactivé!")
-                        end
-                    end
-                end
+                return oldNamecall(self, ...)
             end)
         end
     end
