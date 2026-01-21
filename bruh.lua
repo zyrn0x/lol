@@ -5676,6 +5676,106 @@ guiset:create_module({
         getgenv().guilibraryVisible = state
     end
 })
+
+    local soundOptions = {
+        ["Eeyuh"] = "rbxassetid://16190782181",
+        ["Sweep"] = "rbxassetid://103508936658553",
+        ["Bounce"] = "rbxassetid://134818882821660",
+        ["Everybody Wants To Rule The World"] = "rbxassetid://87209527034670",
+        ["Missing Money"] = "rbxassetid://134668194128037",
+        ["Sour Grapes"] = "rbxassetid://117820392172291",
+        ["Erwachen"] = "rbxassetid://124853612881772",
+        ["Grasp the Light"] = "rbxassetid://89549155689397",
+        ["Beyond the Shadows"] = "rbxassetid://120729792529978",
+        ["Rise to the Horizon"] = "rbxassetid://72573266268313",
+        ["Echoes of the Candy Kingdom"] = "rbxassetid://103040477333590",
+        ["Speed"] = "rbxassetid://125550253895893",
+        ["Lo-fi Chill A"] = "rbxassetid://9043887091",
+        ["Lo-fi Ambient"] = "rbxassetid://129775776987523",
+        ["Tears in the Rain"] = "rbxassetid://129710845038263"
+    }
+    
+    local currentSound = Instance.new("Sound")
+    currentSound.Volume = 3
+    currentSound.Looped = false
+    currentSound.Parent = game:GetService("SoundService")   
+    
+    local soundModule
+    
+    local function playSoundById(soundId)
+        currentSound:Stop()
+        currentSound.SoundId = soundId
+        currentSound:Play()
+    end
+    
+    local selectedSound = "Eeyuh"
+    
+    local soundModule = guiset:create_module({
+        title = 'Music',
+        flag = 'sound_controller',
+        description = 'Control background music and sounds',
+        section = 'left',
+        callback = function(value)
+            getgenv().soundmodule = value
+            if value then
+                playSoundById(soundOptions[selectedSound])
+            else
+                currentSound:Stop()
+            end
+        end
+    })
+
+    soundModule:create_checkbox({
+        title = "Loop Song",
+        flag = "LoopSong",
+        callback = function(value)
+            currentSound.Looped = value
+        end
+    })
+
+    soundModule:create_slider({
+        title = 'Volume',
+        flag = 'HitSoundVolume',
+        minimum_value = 1,
+        maximum_value = 10,
+        value = 3,
+        callback = function(value)
+            currentSound.Volume = value
+        end
+    })
+
+    soundModule:create_divider({
+    })
+    
+    soundModule:create_dropdown({
+        title = 'Select Sound',
+        flag = 'sound_selection',
+        options = {
+            "Eeyuh",
+            "Sweep", 
+            "Bounce",
+            "Everybody Wants To Rule The World",
+            "Missing Money",
+            "Sour Grapes",
+            "Erwachen",
+            "Grasp the Light",
+            "Beyond the Shadows",
+            "Rise to the Horizon",
+            "Echoes of the Candy Kingdom",
+            "Speed",
+            "Lo-fi Chill A",
+            "Lo-fi Ambient",
+            "Tears in the Rain"
+        },
+        multi_dropdown = false,
+        maximum_options = 15,
+        callback = function(value)
+            selectedSound = value
+            if getgenv().soundmodule then
+                playSoundById(soundOptions[value])
+            end
+        end
+    })
 end
 
 workspace.ChildRemoved:Connect(function(child)
