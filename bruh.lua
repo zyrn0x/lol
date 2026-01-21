@@ -5437,28 +5437,27 @@ local FakeInfinity = {}
 local state = {
     enabled = false,
     notify = false,
+    active = false,
     cooldown = false,
-    duration = 3, -- Durée en secondes
-    heartbeatConnection = nil
-}
-
-local desyncData = {
-    originalCFrame = nil,
-    originalVelocity = nil
+    duration = 3,
+    cooldownTime = 10,
+    heartbeatConnection = nil,
+    renderConnection = nil
 }
 
 local cache = {
     character = nil,
     hrp = nil,
-    head = nil,
-    headOffset = Vector3.new(0, 0, 0),
+    torso = nil,
     aliveFolder = nil
 }
 
-local constants = {
-    emptyCFrame = CFrame.new(),
-    desyncHeight = -50000, -- Position Y pour le désync
-    velocity = Vector3.new(0, 0, 0)
+local infinityData = {
+    originalBall = nil,
+    ballAnchor = nil,
+    startTime = 0,
+    chestPosition = nil,
+    microTeleportOffset = Vector3.new(0, 0, 0)
 }
 
 local function updateCache()
@@ -5467,14 +5466,11 @@ local function updateCache()
         cache.character = character
         if character then
             cache.hrp = character:FindFirstChild("HumanoidRootPart")
-            cache.head = character:FindFirstChild("Head")
+            cache.torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
             cache.aliveFolder = workspace.Alive
-            if cache.hrp then
-                cache.headOffset = Vector3.new(0, cache.hrp.Size.Y * 0.5 + 0.5, 0)
-            end
         else
             cache.hrp = nil
-            cache.head = nil
+            cache.torso = nil
         end
     end
 end
@@ -5483,47 +5479,95 @@ local function isInAliveFolder()
     return cache.aliveFolder and cache.character and cache.character.Parent == cache.aliveFolder
 end
 
-local function performDesync()
-    updateCache()
+-- Trouve la balle la plus proche
+local function findClosestBall()
+    local balls = workspace:FindFirstChild("Balls")
+    if not balls or not cache.hrp then return nil end
     
-    if not state.enabled or state.cooldown or not cache.hrp or not isInAliveFolder() then
-        return
+    local closestBall = nil
+    local closestDistance = math.huge
+    
+    for _, ball in pairs(balls:GetChildren()) do
+        if ball:GetAttribute("realBall") then
+            local distance = (ball.Position - cache.hrp.Position).Magnitude
+            if distance < closestDistance and distance < 30 then
+                closestBall = ball
+                closestDistance = distance
+            end
+        end
     end
     
-    local hrp = cache.hrp
-    
-    -- Sauvegarde la position originale
-    desyncData.originalCFrame = hrp.CFrame
-    desyncData.originalVelocity = hrp.AssemblyLinearVelocity
-    
-    -- Téléporte le HRP en dessous de la map (désync)
-    hrp.CFrame = CFrame.new(
-        Vector3.new(hrp.Position.X, constants.desyncHeight, hrp.Position.Z),
-        hrp.CFrame.LookVector
-    )
-    hrp.AssemblyLinearVelocity = constants.velocity
-    
-    -- Attend un frame
-    RunService.RenderStepped:Wait()
-    
-    -- Rétablit la position originale
-    hrp.CFrame = desyncData.originalCFrame
-    hrp.AssemblyLinearVelocity = desyncData.originalVelocity
-    
-    -- Active le cooldown
-    state.cooldown = true
-    task.delay(state.duration, function()
-        state.cooldown = false
-        if state.notify then
-            Library.SendNotification({
-                title = "Fake Infinity",
-                text = "Prêt à être réutilisé!",
-                duration = 2
-            })
-        end
-    end)
+    return closestBall
 end
 
+-- Crée un ancrage pour la balle au niveau du torse
+local function createBallAnchor(ball)
+    if not cache.torso or not ball then return nil end
+    
+    -- Position du torse + petit décalage devant
+    local chestOffset = cache.torso.CFrame:PointToWorldSpace(Vector3.new(0, 0, -2))
+    
+    -- Crée un ancrage invisible
+    local anchor = Instance.new("Part")
+    anchor.Name = "InfinityBallAnchor"
+    anchor.Size = Vector3.new(0.1, 0.1, 0.1)
+    anchor.Transparency = 1
+    anchor.CanCollide = false
+    anchor.Anchored = true
+    anchor.Parent = workspace
+    
+    -- Connecte la balle à l'ancrage avec une constraint
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = anchor
+    weld.Part1 = ball
+    weld.Parent = ball
+    
+    infinityData.ballAnchor = anchor
+    infinityData.chestPosition = chestOffset
+    
+    return anchor
+end
+
+-- Micro-téléportations pour simuler l'effet Infinity
+local function applyMicroTeleportations(anchor)
+    if not anchor or not infinityData.chestPosition then return end
+    
+    -- Génère un offset aléatoire mais proche
+    local randomOffset = Vector3.new(
+        (math.random() - 0.5) * 0.5,  -- ±0.25 studs
+        (math.random() - 0.5) * 0.3,  -- ±0.15 studs (moins sur Y)
+        (math.random() - 0.5) * 0.5   -- ±0.25 studs
+    )
+    
+    -- Applique l'offset à la position du torse
+    if cache.torso then
+        local newPosition = cache.torso.Position + 
+                           cache.torso.CFrame.LookVector * -2 +  -- Devant le torse
+                           randomOffset
+        
+        anchor.Position = newPosition
+        
+        -- Sauvegarde l'offset pour la prochaine frame
+        infinityData.microTeleportOffset = randomOffset
+    end
+end
+
+-- Bloque la vitesse de la balle
+local function blockBallVelocity(ball)
+    if not ball then return end
+    
+    local zoomies = ball:FindFirstChild("zoomies")
+    if zoomies then
+        -- Ralentit fortement la balle
+        zoomies.VectorVelocity = Vector3.new(0, 0, 0)
+        
+        -- Empêche la rotation
+        ball.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        ball.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+    end
+end
+
+-- Active la fake infinity
 local function activateFakeInfinity()
     if state.cooldown then
         if state.notify then
@@ -5536,17 +5580,109 @@ local function activateFakeInfinity()
         return
     end
     
-    performDesync()
+    updateCache()
+    if not cache.hrp or not cache.torso or not isInAliveFolder() then return end
     
+    -- Trouve et bloque la balle la plus proche
+    local ball = findClosestBall()
+    if not ball then
+        if state.notify then
+            Library.SendNotification({
+                title = "Fake Infinity",
+                text = "Aucune balle proche!",
+                duration = 2
+            })
+        end
+        return
+    end
+    
+    infinityData.originalBall = ball
+    infinityData.startTime = tick()
+    state.active = true
+    state.cooldown = true
+    
+    -- Crée l'ancrage au niveau du torse
+    local anchor = createBallAnchor(ball)
+    if not anchor then return end
+    
+    -- Bloque la balle
+    blockBallVelocity(ball)
+    
+    -- Notifie l'activation
     if state.notify then
         Library.SendNotification({
             title = "Fake Infinity",
-            text = "Activé pendant " .. state.duration .. " secondes!",
+            text = "Activé pour " .. state.duration .. " secondes!",
             duration = 2
         })
     end
+    
+    -- Démarre le cooldown
+    task.delay(state.cooldownTime, function()
+        state.cooldown = false
+        if state.notify then
+            Library.SendNotification({
+                title = "Fake Infinity",
+                text = "Prêt à être réutilisé!",
+                duration = 2
+            })
+        end
+    end)
 end
 
+-- Boucle principale pour maintenir l'effet
+local function infinityLoop()
+    if not state.active then return end
+    
+    local currentTime = tick()
+    local elapsed = currentTime - infinityData.startTime
+    
+    -- Vérifie si le temps est écoulé
+    if elapsed >= state.duration then
+        state.active = false
+        
+        -- Nettoie l'ancrage
+        if infinityData.ballAnchor then
+            infinityData.ballAnchor:Destroy()
+            infinityData.ballAnchor = nil
+        end
+        
+        -- Relâche la balle
+        if infinityData.originalBall then
+            -- Remet une petite vitesse pour ne pas la faire tomber
+            local zoomies = infinityData.originalBall:FindFirstChild("zoomies")
+            if zoomies then
+                zoomies.VectorVelocity = Vector3.new(0, 0.1, 0)
+            end
+            infinityData.originalBall = nil
+        end
+        
+        infinityData.chestPosition = nil
+        infinityData.microTeleportOffset = Vector3.new(0, 0, 0)
+        
+        return
+    end
+    
+    -- Si la balle existe toujours
+    if infinityData.originalBall and infinityData.originalBall.Parent then
+        -- Applique les micro-téléportations
+        if infinityData.ballAnchor then
+            applyMicroTeleportations(infinityData.ballAnchor)
+        end
+        
+        -- Continue de bloquer la vitesse
+        blockBallVelocity(infinityData.originalBall)
+    else
+        -- La balle a disparu, nettoie
+        state.active = false
+        if infinityData.ballAnchor then
+            infinityData.ballAnchor:Destroy()
+            infinityData.ballAnchor = nil
+        end
+    end
+end
+
+-- Gère l'activation/désactivation
 function FakeInfinity.toggle(enabled)
     if state.enabled == enabled then return end
     
@@ -5555,80 +5691,99 @@ function FakeInfinity.toggle(enabled)
     
     if enabled then
         if not state.heartbeatConnection then
-            state.heartbeatConnection = RunService.Heartbeat:Connect(function()
-                -- Vérifie si la balle est proche pour activer automatiquement
-                local ball = System.ball.get()
-                if ball and cache.hrp then
-                    local distance = (ball.Position - cache.hrp.Position).Magnitude
-                    if distance < 30 then
-                        activateFakeInfinity()
+            state.heartbeatConnection = RunService.Heartbeat:Connect(infinityLoop)
+        end
+        
+        -- Active l'auto-activation quand une balle est proche
+        if not state.renderConnection then
+            state.renderConnection = RunService.RenderStepped:Connect(function()
+                if not state.active and not state.cooldown then
+                    updateCache()
+                    if cache.hrp then
+                        local ball = findClosestBall()
+                        if ball then
+                            local distance = (ball.Position - cache.hrp.Position).Magnitude
+                            if distance < 15 then  -- Auto-activation à 15 studs
+                                activateFakeInfinity()
+                            end
+                        end
                     end
                 end
             end)
         end
     else
+        -- Nettoyage
         if state.heartbeatConnection then
             state.heartbeatConnection:Disconnect()
             state.heartbeatConnection = nil
         end
+        
+        if state.renderConnection then
+            state.renderConnection:Disconnect()
+            state.renderConnection = nil
+        end
+        
+        state.active = false
         state.cooldown = false
+        
+        if infinityData.ballAnchor then
+            infinityData.ballAnchor:Destroy()
+            infinityData.ballAnchor = nil
+        end
+        
+        infinityData.originalBall = nil
+        infinityData.chestPosition = nil
+        infinityData.microTeleportOffset = Vector3.new(0, 0, 0)
     end
 end
 
+-- Configuration des notifications
 function FakeInfinity.setNotify(enabled)
     state.notify = enabled
     getgenv().FakeInfinityNotify = enabled
 end
 
+-- Configuration de la durée
 function FakeInfinity.setDuration(value)
     state.duration = value
 end
 
-function FakeInfinity.setHeight(value)
-    constants.desyncHeight = -value
+-- Configuration du cooldown
+function FakeInfinity.setCooldown(value)
+    state.cooldownTime = value
 end
 
--- Hook pour cacher la position réelle
-local oldIndex
-oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
-    if not state.enabled or checkcaller() or key ~= "CFrame" or not cache.hrp or not isInAliveFolder() then
-        return oldIndex(self, key)
-    end
-    
-    if self == cache.hrp then
-        return desyncData.originalCFrame or constants.emptyCFrame
-    elseif self == cache.head and desyncData.originalCFrame then
-        return desyncData.originalCFrame + cache.headOffset
-    end
-    
-    return oldIndex(self, key)
-end))
+-- Configuration de la distance d'auto-activation
+function FakeInfinity.setAutoActivateDistance(value)
+    getgenv().FakeInfinityAutoDistance = value
+end
 
--- Connexion pour le nettoyage
-LocalPlayer.CharacterRemoving:Connect(function()
-    cache.character = nil
-    cache.hrp = nil
-    cache.head = nil
-    cache.aliveFolder = nil
+-- Bind pour activation manuelle (touche V)
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed or not state.enabled or state.cooldown then return end
+    
+    if input.KeyCode == Enum.KeyCode.V then
+        activateFakeInfinity()
+    end
 end)
 
--- Ajout du module dans l'onglet Exclusive
+-- Ajoute le module dans l'onglet Exclusive
 local module = devJV:create_module({
     title = "Fake Infinity [BLATANT!]",
-    description = "Semi-immortalité temporaire",
-    flag = "Fake_Infinity",
+    description = "Bloque la balle au niveau du torse",
+    flag = "Fake_Infinity_Torso",
     section = "left",
     callback = FakeInfinity.toggle
 })
 
 module:create_checkbox({
-    title = "Notify",
+    title = "Notifications",
     flag = "Fake_Infinity_Notify",
     callback = FakeInfinity.setNotify
 })
 
 module:create_slider({
-    title = 'Duration (seconds)',
+    title = 'Durée (secondes)',
     flag = 'Fake_Infinity_Duration',
     maximum_value = 10,
     minimum_value = 1,
@@ -5638,23 +5793,30 @@ module:create_slider({
 })
 
 module:create_slider({
-    title = 'Desync Height',
-    flag = 'Fake_Infinity_Height',
-    maximum_value = 100000,
-    minimum_value = 10000,
-    value = 50000,
+    title = 'Cooldown (secondes)',
+    flag = 'Fake_Infinity_Cooldown',
+    maximum_value = 30,
+    minimum_value = 5,
+    value = 10,
     round_number = true,
-    callback = FakeInfinity.setHeight
+    callback = FakeInfinity.setCooldown
 })
 
--- Bind pour activation manuelle
-UserInputService.InputBegan:Connect(function(input, processed)
-    if processed or not state.enabled then return end
-    
-    if input.KeyCode == Enum.KeyCode.V then -- Tu peux changer la touche
-        activateFakeInfinity()
-    end
-end)
+module:create_slider({
+    title = 'Auto-activation Distance',
+    flag = 'Fake_Infinity_AutoDistance',
+    maximum_value = 50,
+    minimum_value = 5,
+    value = 15,
+    round_number = true,
+    callback = FakeInfinity.setAutoActivateDistance
+})
+
+module:create_divider({})
+module:create_label({
+    title = "Activation: Touche V",
+    description = "Ou auto-activation quand balle proche"
+})
 
 --[[local Invisibilidade = {}
 
