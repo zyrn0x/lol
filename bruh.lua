@@ -5432,17 +5432,6 @@ module:create_slider({
     callback = WalkableSemiImmortal.setHeight
 })
 
-    local AbilityExploit = devJV:create_module({
-        title = 'Ability Cheat',
-        flag = 'AbilityExploit',
-        description = 'Ability Exploit',    
-        section = 'right',
-    
-        callback = function(value)
-            getgenv().AbilityExploit = value
-        end
-    })
-
 local AbilityExploit = devJV:create_module({
     title = 'Ability Cheat',
     flag = 'AbilityExploit',
