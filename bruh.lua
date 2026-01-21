@@ -5533,7 +5533,7 @@ function AbilityExploit.toggle(state)
 end
 
 -- Création de l'interface utilisateur
-local abilityExploitModule = abilityExploitTab:create_module({
+local abilityExploitModule = devJV:create_module({
     title = 'Ability Exploit',
     flag = 'AbilityExploit',
     description = 'Ability cheats and exploits',
