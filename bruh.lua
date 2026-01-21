@@ -4414,7 +4414,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
-local AimPlayer = {}
+--[[local AimPlayer = {}
 
 local state = {
     playerNames = {},
@@ -4581,7 +4581,7 @@ end
 function AimPlayer.getTargetPlayer()
     if not state.selectedTarget then return nil end
     return Players:FindFirstChild(state.selectedTarget)
-end
+end]]
 
 detectionstab:create_module({
     title = 'Infinity Detection',
