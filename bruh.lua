@@ -5465,19 +5465,36 @@ AbilityExploit:create_checkbox({
 
         if getgenv().AbilityExploit and getgenv().ContinuityZeroExploit then
             local ContinuityZeroRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseContinuityPortal")
-            local oldNamecall
-            oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-                local method = getnamecallmethod()
-
-                if self == ContinuityZeroRemote and method == "FireServer" then
-                    return oldNamecall(self,
+            
+            -- Sauvegarder l'original
+            local oldFireServer = ContinuityZeroRemote.FireServer
+            
+            -- Créer une nouvelle fonction pour intercepter
+            ContinuityZeroRemote.FireServer = function(self, ...)
+                local args = {...}
+                
+                -- Si c'est le téléport Continuity Zero
+                if #args >= 1 and typeof(args[1]) == "CFrame" then
+                    -- Modifier les arguments pour téléporter loin
+                    local modifiedArgs = {
                         CFrame.new(9e17, 9e16, 9e15, 9e14, 9e13, 9e12, 9e11, 9e10, 9e9, 9e8, 9e7, 9e6),
-                        player.Name
-                    )
+                        LocalPlayer.Name  -- CORRECTION ICI
+                    }
+                    
+                    -- Appeler l'original avec les arguments modifiés
+                    return oldFireServer(self, unpack(modifiedArgs))
                 end
-
-                return oldNamecall(self, ...)
-            end)
+                
+                -- Pour tous les autres appels, utiliser les arguments originaux
+                return oldFireServer(self, ...)
+            end
+        else
+            -- Restaurer l'original quand désactivé
+            local ContinuityZeroRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseContinuityPortal")
+            if ContinuityZeroRemote and rawget(ContinuityZeroRemote, "_originalFireServer") then
+                ContinuityZeroRemote.FireServer = ContinuityZeroRemote._originalFireServer
+                rawset(ContinuityZeroRemote, "_originalFireServer", nil)
+            end
         end
     end
 })
