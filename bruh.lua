@@ -3647,7 +3647,7 @@ local Connections_Manager = {}
 
     No_Render:change_state(false)
 
-local ParticleSystem = {
+--[[local ParticleSystem = {
     Particles = {},
     MaxParticles = 5000,
     SpawnArea = 500,
@@ -4158,7 +4158,7 @@ plasma_module:create_colorpicker({
             Plasma.update_trail_colors(last_ball)
         end
     end,
-})
+})]]
 
 local swordInstancesInstance = ReplicatedStorage:WaitForChild("Shared",9e9):WaitForChild("ReplicatedInstances",9e9):WaitForChild("Swords",9e9)
 local swordInstances = require(swordInstancesInstance)
@@ -5432,7 +5432,7 @@ module:create_slider({
     callback = WalkableSemiImmortal.setHeight
 })
 
-local Invisibilidade = {}
+--[[local Invisibilidade = {}
 
 local Players = game:GetService('Players')
 local RunService = game:GetService('RunService')
@@ -5662,7 +5662,7 @@ module:create_slider({
     callback = function(value)
         constants.velocityThreshold = value
     end
-})
+})]]
 
 if not mobile then
     local guiset = main:create_tab('Gui', 'rbxassetid://10734887784')
