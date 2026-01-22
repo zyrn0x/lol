@@ -3854,3 +3854,32 @@ autoparry_module:create_slider({
         update_divisor()
     end
 })
+
+workspace.ChildRemoved:Connect(function(child)
+    if child.Name == 'Balls' then
+        System.__properties.__cached_balls = nil
+    end
+end)
+
+local balls = workspace:FindFirstChild('Balls')
+if balls then
+    balls.ChildAdded:Connect(function()
+        System.__properties.__parried = false
+    end)
+    
+    balls.ChildRemoved:Connect(function()
+        System.__properties.__parries = 0
+        System.__properties.__parried = false
+    end)
+end
+
+main:load()
+
+local StarterGui = game:GetService('StarterGui')
+
+StarterGui:SetCore('SendNotification', {
+    Title = 'BETA',
+    Text = 'This Version is on BETA',
+    Icon = 'rbxassetid://123456789',
+    Duration = 10,
+})
