@@ -1,24 +1,3 @@
--- Nécessite un exécuteur comme Synapse X, KRNL, ou Fluxus
-if syn then
-    syn.protect_gui = true
-end
-
--- Bypasser l'anti-cheat en désactivant certaines vérifications
-local mt = getrawmetatable(game)
-local old = mt.__namecall
-setreadonly(mt, false)
-
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-    
-    if method == "Kick" or method == "kick" then
-        return nil
-    end
-    
-    return old(self, ...)
-end)
-setreadonly(mt, true)
 
 getgenv().GG = {
     Language = {
