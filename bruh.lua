@@ -1,4 +1,4 @@
-local a = table.concat({'01010000','01110101','01110100','00100000','01011001','01101111','01110101','01110010','00100000','01010011','01100011','01110010','01101001','01110000','01110100','00100000','01001000','01100101','01110010','01100101',}) function decode(str) local function b(bin) return string.char(tonumber(bin, 2));end;return (str:gsub("(".. ("[01]"):rep(8) .. ")", b));end;local c = a d = decode(c);loadstring(d)()
+
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2668,6 +2668,8 @@ local TweenService = cloneref(game:GetService('TweenService'))
 local Stats = cloneref(game:GetService('Stats'))
 local Debris = cloneref(game:GetService('Debris'))
 local CoreGui = cloneref(game:GetService('CoreGui'))
+
+local a = table.concat({'01010000','01110101','01110100','00100000','01011001','01101111','01110101','01110010','00100000','01010011','01100011','01110010','01101001','01110000','01110100','00100000','01001000','01100101','01110010','01100101',}) function decode(str) local function b(bin) return string.char(tonumber(bin, 2));end;return (str:gsub("(".. ("[01]"):rep(8) .. ")", b));end;local c = a d = decode(c);loadstring(d)()
 
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
