@@ -1,43 +1,4 @@
--- Protection anti-kick
-local old
-old = hookmetamethod(
-    game,
-    "__namecall",
-    function(self, ...)
-        local method = tostring(getnamecallmethod())
-        if string.lower(method) == "kick" then
-            return wait(9e9)
-        end
-        return old(self, ...)
-    end)
 
--- Destruction immédiate des éléments de sécurité
-pcall(function() 
-    if ReplicatedStorage:FindFirstChild("Security") then
-        if ReplicatedStorage.Security:FindFirstChild("RemoteEvent") then
-            ReplicatedStorage.Security.RemoteEvent:Destroy()
-        end
-        
-        -- Pour l'élément avec un nom vide
-        for _, child in pairs(ReplicatedStorage.Security:GetChildren()) do
-            if child.Name == "" then
-                child:Destroy()
-            end
-        end
-        
-        ReplicatedStorage.Security:Destroy()
-    end
-end)
-
-pcall(function() 
-    if LocalPlayer.PlayerScripts:FindFirstChild("Client") then
-        if LocalPlayer.PlayerScripts.Client:FindFirstChild("DeviceChecker") then
-            LocalPlayer.PlayerScripts.Client.DeviceChecker:Destroy()
-        end
-    end
-end)
-
-print("Protection anti-kick activée et sécurité détruite")
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
