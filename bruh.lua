@@ -2649,16 +2649,14 @@ end
 
 local main = Library.new()
 
-local rage = main:create_tab('Blatant', 'rbxassetid://76499042599127')
-local player = main:create_tab('Player', 'rbxassetid://126017907477623')
-local world = main:create_tab('World', 'rbxassetid://85168909131990')
-local farm = main:create_tab('Farm', 'rbxassetid://132243429647479')
-local misc = main:create_tab('Misc', 'rbxassetid://132243429647479')
-
+local rage = main:create_tab('Combat', 'rbxassetid://7485051733')
+local player = main:create_tab('Player', 'rbxassetid://7485051733')
+local world = main:create_tab('World', 'rbxassetid://7485051733')
+local farm = main:create_tab('Farm', 'rbxassetid://7485051733')
+local misc = main:create_tab('Misc', 'rbxassetid://7485051733')
 
 
 repeat task.wait() until game:IsLoaded()
-
 
 local Players = game:GetService('Players')
 local Player = Players.LocalPlayer
@@ -2681,7 +2679,6 @@ local Previous_Positions = {}
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local VirtualInputService = game:GetService("VirtualInputManager")
 
-
 local GuiService = game:GetService('GuiService')
 
 local function updateNavigation(guiObject: GuiObject | nil)
@@ -2703,98 +2700,84 @@ local function performFirstPress(parryType)
     end
 end
 
-if not LPH_OBFUSCATED then
-    function LPH_JIT(Function) return Function end
-    function LPH_JIT_MAX(Function) return Function end
-    function LPH_NO_VIRTUALIZE(Function) return Function end
+local revertedRemotes = {}
+local originalMetatables = {}
+
+local function isValidRemoteArgs(args)
+    return #args == 7 and
+           type(args[2]) == "string" and  
+           type(args[3]) == "number" and 
+           typeof(args[4]) == "CFrame" and 
+           type(args[5]) == "table" and  
+           type(args[6]) == "table" and 
+           type(args[7]) == "boolean"
 end
 
-local PrivateKey = nil
+local function hookRemote(remote)
+    if not revertedRemotes[remote] then
+        local meta = getrawmetatable(remote)
+        if not originalMetatables[meta] then
+            originalMetatables[meta] = true  
+            setreadonly(meta, false)  
 
-local PropertyChangeOrder = {}
-
-local HashOne
-local HashTwo
-local HashThree
-
-LPH_NO_VIRTUALIZE(function()
-    for Index, Value in next, getgc() do
-        if rawequal(typeof(Value), "function") and islclosure(Value) and getrenv().debug.info(Value, "s"):find("SwordsController") then
-            if rawequal(getrenv().debug.info(Value, "l"), 263) then
-                HashOne = getconstant(Value, 62)
-                HashTwo = getconstant(Value, 64)
-                HashThree = getconstant(Value, 65)
+            local oldIndex = meta.__index
+            meta.__index = function(self, key)
+                if key == "FireServer" and self:IsA("RemoteEvent") then
+                    return function(_, ...)
+                        local args = { ... }
+                        if isValidRemoteArgs(args) then
+                            if not revertedRemotes[self] then
+                                revertedRemotes[self] = args
+                            end
+                        end
+                        return oldIndex(self, "FireServer")(_, table.unpack(args))
+                    end
+                elseif key == "InvokeServer" and self:IsA("RemoteFunction") then
+                    return function(_, ...)
+                        local args = { ... }
+                        if isValidRemoteArgs(args) then
+                            if not revertedRemotes[self] then
+                                revertedRemotes[self] = args
+                                print("Hooked RemoteFunction:", self.Name)
+                            end
+                        end
+                        return oldIndex(self, "InvokeServer")(_, table.unpack(args))
+                    end
+                end
+                return oldIndex(self, key)
             end
-        end 
-    end
-end)()
 
-
-LPH_NO_VIRTUALIZE(function()
-    for Index, Object in next, game:GetDescendants() do
-        if Object:IsA("RemoteEvent") and string.find(Object.Name, "\n") then
-            Object.Changed:Once(function()
-                table.insert(PropertyChangeOrder, Object)
-            end)
+            setreadonly(meta, true)
         end
     end
-end)()
+end
 
-
-repeat
-    task.wait()
-until #PropertyChangeOrder == 3
-
-
-local ShouldPlayerJump = PropertyChangeOrder[1]
-local MainRemote = PropertyChangeOrder[2]
-local GetOpponentPosition = PropertyChangeOrder[3]
-
---[[
-
-    local __namecall
-    __namecall = hookmetamethod(game, "__namecall", function(self, ...)
-        local Args = {...}
-        local Method = getnamecallmethod()
-
-        if not checkcaller() and (Method == "FireServer") and string.find(self.Name, "\n") then
-            if Args[2] then
-                PrivateKey = Args[2]
-            end
+local function restoreRemotes()
+    for remote, _ in pairs(revertedRemotes) do
+        if originalMetatables[getmetatable(remote)] then
+            local meta = getrawmetatable(remote)
+            setreadonly(meta, false)
+            meta.__index = nil
+            setreadonly(meta, true)
         end
-
-        return __namecall(self, ...)
-    end)
-
-]]
-
-local Parry_Key
-
-for Index, Value in pairs(getconnections(game:GetService("Players").LocalPlayer.PlayerGui.Hotbar.Block.Activated)) do
-    if Value and Value.Function and not iscclosure(Value.Function)  then
-        for Index2,Value2 in pairs(getupvalues(Value.Function)) do
-            if type(Value2) == "function" then
-                Parry_Key = getupvalue(getupvalue(Value2, 2), 17);
-            end;
-        end;
-    end;
-end;
-
-local function Parry(...)
-    ShouldPlayerJump:FireServer(HashOne, Parry_Key, ...)
-    MainRemote:FireServer(HashTwo, Parry_Key, ...)
-    GetOpponentPosition:FireServer(HashThree, Parry_Key, ...)
+    end
+    revertedRemotes = {}
 end
 
---[[
-
-local function Parry(...)
-    ShouldPlayerJump:FireServer(HashOne, PrivateKey, ...)
-    MainRemote:FireServer(HashTwo, PrivateKey, ...)
-    GetOpponentPosition:FireServer(HashThree, PrivateKey, ...)
+for _, remote in pairs(game.ReplicatedStorage:GetChildren()) do
+    if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+        hookRemote(remote)
+    end
 end
 
-]]
+game.ReplicatedStorage.ChildAdded:Connect(function(child)
+    if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+        hookRemote(child)
+    end
+end)
+
+local Key = Parry_Key
+local Parries = 0
 
 type functionInfo = {
     scriptName: string,
@@ -2918,17 +2901,23 @@ while task.wait() and (not swordsController) do
 end
 
 function getSlashName(swordName)
-    local slashName = swordInstances:GetSword(swordName)
-    return (slashName and slashName.SlashName) or "SlashEffect"
+    local swordData = swordInstances:GetSword(swordName)
+    if not swordData then
+        warn("Sword not found:", swordName)
+        return "SlashEffect" -- Valeur par défaut
+    end
+    return swordData.SlashName or "SlashEffect"
 end
 
 function setSword()
     if not getgenv().skinChanger then return end
     
-    setupvalue(rawget(swordInstances,"EquipSwordTo"),2,false)
-    
-    swordInstances:EquipSwordTo(plr.Character, getgenv().swordModel)
-    swordsController:SetSword(getgenv().swordAnimations)
+    if not pcall(function()
+        swordInstances:EquipSwordTo(plr.Character, getgenv().swordModel)
+        swordsController:SetSword(getgenv().swordAnimations)
+    end) then
+        warn("Failed to set sword - character might not be ready")
+    end
 end
 
 local playParryFunc
@@ -2974,8 +2963,22 @@ end)
 table.insert(clashConnections, getconnections(rs.Remotes.ParrySuccessAll.OnClientEvent)[1])
 
 getgenv().updateSword = function()
-    getgenv().slashName = getSlashName(getgenv().swordFX)
-    setSword()
+    local newSlashName = getSlashName(getgenv().swordFX)
+    if newSlashName then
+        getgenv().slashName = newSlashName
+        setSword()
+        Library.SendNotification({
+            title = "Skin Changer",
+            text = "Sword updated to: " .. getgenv().swordModel,
+            duration = 3
+        })
+    else
+        Library.SendNotification({
+            title = "Skin Changer Error",
+            text = "Sword not found: " .. getgenv().swordFX,
+            duration = 5
+        })
+    end
 end
 
 task.spawn(function()
@@ -3282,10 +3285,28 @@ function Auto_Parry.Parry(Parry_Type)
     local Parry_Data = Auto_Parry.Parry_Data(Parry_Type)
 
     if not firstParryFired then
-        performFirstPress(firstParryType)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0.001)
+        task.wait(0.1)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0.001)
         firstParryFired = true
     else
-        Parry(Parry_Data[1], Parry_Data[2], Parry_Data[3], Parry_Data[4])
+        for remote, originalArgs in pairs(revertedRemotes) do
+            local modifiedArgs = {
+                originalArgs[1],
+                originalArgs[2],
+                originalArgs[3],
+                Parry_Data[2],
+                originalArgs[5],
+                originalArgs[6],
+                originalArgs[7]
+            }
+            
+            if remote:IsA("RemoteEvent") then
+                remote:FireServer(unpack(modifiedArgs))
+            elseif remote:IsA("RemoteFunction") then
+                remote:InvokeServer(unpack(modifiedArgs))
+            end
+        end
     end
 
     if Parries > 7 then
@@ -3480,46 +3501,76 @@ end
 
 function Auto_Parry.Spam_Service(self)
     local Ball = Auto_Parry.Get_Ball()
-
     local Entity = Auto_Parry.Closest_Player()
 
     if not Ball then
-        return false
+        return 0
     end
 
     if not Entity or not Entity.PrimaryPart then
-        return false
+        return 0
     end
 
     local Spam_Accuracy = 0
-
     local Velocity = Ball.AssemblyLinearVelocity
     local Speed = Velocity.Magnitude
-
     local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
     local Dot = Direction:Dot(Velocity.Unit)
 
     local Target_Position = Entity.PrimaryPart.Position
     local Target_Distance = Player:DistanceFromCharacter(Target_Position)
 
-    local Maximum_Spam_Distance = self.Ping + math.min(Speed / 6, 95)
+    -- AMÉLIORATION 1: Meilleure formule pour Maximum_Spam_Distance
+    -- Base + ajustement dynamique selon la vitesse (plus agressif pour hautes vitesses)
+    local basePingAdjustment = self.Ping * 1.2  -- 20% de marge pour le ping
+    local speedAdjustment = math.min(Speed / 4, 120)  -- Plus sensible à la vitesse (/4 au lieu de /6)
+    local Maximum_Spam_Distance = basePingAdjustment + speedAdjustment
 
-    if self.Entity_Properties.Distance > Maximum_Spam_Distance then
+    -- AMÉLIORATION 2: Vérifications avec seuils ajustés
+    local distanceMultiplier = 1.15  -- 15% de marge supplémentaire
+    
+    if self.Entity_Properties.Distance > (Maximum_Spam_Distance * distanceMultiplier) then
         return Spam_Accuracy
     end
 
-    if self.Ball_Properties.Distance > Maximum_Spam_Distance then
+    if self.Ball_Properties.Distance > (Maximum_Spam_Distance * distanceMultiplier) then
         return Spam_Accuracy
     end
 
-    if Target_Distance > Maximum_Spam_Distance then
+    if Target_Distance > (Maximum_Spam_Distance * distanceMultiplier) then
         return Spam_Accuracy
     end
 
-    local Maximum_Speed = 5 - math.min(Speed / 5, 5)
-    local Maximum_Dot = math.clamp(Dot, -1, 0) * Maximum_Speed
-
-    Spam_Accuracy = Maximum_Spam_Distance - Maximum_Dot
+    -- AMÉLIORATION 3: Formule améliorée pour Maximum_Speed
+    -- Plus réactif aux hautes vitesses
+    local speedFactor = math.min(Speed / 100, 0.8)  -- Facteur basé sur la vitesse (0 à 0.8)
+    local Maximum_Speed = 6 - (speedFactor * 3.75)  -- 6 à 2.25 selon la vitesse
+    
+    -- AMÉLIORATION 4: Meilleure utilisation du Dot product
+    -- Transformation du Dot pour mieux refléter l'angle d'approche
+    local normalizedDot = (Dot + 1) / 2  -- Convertir de [-1,1] à [0,1]
+    local dotWeight = 1 - normalizedDot  -- Plus le Dot est proche de 1, plus le poids est faible
+    
+    -- AMÉLIORATION 5: Calcul plus précis de Spam_Accuracy
+    local baseAccuracy = Maximum_Spam_Distance
+    local dotAdjustment = dotWeight * Maximum_Speed * 1.5  -- Facteur multiplié
+    
+    Spam_Accuracy = baseAccuracy - dotAdjustment
+    
+    -- AMÉLIORATION 6: Ajustement basé sur la distance cible
+    local targetDistanceFactor = math.min(Target_Distance / 50, 1.0)  -- Normaliser la distance
+    Spam_Accuracy = Spam_Accuracy * (0.8 + targetDistanceFactor * 0.4)  -- Ajuster de 80% à 120%
+    
+    -- AMÉLIORATION 7: Minimum et maximum garantis
+    Spam_Accuracy = math.max(Spam_Accuracy, 5)  -- Minimum de 5
+    Spam_Accuracy = math.min(Spam_Accuracy, 150)  -- Maximum de 150
+    
+    -- AMÉLIORATION 8: Bonus pour hautes vitesses
+    if Speed > 1000 then
+        Spam_Accuracy = Spam_Accuracy * 1.1  -- +10% pour vitesses > 1000
+    elseif Speed > 2000 then
+        Spam_Accuracy = Spam_Accuracy * 1.2  -- +20% pour vitesses > 2000
+    end
 
     return Spam_Accuracy
 end
@@ -4104,7 +4155,7 @@ do
 
                     local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
 
-                    local Ping_Threshold = math.clamp(Ping / 10, 1, 16)
+                    local Ping_Threshold = math.clamp(Ping / 20, 0.5, 8)
 
                     local Ball_Target = Ball:GetAttribute('target')
 
@@ -4131,10 +4182,10 @@ do
                         return
                     end
 
-                    if Target_Distance > Spam_Accuracy or Distance > Spam_Accuracy then
+                    if Target_Distance > Spam_Accuracy * 1.5 or Distance > Spam_Accuracy * 1.5 then
                         return
                     end
-                    
+
                     local Pulsed = Player.Character:GetAttribute('Pulsed')
 
                     if Pulsed then
@@ -4338,82 +4389,303 @@ do
     
     ManualSpam:change_state(false)
 
-    if isMobile then
-        ManualSpam:create_checkbox({
-            title = "UI",
-            flag = "Manual_Spam_UI",
-            callback = function(value: boolean)
-                getgenv().spamui = value
-        
-                if value then
-                    local gui = Instance.new("ScreenGui")
-                    gui.Name = "ManualSpamUI"
-                    gui.ResetOnSpawn = false
-                    gui.Parent = game.CoreGui
-        
-                    local frame = Instance.new("Frame")
-                    frame.Name = "MainFrame"
-                    frame.Position = UDim2.new(0, 20, 0, 20)
-                    frame.Size = UDim2.new(0, 200, 0, 100)
-                    frame.BackgroundColor3 = Color3.fromRGB(10, 10, 50)
-                    frame.BackgroundTransparency = 0.3
-                    frame.BorderSizePixel = 0
-                    frame.Active = true
-                    frame.Draggable = true
-                    frame.Parent = gui
-        
-                    local uiCorner = Instance.new("UICorner")
-                    uiCorner.CornerRadius = UDim.new(0, 12)
-                    uiCorner.Parent = frame
-        
-                    local uiStroke = Instance.new("UIStroke")
-                    uiStroke.Thickness = 2
-                    uiStroke.Color = Color3.new(0, 0, 0)
-                    uiStroke.Parent = frame
-        
-                    local button = Instance.new("TextButton")
-                    button.Name = "ClashModeButton"
-                    button.Text = "Clash Mode"
-                    button.Size = UDim2.new(0, 160, 0, 40)
-                    button.Position = UDim2.new(0.5, -80, 0.5, -20)
-                    button.BackgroundTransparency = 1
-                    button.BorderSizePixel = 0
-                    button.Font = Enum.Font.GothamSemibold
-                    button.TextColor3 = Color3.new(1, 1, 1)
-                    button.TextSize = 22
-                    button.Parent = frame
-        
-                    local activated = false
-        
-                    local function toggle()
-                        activated = not activated
-                        button.Text = activated and "Stop" or "Clash Mode"
-                        if activated then
-                            Connections_Manager['Manual Spam UI'] = game:GetService("RunService").Heartbeat:Connect(function()
-                                Auto_Parry.Parry(Selected_Parry_Type)
-                            end)
-                        else
-                            if Connections_Manager['Manual Spam UI'] then
-                                Connections_Manager['Manual Spam UI']:Disconnect()
-                                Connections_Manager['Manual Spam UI'] = nil
-                            end
+if isMobile then
+    ManualSpam:create_checkbox({
+        title = "UI",
+        flag = "Manual_Spam_UI",
+        callback = function(value: boolean)
+            getgenv().spamui = value
+
+            if value then
+                if game.CoreGui:FindFirstChild("ManualSpamUI") then
+                    game.CoreGui:FindFirstChild("ManualSpamUI"):Destroy()
+                end
+                
+                local gui = Instance.new("ScreenGui")
+                gui.Name = "ManualSpamUI"
+                gui.ResetOnSpawn = false
+                gui.Parent = game.CoreGui
+
+                -- Main container with modern design
+                local mainFrame = Instance.new("Frame")
+                mainFrame.Name = "SpamPanel"
+                mainFrame.Position = UDim2.new(0.5, -140, 0.7, -80)
+                mainFrame.Size = UDim2.new(0, 280, 0, 160)
+                mainFrame.BackgroundColor3 = Color3.fromRGB(20, 25, 35)
+                mainFrame.BackgroundTransparency = 0.1
+                mainFrame.BorderSizePixel = 0
+                mainFrame.Active = true
+                mainFrame.Draggable = true
+                mainFrame.Parent = gui
+
+                local uiCorner = Instance.new("UICorner")
+                uiCorner.CornerRadius = UDim.new(0, 16)
+                uiCorner.Parent = mainFrame
+
+                local uiStroke = Instance.new("UIStroke")
+                uiStroke.Color = Color3.fromRGB(80, 90, 110)
+                uiStroke.Thickness = 2
+                uiStroke.Transparency = 0.3
+                uiStroke.Parent = mainFrame
+                
+                -- Title with icon
+                local titleBar = Instance.new("Frame")
+                titleBar.Size = UDim2.new(1, 0, 0, 40)
+                titleBar.BackgroundColor3 = Color3.fromRGB(25, 30, 45)
+                titleBar.BorderSizePixel = 0
+                titleBar.Parent = mainFrame
+                
+                local titleCorner = Instance.new("UICorner")
+                titleCorner.CornerRadius = UDim.new(0, 16, 0, 0)
+                titleCorner.Parent = titleBar
+                
+                local title = Instance.new("TextLabel")
+                title.Size = UDim2.new(1, -50, 1, 0)
+                title.Position = UDim2.new(0, 15, 0, 0)
+                title.Text = "SPAM CONTROL"
+                title.TextColor3 = Color3.fromRGB(180, 200, 255)
+                title.TextSize = 18
+                title.Font = Enum.Font.GothamSemibold
+                title.BackgroundTransparency = 1
+                title.Parent = titleBar
+                
+                -- Status indicator
+                local statusLight = Instance.new("Frame")
+                statusLight.Size = UDim2.new(0, 8, 0, 8)
+                statusLight.Position = UDim2.new(1, -30, 0.5, -4)
+                statusLight.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+                statusLight.BorderSizePixel = 0
+                statusLight.Parent = titleBar
+                
+                local lightCorner = Instance.new("UICorner")
+                lightCorner.CornerRadius = UDim.new(1, 0)
+                lightCorner.Parent = statusLight
+                
+                -- Main button with modern design
+                local buttonContainer = Instance.new("Frame")
+                buttonContainer.Size = UDim2.new(0.8, 0, 0, 70)
+                buttonContainer.Position = UDim2.new(0.1, 0, 0.35, 0)
+                buttonContainer.BackgroundTransparency = 1
+                buttonContainer.Parent = mainFrame
+                
+                local button = Instance.new("TextButton")
+                button.Name = "SpamButton"
+                button.Size = UDim2.new(1, 0, 1, 0)
+                button.Text = "▶ START SPAM"
+                button.TextColor3 = Color3.fromRGB(255, 255, 255)
+                button.TextSize = 20
+                button.Font = Enum.Font.GothamBold
+                button.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+                button.BorderSizePixel = 0
+                button.AutoButtonColor = false
+                button.Parent = buttonContainer
+
+                local buttonCorner = Instance.new("UICorner")
+                buttonCorner.CornerRadius = UDim.new(0, 12)
+                buttonCorner.Parent = button
+                
+                local buttonStroke = Instance.new("UIStroke")
+                buttonStroke.Color = Color3.fromRGB(100, 150, 200)
+                buttonStroke.Thickness = 2
+                buttonStroke.Parent = button
+                
+                -- Button glow effect
+                local buttonGlow = Instance.new("ImageLabel")
+                buttonGlow.Size = UDim2.new(1, 10, 1, 10)
+                buttonGlow.Position = UDim2.new(0, -5, 0, -5)
+                buttonGlow.Image = "rbxassetid://8992230676"
+                buttonGlow.ImageColor3 = Color3.fromRGB(70, 130, 180)
+                buttonGlow.ImageTransparency = 0.8
+                buttonGlow.ScaleType = Enum.ScaleType.Slice
+                buttonGlow.SliceCenter = Rect.new(20, 20, 280, 280)
+                buttonGlow.BackgroundTransparency = 1
+                buttonGlow.Parent = button
+                
+                -- Control buttons
+                local controlFrame = Instance.new("Frame")
+                controlFrame.Size = UDim2.new(0.8, 0, 0, 30)
+                controlFrame.Position = UDim2.new(0.1, 0, 0.8, 0)
+                controlFrame.BackgroundTransparency = 1
+                controlFrame.Parent = mainFrame
+                
+                local closeBtn = Instance.new("TextButton")
+                closeBtn.Size = UDim2.new(0.45, -5, 1, 0)
+                closeBtn.Position = UDim2.new(0, 0, 0, 0)
+                closeBtn.Text = "CLOSE"
+                closeBtn.TextColor3 = Color3.fromRGB(255, 150, 150)
+                closeBtn.TextSize = 14
+                closeBtn.Font = Enum.Font.Gotham
+                closeBtn.BackgroundColor3 = Color3.fromRGB(40, 45, 55)
+                closeBtn.BorderSizePixel = 0
+                closeBtn.AutoButtonColor = false
+                closeBtn.Parent = controlFrame
+                
+                local closeCorner = Instance.new("UICorner")
+                closeCorner.CornerRadius = UDim.new(0, 6)
+                closeCorner.Parent = closeBtn
+                
+                local hideBtn = Instance.new("TextButton")
+                hideBtn.Size = UDim2.new(0.45, -5, 1, 0)
+                hideBtn.Position = UDim2.new(0.55, 0, 0, 0)
+                hideBtn.Text = "MINIMIZE"
+                hideBtn.TextColor3 = Color3.fromRGB(150, 200, 255)
+                hideBtn.TextSize = 14
+                hideBtn.Font = Enum.Font.Gotham
+                hideBtn.BackgroundColor3 = Color3.fromRGB(40, 45, 55)
+                hideBtn.BorderSizePixel = 0
+                hideBtn.AutoButtonColor = false
+                hideBtn.Parent = controlFrame
+                
+                local hideCorner = Instance.new("UICorner")
+                hideCorner.CornerRadius = UDim.new(0, 6)
+                hideCorner.Parent = hideBtn
+                
+                -- State variables
+                local activated = false
+                local minimized = false
+                local originalSize = mainFrame.Size
+                local originalPosition = mainFrame.Position
+                
+                -- Toggle spam function
+                local function toggleSpam()
+                    activated = not activated
+                    
+                    if activated then
+                        button.Text = "⏸ STOP SPAM"
+                        button.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
+                        buttonStroke.Color = Color3.fromRGB(240, 90, 90)
+                        buttonGlow.ImageColor3 = Color3.fromRGB(220, 60, 60)
+                        statusLight.BackgroundColor3 = Color3.fromRGB(50, 255, 50)
+                        
+                        -- Start spamming
+                        Connections_Manager['Manual Spam UI'] = game:GetService("RunService").Heartbeat:Connect(function()
+                            Auto_Parry.Parry(Selected_Parry_Type)
+                        end)
+                    else
+                        button.Text = "▶ START SPAM"
+                        button.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+                        buttonStroke.Color = Color3.fromRGB(100, 150, 200)
+                        buttonGlow.ImageColor3 = Color3.fromRGB(70, 130, 180)
+                        statusLight.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+                        
+                        -- Stop spamming
+                        if Connections_Manager['Manual Spam UI'] then
+                            Connections_Manager['Manual Spam UI']:Disconnect()
+                            Connections_Manager['Manual Spam UI'] = nil
                         end
                     end
-        
-                    button.MouseButton1Click:Connect(toggle)
-                else
-                    if game.CoreGui:FindFirstChild("ManualSpamUI") then
-                        game.CoreGui:FindFirstChild("ManualSpamUI"):Destroy()
+                end
+                
+                -- Button hover effects
+                button.MouseEnter:Connect(function()
+                    if not activated then
+                        button.BackgroundColor3 = Color3.fromRGB(80, 140, 190)
+                        buttonGlow.ImageTransparency = 0.7
                     end
-        
+                end)
+                
+                button.MouseLeave:Connect(function()
+                    if not activated then
+                        button.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+                        buttonGlow.ImageTransparency = 0.8
+                    end
+                end)
+                
+                closeBtn.MouseEnter:Connect(function()
+                    closeBtn.BackgroundColor3 = Color3.fromRGB(50, 55, 65)
+                end)
+                
+                closeBtn.MouseLeave:Connect(function()
+                    closeBtn.BackgroundColor3 = Color3.fromRGB(40, 45, 55)
+                end)
+                
+                hideBtn.MouseEnter:Connect(function()
+                    hideBtn.BackgroundColor3 = Color3.fromRGB(50, 55, 65)
+                end)
+                
+                hideBtn.MouseLeave:Connect(function()
+                    hideBtn.BackgroundColor3 = Color3.fromRGB(40, 45, 55)
+                end)
+                
+                -- Button click events
+                button.MouseButton1Click:Connect(toggleSpam)
+                
+                closeBtn.MouseButton1Click:Connect(function()
+                    gui:Destroy()
+                    getgenv().spamui = false
                     if Connections_Manager['Manual Spam UI'] then
                         Connections_Manager['Manual Spam UI']:Disconnect()
                         Connections_Manager['Manual Spam UI'] = nil
                     end
+                end)
+                
+                hideBtn.MouseButton1Click:Connect(function()
+                    minimized = not minimized
+                    
+                    if minimized then
+                        hideBtn.Text = "MAXIMIZE"
+                        mainFrame.Size = UDim2.new(0, 280, 0, 40)
+                        titleBar.Visible = true
+                        buttonContainer.Visible = false
+                        controlFrame.Visible = false
+                    else
+                        hideBtn.Text = "MINIMIZE"
+                        mainFrame.Size = originalSize
+                        titleBar.Visible = true
+                        buttonContainer.Visible = true
+                        controlFrame.Visible = true
+                    end
+                end)
+                
+                -- Drag functionality
+                local dragging = false
+                local dragInput, dragStart, startPos
+                
+                titleBar.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        dragging = true
+                        dragStart = input.Position
+                        startPos = mainFrame.Position
+                        
+                        input.Changed:Connect(function()
+                            if input.UserInputState == Enum.UserInputState.End then
+                                dragging = false
+                            end
+                        end)
+                    end
+                end)
+                
+                titleBar.InputChanged:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseMovement then
+                        dragInput = input
+                    end
+                end)
+                
+                game:GetService("UserInputService").InputChanged:Connect(function(input)
+                    if input == dragInput and dragging then
+                        local delta = input.Position - dragStart
+                        mainFrame.Position = UDim2.new(
+                            startPos.X.Scale, 
+                            startPos.X.Offset + delta.X, 
+                            startPos.Y.Scale, 
+                            startPos.Y.Offset + delta.Y
+                        )
+                    end
+                end)
+
+            else
+                if game.CoreGui:FindFirstChild("ManualSpamUI") then
+                    game.CoreGui:FindFirstChild("ManualSpamUI"):Destroy()
+                end
+
+                if Connections_Manager['Manual Spam UI'] then
+                    Connections_Manager['Manual Spam UI']:Disconnect()
+                    Connections_Manager['Manual Spam UI'] = nil
                 end
             end
-        })
-    end
+        end
+    })
+end
     
     ManualSpam:create_checkbox({
         title = "Keypress",
@@ -5077,185 +5349,200 @@ do
     
     AnimationChoice:update(selected_animation)
 
-    _G.PlayerCosmeticsCleanup = {}
-    
-    local PlayerCosmetics = player:create_module({
-        title = "Player Cosmetics",
-        flag = "Player_Cosmetics",
-        description = "Apply headless and korblox",
-        section = "left",
-        callback = function(value: boolean)
-            local players = game:GetService("Players")
-            local lp = players.LocalPlayer
-    
-            local function applyKorblox(character)
-                local rightLeg = character:FindFirstChild("RightLeg") or character:FindFirstChild("Right Leg")
-                if not rightLeg then
-                    warn("Right leg not found on character")
-                    return
+_G.PlayerCosmeticsCleanup = {}
+
+local PlayerCosmetics = player:create_module({
+    title = "Player Cosmetics",
+    flag = "Player_Cosmetics",
+    description = "Apply headless and korblox",
+    section = "left",
+    callback = function(value: boolean)
+        local players = game:GetService("Players")
+        local lp = players.LocalPlayer
+        
+        -- Stocker l'état actif globalement
+        _G.CosmeticsActive = value
+
+        local function applyKorblox(character)
+            local rightLeg = character:FindFirstChild("RightLeg") or character:FindFirstChild("Right Leg")
+            if not rightLeg then
+                warn("Right leg not found on character")
+                return
+            end
+            
+            -- Sauvegarder l'état original AVANT de modifier
+            if not _G.PlayerCosmeticsCleanup.rightLegOriginalSaved then
+                _G.PlayerCosmeticsCleanup.rightLegChildren = {}
+                for _, child in pairs(rightLeg:GetChildren()) do
+                    if child:IsA("SpecialMesh") then
+                        table.insert(_G.PlayerCosmeticsCleanup.rightLegChildren, {
+                            MeshId = child.MeshId,
+                            TextureId = child.TextureId,
+                            Scale = child.Scale
+                        })
+                        child:Destroy()
+                    end
                 end
-                
+                _G.PlayerCosmeticsCleanup.rightLegOriginalSaved = true
+            else
+                -- Nettoyer les meshes existants
                 for _, child in pairs(rightLeg:GetChildren()) do
                     if child:IsA("SpecialMesh") then
                         child:Destroy()
                     end
                 end
-                local specialMesh = Instance.new("SpecialMesh")
-                specialMesh.MeshId = "rbxassetid://101851696"
-                specialMesh.TextureId = "rbxassetid://115727863"
-                specialMesh.Scale = Vector3.new(1, 1, 1)
-                specialMesh.Parent = rightLeg
-            end
-    
-            local function saveRightLegProperties(char)
-                if char then
-                    local rightLeg = char:FindFirstChild("RightLeg") or char:FindFirstChild("Right Leg")
-                    if rightLeg then
-                        local originalMesh = rightLeg:FindFirstChildOfClass("SpecialMesh")
-                        if originalMesh then
-                            _G.PlayerCosmeticsCleanup.originalMeshId = originalMesh.MeshId
-                            _G.PlayerCosmeticsCleanup.originalTextureId = originalMesh.TextureId
-                            _G.PlayerCosmeticsCleanup.originalScale = originalMesh.Scale
-                        else
-                            _G.PlayerCosmeticsCleanup.hadNoMesh = true
-                        end
-                        
-                        _G.PlayerCosmeticsCleanup.rightLegChildren = {}
-                        for _, child in pairs(rightLeg:GetChildren()) do
-                            if child:IsA("SpecialMesh") then
-                                table.insert(_G.PlayerCosmeticsCleanup.rightLegChildren, {
-                                    ClassName = child.ClassName,
-                                    Properties = {
-                                        MeshId = child.MeshId,
-                                        TextureId = child.TextureId,
-                                        Scale = child.Scale
-                                    }
-                                })
-                            end
-                        end
-                    end
-                end
             end
             
-            local function restoreRightLeg(char)
-                if char then
-                    local rightLeg = char:FindFirstChild("RightLeg") or char:FindFirstChild("Right Leg")
-                    if rightLeg and _G.PlayerCosmeticsCleanup.rightLegChildren then
-                        for _, child in pairs(rightLeg:GetChildren()) do
-                            if child:IsA("SpecialMesh") then
-                                child:Destroy()
-                            end
-                        end
-                        
-                        if _G.PlayerCosmeticsCleanup.hadNoMesh then
-                            return
-                        end
-                        
-                        for _, childData in ipairs(_G.PlayerCosmeticsCleanup.rightLegChildren) do
-                            if childData.ClassName == "SpecialMesh" then
-                                local newMesh = Instance.new("SpecialMesh")
-                                newMesh.MeshId = childData.Properties.MeshId
-                                newMesh.TextureId = childData.Properties.TextureId
-                                newMesh.Scale = childData.Properties.Scale
-                                newMesh.Parent = rightLeg
-                            end
-                        end
-                    end
-                end
-            end
-    
-            if value then
-                CosmeticsActive = true
-    
-                getgenv().Config = {
-                    Headless = true
-                }
-                
-                if lp.Character then
-                    local head = lp.Character:FindFirstChild("Head")
-                    if head and getgenv().Config.Headless then
-                        _G.PlayerCosmeticsCleanup.headTransparency = head.Transparency
-                        
-                        local decal = head:FindFirstChildOfClass("Decal")
-                        if decal then
-                            _G.PlayerCosmeticsCleanup.faceDecalId = decal.Texture
-                            _G.PlayerCosmeticsCleanup.faceDecalName = decal.Name
+            -- Appliquer le mesh Korblox
+            local specialMesh = Instance.new("SpecialMesh")
+            specialMesh.MeshId = "rbxassetid://101851696"
+            specialMesh.TextureId = "rbxassetid://14331410470"
+            specialMesh.Scale = Vector3.new(1, 1, 1)
+            specialMesh.Parent = rightLeg
+        end
+        
+        local function restoreRightLeg(character)
+            if character and _G.PlayerCosmeticsCleanup.rightLegChildren then
+                local rightLeg = character:FindFirstChild("RightLeg") or character:FindFirstChild("Right Leg")
+                if rightLeg then
+                    -- Nettoyer les meshes existants
+                    for _, child in pairs(rightLeg:GetChildren()) do
+                        if child:IsA("SpecialMesh") then
+                            child:Destroy()
                         end
                     end
                     
-                    saveRightLegProperties(lp.Character)
-                    applyKorblox(lp.Character)
-                end
-                
-                _G.PlayerCosmeticsCleanup.characterAddedConn = lp.CharacterAdded:Connect(function(char)
-                    local head = char:FindFirstChild("Head")
-                    if head and getgenv().Config.Headless then
-                        _G.PlayerCosmeticsCleanup.headTransparency = head.Transparency
-                        
-                        local decal = head:FindFirstChildOfClass("Decal")
-                        if decal then
-                            _G.PlayerCosmeticsCleanup.faceDecalId = decal.Texture
-                            _G.PlayerCosmeticsCleanup.faceDecalName = decal.Name
-                        end
+                    -- Restaurer les meshes originaux
+                    for _, meshData in ipairs(_G.PlayerCosmeticsCleanup.rightLegChildren) do
+                        local newMesh = Instance.new("SpecialMesh")
+                        newMesh.MeshId = meshData.MeshId
+                        newMesh.TextureId = meshData.TextureId
+                        newMesh.Scale = meshData.Scale
+                        newMesh.Parent = rightLeg
                     end
-                    
-                    saveRightLegProperties(char)
-                    applyKorblox(char)
-                end)
-                
-                if getgenv().Config.Headless then
-                    headLoop = task.spawn(function()
-                        while CosmeticsActive do
-                            local char = lp.Character
-                            if char then
-                                local head = char:FindFirstChild("Head")
-                                if head then
-                                    head.Transparency = 1
-                                    local decal = head:FindFirstChildOfClass("Decal")
-                                    if decal then
-                                        decal:Destroy()
-                                    end
-                                end
-                            end
-                            task.wait(0.1)
-                        end
-                    end)
                 end
-    
-            else
-                CosmeticsActive = false
-    
-                if _G.PlayerCosmeticsCleanup.characterAddedConn then
-                    _G.PlayerCosmeticsCleanup.characterAddedConn:Disconnect()
-                    _G.PlayerCosmeticsCleanup.characterAddedConn = nil
-                end
-    
-                if headLoop then
-                    task.cancel(headLoop)
-                    headLoop = nil
-                end
-    
-                local char = lp.Character
-                if char then
-                    local head = char:FindFirstChild("Head")
-                    if head and _G.PlayerCosmeticsCleanup.headTransparency ~= nil then
-                        head.Transparency = _G.PlayerCosmeticsCleanup.headTransparency
-                        
-                        if _G.PlayerCosmeticsCleanup.faceDecalId then
-                            local newDecal = head:FindFirstChildOfClass("Decal") or Instance.new("Decal", head)
-                            newDecal.Name = _G.PlayerCosmeticsCleanup.faceDecalName or "face"
-                            newDecal.Texture = _G.PlayerCosmeticsCleanup.faceDecalId
-                            newDecal.Face = Enum.NormalId.Front
-                        end
-                    end
-                    
-                    restoreRightLeg(char)
-                end
-    
-                _G.PlayerCosmeticsCleanup = {}
             end
         end
-    })
+        
+        local function handleCharacter(character)
+            if not character then return end
+            
+            -- Sauvegarder les propriétés de la tête
+            local head = character:FindFirstChild("Head")
+            if head and not _G.PlayerCosmeticsCleanup.headPropertiesSaved then
+                _G.PlayerCosmeticsCleanup.originalTransparency = head.Transparency
+                local decal = head:FindFirstChildOfClass("Decal")
+                if decal then
+                    _G.PlayerCosmeticsCleanup.originalFaceId = decal.Texture
+                end
+                _G.PlayerCosmeticsCleanup.headPropertiesSaved = true
+            end
+            
+            -- Appliquer les cosmétiques si activés
+            if _G.CosmeticsActive then
+                -- Appliquer Headless
+                if head then
+                    head.Transparency = 1
+                    local decal = head:FindFirstChildOfClass("Decal")
+                    if decal then
+                        decal:Destroy()
+                    end
+                end
+                
+                -- Appliquer Korblox
+                applyKorblox(character)
+            else
+                -- Restaurer l'original
+                if head and _G.PlayerCosmeticsCleanup.originalTransparency then
+                    head.Transparency = _G.PlayerCosmeticsCleanup.originalTransparency
+                    if _G.PlayerCosmeticsCleanup.originalFaceId then
+                        local newDecal = Instance.new("Decal")
+                        newDecal.Name = "face"
+                        newDecal.Texture = _G.PlayerCosmeticsCleanup.originalFaceId
+                        newDecal.Face = Enum.NormalId.Front
+                        newDecal.Parent = head
+                    end
+                end
+                
+                restoreRightLeg(character)
+            end
+        end
+        
+        if value then
+            -- Configuration
+            getgenv().Config = {
+                Headless = true
+            }
+            
+            -- Gérer le personnage actuel
+            if lp.Character then
+                handleCharacter(lp.Character)
+            end
+            
+            -- Créer une connexion pour les nouveaux personnages
+            if not _G.PlayerCosmeticsCleanup.characterAddedConn then
+                _G.PlayerCosmeticsCleanup.characterAddedConn = lp.CharacterAdded:Connect(function(character)
+                    -- Attendre que le personnage soit complètement chargé
+                    character:WaitForChild("RightLeg", 5)
+                    character:WaitForChild("Head", 5)
+                    
+                    if _G.CosmeticsActive then
+                        task.wait(0.1) -- Petit délai pour la stabilité
+                        handleCharacter(character)
+                    end
+                end)
+            end
+            
+            -- Démarrer la boucle pour Headless (si nécessaire)
+            if getgenv().Config.Headless then
+                if _G.PlayerCosmeticsCleanup.headLoop then
+                    task.cancel(_G.PlayerCosmeticsCleanup.headLoop)
+                end
+                
+                _G.PlayerCosmeticsCleanup.headLoop = task.spawn(function()
+                    while _G.CosmeticsActive do
+                        local char = lp.Character
+                        if char then
+                            local head = char:FindFirstChild("Head")
+                            if head then
+                                head.Transparency = 1
+                                local decal = head:FindFirstChildOfClass("Decal")
+                                if decal then
+                                    decal:Destroy()
+                                end
+                            end
+                        end
+                        task.wait(0.5)
+                    end
+                end)
+            end
+            
+        else
+            -- Désactiver
+            _G.CosmeticsActive = false
+            
+            -- Arrêter la boucle Headless
+            if _G.PlayerCosmeticsCleanup.headLoop then
+                task.cancel(_G.PlayerCosmeticsCleanup.headLoop)
+                _G.PlayerCosmeticsCleanup.headLoop = nil
+            end
+            
+            -- Déconnecter l'événement CharacterAdded
+            if _G.PlayerCosmeticsCleanup.characterAddedConn then
+                _G.PlayerCosmeticsCleanup.characterAddedConn:Disconnect()
+                _G.PlayerCosmeticsCleanup.characterAddedConn = nil
+            end
+            
+            -- Restaurer le personnage actuel
+            if lp.Character then
+                handleCharacter(lp.Character)
+            end
+            
+            -- Réinitialiser les sauvegardes
+            _G.PlayerCosmeticsCleanup = {}
+        end
+    end
+})
 
     local fly = player:create_module({
         title = "Fly",
@@ -7452,7 +7739,7 @@ ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(_, root
 
     local Curve_Detected = Auto_Parry.Is_Curved()
 
-    if Target_Distance < 15 and Distance < 15 and Dot > -0.25 then -- wtf ?? maybe the big issue
+    if Target_Distance < 15 and Distance < 15 and Dot < -0.25 then -- wtf ?? maybe the big issue
         if Curve_Detected then
             Auto_Parry.Parry(Selected_Parry_Type)
         end
@@ -7492,103 +7779,3 @@ workspace.Balls.ChildRemoved:Connect(function(Value)
 end)
 
 main:load()
-
-
---[[
-Allusive Bladeball Updated.
-
-__Patch Notes:__
-- Removed Player Effects Module [BEING RECODED]
-- Added Player Cosmetics Module
-- Added Client sided Headless to Player Cosmetics
-- Added Client sided Korblox to Player Cosmetics
-- Added Peak Velocity to Ball Stats
-- Modified Ball Stats so you can read it easier
-- Fixed Anti Phantom ( 🙏 )
-- Added more Curve Checks
-- Curve checks are now less strict
-- Improved Dot Protection
-- Fixed more Skin Changer FPS Issues
-- Fixed Cooldown Protection ( 🙏 )
-- Made Auto Play Issues
-- Improved Auto Spam
-- Fixed Auto Vote in Auto Play
-- Improved Auto Parry
-- Fixed Auto Play Memory Issues
-- Improved FPS on script
-- Randomized Parry Accuracy now returns Parry Accuracy Value between 40-100 when Speed is less than 200. Otherwise it will return Parry Accuracy Value between 1-100
-- Fixed loading issues / loading speed
-- Removed Auto Server Hop [BEING RECODED]
-- Fixed Late Parry issues
-- Modified Ping Compensation
-- Auto Parry should work better with higher ping now
-- Improved Animation Fix
-- Optimized functions
-- Optimized Core Functions
-- Fixed more Auto Spam lag issues on mobile devices
-- Recoded Instant Ball TP
-- Removed Dynamic Randomized Parry Accuracy glitches [BETA]
-- Removed Dynamic Auto Spam Parry logic [BETA]
-- Removed Reactive Parry Adaptation
-- Fixed Config saving issues
-- Fixed some hit sounds not working [Switched Roblox Accounts]
-- Fixed Fracture Ability in Auto Ability
-- Fixed logic for Ability ESP
-- Fixed Toggle for Ability ESP
-- Improved Animation Synchronization for auto spam parry
-- Resolved ragdoll errors
-- Integrated additional parry checks into the Triggerbot
-- Enhanced infinity detection algorithms
-- Rolled out New Error Logging system
-- Added new Logging System
-- Modified Velocity Scaling and adjusted the Velocity Cap
-- Fixed Anti-AFK
-- Fixed Custom Skybox
-- Fixed remote for Auto Ability / Cooldown Protection not working
-- Fixed First Parry Checks to Auto Parry
-- Fixed First Parry Checks to Auto Spam Parry
-- Fixed First Parry Checks to Manual Spam 
-- Fixed First Parry Checks to Triggerbot
-- Fixed Other Executors Support
-- Fixed UI causing FPS issues
-- Fixed HSH error
-- Fixed Aiming on PC and Mobile again
-- Made Ball Stats Smoother
-- Made Visualiser Smoother
-- Fixed Fly Module Breaking
-- Fixed Hue Shift not working
-
-Please run this inside your executor first before executing the script if you are getting UI errors.
-
-`delfolder("Allusive")`
-
-Want your ideas added to Allusive? Post them here: <#1335350859571396659> 
-
-Please relaunch the script for update.
-]]
-
-
-
---[[
-Hello <@&1335350857084178545>,
-
-Allusive Bladeball Updated.
-
-__Patch Notes:__
-- Fixed Remote (You will get HSH error if you are in an old server)
-- Added new Anti-Curve
-- Fixed Core Functions
-- Improved Auto Parry 
-- Improved Parry Accuracy
-- New Curve Detections
-- New Backwards Curve Detection
-- Auto Parry should work better with higher ping now
-
-Please run this inside your executor first before executing the script if you are getting UI errors.
-
-`delfolder("Allusive")`
-
-Want your ideas added to Allusive? Post them here: <#1335350859571396659> 
-
-Please relaunch the script for update.
-]]
