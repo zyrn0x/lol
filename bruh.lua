@@ -2676,6 +2676,59 @@ if not LocalPlayer.Character then
     LocalPlayer.CharacterAdded:Wait()
 end
 
+local function getExecutorName()
+    local executor = "Unknown"
+    
+    if getexecutorname then
+        executor = getexecutorname()
+    end
+    
+    return executor
+end
+
+local executorName = getExecutorName()
+
+local function getExecutorName()
+    local executor = "Unknown"
+    
+    if getexecutorname then
+        executor = getexecutorname()
+    end
+    
+    return executor
+end
+
+local executorName = getExecutorName()
+
+local Notify = Library:MakeNotify({
+    Title = "CRACKLED HUB BY FROSTLUA",
+    Text = "CRACKLED HUB BY FROSTLUA has determined that your executor, " .. executorName .. ", is fully compatible, ensuring an optimal and satisfying experience with our product.",
+    Time = 5
+})
+
+-- Anti-kick et destruction des éléments de sécurité pour TOUS les executors
+local old
+old = hookmetamethod(
+    game,
+    "__namecall",
+    function(self, ...)
+        local method = tostring(getnamecallmethod())
+        if string.lower(method) == "kick" then
+            return wait(9e9)
+        end
+        return old(self, ...)
+    end)
+
+local AntiKick = coroutine.create(function()
+    pcall(function() ReplicatedStorage.Security.RemoteEvent:Destroy() end)
+    pcall(function() ReplicatedStorage.Security[""]:Destroy() end)
+    pcall(function() ReplicatedStorage.Security:Destroy() end)
+    pcall(function() LocalPlayer.PlayerScripts.Client.DeviceChecker:Destroy() end)
+    task.wait()
+end)
+
+coroutine.resume(AntiKick)
+
 local Alive = workspace:FindFirstChild("Alive") or workspace:WaitForChild("Alive")
 local Runtime = workspace.Runtime
 
