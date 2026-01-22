@@ -2761,40 +2761,64 @@ function isValidRemoteArgs(args)
         type(args[7]) == "boolean"
 end
 
-function hookRemote(remote)
+local function hookRemote(remote)
     if not revertedRemotes[remote] then
-        if not originalMetatables[getrawmetatable(remote)] then
-            originalMetatables[getrawmetatable(remote)] = true
-            local meta = getrawmetatable(remote)
-            setreadonly(meta, false)
+        local meta = getrawmetatable(remote)
+        if not originalMetatables[meta] then
+            originalMetatables[meta] = true  
+            setreadonly(meta, false)  
 
             local oldIndex = meta.__index
             meta.__index = function(self, key)
-                if (key == "FireServer" and self:IsA("RemoteEvent")) or
-                   (key == "InvokeServer" and self:IsA("RemoteFunction")) then
+                if key == "FireServer" and self:IsA("RemoteEvent") then
                     return function(_, ...)
-                        local args = {...}
-                        if isValidRemoteArgs(args) and not revertedRemotes[self] then
-                            revertedRemotes[self] = args
-                            Parry_Key = args[2]
+                        local args = { ... }
+                        if isValidRemoteArgs(args) then
+                            if not revertedRemotes[self] then
+                                revertedRemotes[self] = args
+                            end
                         end
-                        return oldIndex(self, key)(_, unpack(args))
+                        return oldIndex(self, "FireServer")(_, table.unpack(args))
+                    end
+                elseif key == "InvokeServer" and self:IsA("RemoteFunction") then
+                    return function(_, ...)
+                        local args = { ... }
+                        if isValidRemoteArgs(args) then
+                            if not revertedRemotes[self] then
+                                revertedRemotes[self] = args
+                                print("Hooked RemoteFunction:", self.Name)
+                            end
+                        end
+                        return oldIndex(self, "InvokeServer")(_, table.unpack(args))
                     end
                 end
                 return oldIndex(self, key)
             end
+
             setreadonly(meta, true)
         end
     end
 end
 
-for _, remote in pairs(ReplicatedStorage:GetChildren()) do
+local function restoreRemotes()
+    for remote, _ in pairs(revertedRemotes) do
+        if originalMetatables[getmetatable(remote)] then
+            local meta = getrawmetatable(remote)
+            setreadonly(meta, false)
+            meta.__index = nil
+            setreadonly(meta, true)
+        end
+    end
+    revertedRemotes = {}
+end
+
+for _, remote in pairs(game.ReplicatedStorage:GetChildren()) do
     if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
         hookRemote(remote)
     end
 end
 
-ReplicatedStorage.ChildAdded:Connect(function(child)
+game.ReplicatedStorage.ChildAdded:Connect(function(child)
     if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
         hookRemote(child)
     end
