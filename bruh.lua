@@ -1,16 +1,3 @@
-    local mt = getrawmetatable(game)
-    setreadonly(mt,false)
-    local old = mt.__namecall
-    mt.__namecall = newcclosure(function(self,...)
-        local method = getnamecallmethod()
-        if method == "Kick" or method == "Destroy" then
-            return
-        end
-        return old(self,...)
-    end)
-    setreadonly(mt,true)
-end, 110)
-
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2741,6 +2728,19 @@ local System = {
         __parry_delay = 0.5
     }
 }
+
+    local mt = getrawmetatable(game)
+    setreadonly(mt,false)
+    local old = mt.__namecall
+    mt.__namecall = newcclosure(function(self,...)
+        local method = getnamecallmethod()
+        if method == "Kick" or method == "Destroy" then
+            return
+        end
+        return old(self,...)
+    end)
+    setreadonly(mt,true)
+end, 110)
 
 local revertedRemotes = {}
 local originalMetatables = {}
