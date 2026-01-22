@@ -2651,12 +2651,6 @@ end
 local main = Library.new()
 
 local rage = main:create_tab('Autoparry', 'rbxassetid://76499042599127')
-local detectionstab = main:create_tab('Detection', 'rbxassetid://10734951847')
-local set = main:create_tab('Spam', 'rbxassetid://10709781460')
-local pl = main:create_tab('Player', 'rbxassetid://126017907477623')
-local visuals = main:create_tab('Visuals', 'rbxassetid://10723346959')
-local misc = main:create_tab('Misc', 'rbxassetid://132243429647479')
-local devJV = main:create_tab('Exclusive', 'rbxassetid://10734966248')
 
 repeat task.wait() until game:IsLoaded()
 
@@ -3992,4 +3986,33 @@ autoparry_module:create_checkbox({
     callback = function(value)
         getgenv().AutoAbility = value
     end
+})
+
+workspace.ChildRemoved:Connect(function(child)
+    if child.Name == 'Balls' then
+        System.__properties.__cached_balls = nil
+    end
+end)
+
+local balls = workspace:FindFirstChild('Balls')
+if balls then
+    balls.ChildAdded:Connect(function()
+        System.__properties.__parried = false
+    end)
+    
+    balls.ChildRemoved:Connect(function()
+        System.__properties.__parries = 0
+        System.__properties.__parried = false
+    end)
+end
+
+main:load()
+
+local StarterGui = game:GetService('StarterGui')
+
+StarterGui:SetCore('SendNotification', {
+    Title = 'BETA',
+    Text = 'This Version is on BETA',
+    Icon = 'rbxassetid://123456789',
+    Duration = 10,
 })
