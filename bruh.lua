@@ -3126,73 +3126,6 @@ local function linear_predict(a, b, time_volume)
     return a + (b - a) * time_volume
 end
 
-System.detection = {
-    __ball_properties = {
-        __aerodynamic_time = tick(),
-        __last_warping = tick(),
-        __lerp_radians = 0,
-        __curving = tick()
-    }
-}
-
-function System.detection.is_curved()
-    local ball_properties = System.detection.__ball_properties
-    local ball = System.ball.get()
-    
-    if not ball then return false end
-    
-    local zoomies = ball:FindFirstChild('zoomies')
-    if not zoomies then return false end
-    
-    local velocity = zoomies.VectorVelocity
-    local ball_direction = velocity.Unit
-    
-    local direction = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Unit
-    local dot = direction:Dot(ball_direction)
-    
-    local speed = velocity.Magnitude
-    local speed_threshold = math.min(speed / 100, 40)
-    
-    local direction_difference = (ball_direction - velocity).Unit
-    local direction_similarity = direction:Dot(direction_difference)
-    
-    local dot_difference = dot - direction_similarity
-    local distance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
-    
-    local ping = Stats.Network.ServerStatsItem['Data Ping']:GetValue()
-    
-    local dot_threshold = 0.5 - (ping / 1000)
-    local reach_time = distance / speed - (ping / 1000)
-    
-    local ball_distance_threshold = 15 - math.min(distance / 1000, 15) + speed_threshold
-    
-    local clamped_dot = math.clamp(dot, -1, 1)
-    local radians = math.rad(math.asin(clamped_dot))
-    
-    ball_properties.__lerp_radians = linear_predict(ball_properties.__lerp_radians, radians, 0.8)
-    
-    if speed > 0 and reach_time > ping / 10 then
-        ball_distance_threshold = math.max(ball_distance_threshold - 15, 15)
-    end
-    
-    if distance < ball_distance_threshold then return false end
-    if dot_difference < dot_threshold then return true end
-    
-    if ball_properties.__lerp_radians < 0.018 then
-        ball_properties.__last_warping = tick()
-    end
-    
-    if (tick() - ball_properties.__last_warping) < (reach_time / 1.5) then
-        return true
-    end
-    
-    if (tick() - ball_properties.__curving) < (reach_time / 1.5) then
-        return true
-    end
-    
-    return dot < dot_threshold
-end
-
 ReplicatedStorage.Remotes.DeathBall.OnClientEvent:Connect(function(c, d)
     System.__properties.__deathslash_active = d or false
 end)
@@ -3363,10 +3296,6 @@ ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(a, b)
 
     if Enough_Speed and Reach_Time > Pings / 10 then
         Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 15, 15)
-    end
-
-    if b ~= Primary_Part and Distance > Ball_Distance_Threshold then
-        System.detection.__ball_properties.__curving = tick()
     end
 end)
 
@@ -3689,8 +3618,6 @@ function System.autoparry.start()
             local capped_speed_diff = math.min(math.max(speed - 9.5, 0), 650)
             local speed_divisor = (2.4 + capped_speed_diff * 0.002) * System.__properties.__divisor_multiplier
             local parry_accuracy = ping_threshold + math.max(speed / speed_divisor, 9.5)
-            
-            local curved = System.detection.is_curved()
             
             if ball:FindFirstChild('AeroDynamicSlashVFX') then
                 ball.AeroDynamicSlashVFX:Destroy()
