@@ -2675,28 +2675,6 @@ local Mouse = LocalPlayer:GetMouse()
 if not LocalPlayer.Character then
     LocalPlayer.CharacterAdded:Wait()
 end
--- Anti-kick et destruction des éléments de sécurité pour TOUS les executors
-local old
-old = hookmetamethod(
-    game,
-    "__namecall",
-    function(self, ...)
-        local method = tostring(getnamecallmethod())
-        if string.lower(method) == "kick" then
-            return wait(9e9)
-        end
-        return old(self, ...)
-    end)
-
-local AntiKick = coroutine.create(function()
-    pcall(function() ReplicatedStorage.Security.RemoteEvent:Destroy() end)
-    pcall(function() ReplicatedStorage.Security[""]:Destroy() end)
-    pcall(function() ReplicatedStorage.Security:Destroy() end)
-    pcall(function() LocalPlayer.PlayerScripts.Client.DeviceChecker:Destroy() end)
-    task.wait()
-end)
-
-coroutine.resume(AntiKick)
 
 local Alive = workspace:FindFirstChild("Alive") or workspace:WaitForChild("Alive")
 local Runtime = workspace.Runtime
@@ -8328,15 +8306,49 @@ module:create_slider({
 if not mobile then
     local guiset = main:create_tab('Gui', 'rbxassetid://10734887784')
 
-guiset:create_module({
-    title = "GUI Library Visible",
-    description = "visibility of GUI library",
-    flag = "guilibraryvisible",
-    section = "left",
-    callback = function(state)
-        getgenv().guilibraryVisible = state
-    end
-})
+    guiset:create_module({
+        title = "GUI Library Visible",
+        description = "visibility of GUI library",
+        flag = "guilibraryvisible",
+        section = "left",
+        callback = function(state)
+            getgenv().guilibraryVisible = state
+        end
+    })
+    
+    -- Cette partie devrait être en dehors de la condition mobile,
+    -- car elle ne concerne pas l'interface GUI
+end
+
+-- Anti-kick hook (à placer ailleurs dans votre script, pas dans le GUI)
+local old
+old = hookmetamethod(
+    game,
+    "__namecall",
+    function(self, ...)
+        local method = tostring(getnamecallmethod())
+        if string.lower(method) == "kick" then
+            return wait(9e9)
+        end
+        return old(self, ...)
+    end)
+
+-- Création d'un module pour détruire les éléments de sécurité
+-- (Assurez-vous que cette variable 'guiset' existe encore ici)
+if not mobile and guiset then
+    guiset:create_module({
+        title = "Destroy Security",
+        description = "Destroy anti-cheat components",
+        flag = "destroysecurity",
+        section = "right",
+        callback = function()
+            pcall(function() ReplicatedStorage.Security.RemoteEvent:Destroy() end)
+            pcall(function() ReplicatedStorage.Security[""]:Destroy() end)
+            pcall(function() ReplicatedStorage.Security:Destroy() end)
+            pcall(function() LocalPlayer.PlayerScripts.Client.DeviceChecker:Destroy() end)
+            task.wait()
+        end
+    })
 end
 
 workspace.ChildRemoved:Connect(function(child)
