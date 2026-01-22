@@ -1,3 +1,47 @@
+print("Bypassing Security Checks...")
+
+-- First, try to check if the objects exist
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Method 1: Check before destroying
+if ReplicatedStorage:FindFirstChild("Security") then
+local Security = ReplicatedStorage.Security
+
+-- Destroy RemoteEvent if it exists
+local remoteEvent = Security:FindFirstChild("RemoteEvent")
+if remoteEvent then
+remoteEvent:Destroy()
+print("RemoteEvent destroyed")
+end
+
+-- Destroy other children
+for _, child in pairs(Security:GetChildren()) do
+child:Destroy()
+end
+
+-- Destroy the Security folder
+Security:Destroy()
+print("Security folder destroyed")
+end
+
+-- For PlayerScripts, also check
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+if player then
+    if player:FindFirstChild("PlayerScripts") then
+        local PlayerScripts = player.PlayerScripts
+        if PlayerScripts:FindFirstChild("Client") then
+            local Client = PlayerScripts.Client
+            local deviceChecker = Client:FindFirstChild("DeviceChecker")
+            if deviceChecker then
+                deviceChecker:Destroy()
+                print("DeviceChecker destroyed")
+            end
+        end
+    end
+end
+
+print("Bypass complete!")
 
 getgenv().GG = {
     Language = {
