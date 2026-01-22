@@ -1,47 +1,24 @@
-print("Bypassing Security Checks...")
-
--- First, try to check if the objects exist
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
--- Method 1: Check before destroying
-if ReplicatedStorage:FindFirstChild("Security") then
-local Security = ReplicatedStorage.Security
-
--- Destroy RemoteEvent if it exists
-local remoteEvent = Security:FindFirstChild("RemoteEvent")
-if remoteEvent then
-remoteEvent:Destroy()
-print("RemoteEvent destroyed")
+-- Nécessite un exécuteur comme Synapse X, KRNL, ou Fluxus
+if syn then
+    syn.protect_gui = true
 end
 
--- Destroy other children
-for _, child in pairs(Security:GetChildren()) do
-child:Destroy()
-end
+-- Bypasser l'anti-cheat en désactivant certaines vérifications
+local mt = getrawmetatable(game)
+local old = mt.__namecall
+setreadonly(mt, false)
 
--- Destroy the Security folder
-Security:Destroy()
-print("Security folder destroyed")
-end
-
--- For PlayerScripts, also check
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-if player then
-    if player:FindFirstChild("PlayerScripts") then
-        local PlayerScripts = player.PlayerScripts
-        if PlayerScripts:FindFirstChild("Client") then
-            local Client = PlayerScripts.Client
-            local deviceChecker = Client:FindFirstChild("DeviceChecker")
-            if deviceChecker then
-                deviceChecker:Destroy()
-                print("DeviceChecker destroyed")
-            end
-        end
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    
+    if method == "Kick" or method == "kick" then
+        return nil
     end
-end
-
-print("Bypass complete!")
+    
+    return old(self, ...)
+end)
+setreadonly(mt, true)
 
 getgenv().GG = {
     Language = {
