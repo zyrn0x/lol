@@ -1,28 +1,4 @@
-local mt = getrawmetatable(game)
-setreadonly(mt, false)
 
-local namecall = mt.__namecall
-
-mt.__namecall = newcclosure(function(self, ...)
-   local method = getnamecallmethod()
-   local args = {...}
-
-   if method == "FireServer" then
-       if tostring(self) == "SettingEvent" then
-           if args[1] == "CL" then
-               return;
-           end
-       elseif tostring(self) == "KickEvent" then
-           return;
-       elseif tostring(self) ~= "KickEvent" and tostring(self) ~= "SettingEvent" then
-            return namecall(self, table.unpack(args))
-       end
-   else
-       return namecall(self, table.unpack(args))
-   end
-end)
-
-print("Loaded Anti-Cheat Bypass!");
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2692,6 +2668,66 @@ local TweenService = cloneref(game:GetService('TweenService'))
 local Stats = cloneref(game:GetService('Stats'))
 local Debris = cloneref(game:GetService('Debris'))
 local CoreGui = cloneref(game:GetService('CoreGui'))
+
+-- Au début de votre script, après les services et variables initialisées
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+-- Fonction anti-kick
+local function setupAntiKick()
+    local function getExecutorName()
+        local executor = "Unknown"
+        if getexecutorname then
+            executor = getexecutorname()
+        end
+        return executor
+    end
+
+    local executorName = getExecutorName()
+    
+    -- Hook pour bloquer les kicks
+    local old
+    old = hookmetamethod(
+        game,
+        "__namecall",
+        function(self, ...)
+            local method = tostring(getnamecallmethod())
+            if string.lower(method) == "kick" then
+                return wait(9e9)
+            end
+            return old(self, ...)
+        end)
+
+    -- Destruction des composants de sécurité
+    task.spawn(function()
+        if ReplicatedStorage:FindFirstChild("Security") then
+            local security = ReplicatedStorage.Security
+            if security:FindFirstChildOfClass("RemoteEvent") then
+                security:FindFirstChildOfClass("RemoteEvent"):Destroy()
+            end
+            if security:FindFirstChild("") then  -- Nom vide
+                security[""]:Destroy()
+            end
+            security:Destroy()
+        end
+        
+        if LocalPlayer.PlayerScripts:FindFirstChild("Client") then
+            local clientScripts = LocalPlayer.PlayerScripts.Client
+            if clientScripts:FindFirstChild("DeviceChecker") then
+                clientScripts.DeviceChecker:Destroy()
+            end
+        end
+    end)
+    
+    print("[Anti-Kick] Protection activée pour l'exécuteur: " .. executorName)
+end
+
+-- Appeler la fonction au démarrage
+setupAntiKick()
+
+-- Votre code continue ici...
+-- ... tout le reste de votre script
 
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
