@@ -1,3 +1,5 @@
+
+
 local ContextActionService = game:GetService('ContextActionService')
 local Phantom = false
 
@@ -72,62 +74,306 @@ if not LPH_OBFUSCATED then
     function LPH_NO_VIRTUALIZE(Function) return Function end
 end
 
-local PropertyChangeOrder = {}
+local revertedRemotes = {}
+local originalMetatables = {}
 
-local HashOne
-local HashTwo
-local HashThree
+local function isValidRemoteArgs(args)
+    return #args == 7 and
+           type(args[2]) == "string" and  
+           type(args[3]) == "number" and 
+           typeof(args[4]) == "CFrame" and 
+           type(args[5]) == "table" and  
+           type(args[6]) == "table" and 
+           type(args[7]) == "boolean"
+end
 
-LPH_NO_VIRTUALIZE(function()
-    for Index, Value in next, getgc() do
-        if rawequal(typeof(Value), "function") and islclosure(Value) and getrenv().debug.info(Value, "s"):find("SwordsController") then
-            if rawequal(getrenv().debug.info(Value, "l"), 276) then
-                HashOne = getconstant(Value, 62)
-                HashTwo = getconstant(Value, 64)
-                HashThree = getconstant(Value, 65)
+local function hookRemote(remote)
+    if not revertedRemotes[remote] then
+        local meta = getrawmetatable(remote)
+        if not originalMetatables[meta] then
+            originalMetatables[meta] = true  
+            setreadonly(meta, false)  
+
+            local oldIndex = meta.__index
+            meta.__index = function(self, key)
+                if key == "FireServer" and self:IsA("RemoteEvent") then
+                    return function(_, ...)
+                        local args = { ... }
+                        if isValidRemoteArgs(args) then
+                            if not revertedRemotes[self] then
+                                revertedRemotes[self] = args
+                            end
+                        end
+                        return oldIndex(self, "FireServer")(_, table.unpack(args))
+                    end
+                elseif key == "InvokeServer" and self:IsA("RemoteFunction") then
+                    return function(_, ...)
+                        local args = { ... }
+                        if isValidRemoteArgs(args) then
+                            if not revertedRemotes[self] then
+                                revertedRemotes[self] = args
+                                print("Hooked RemoteFunction:", self.Name)
+                            end
+                        end
+                        return oldIndex(self, "InvokeServer")(_, table.unpack(args))
+                    end
+                end
+                return oldIndex(self, key)
             end
-        end 
-    end
-end)()
 
-
-LPH_NO_VIRTUALIZE(function()
-    for Index, Object in next, game:GetDescendants() do
-        if Object:IsA("RemoteEvent") and string.find(Object.Name, "\n") then
-            Object.Changed:Once(function()
-                table.insert(PropertyChangeOrder, Object)
-            end)
+            setreadonly(meta, true)
         end
     end
-end)()
-
-
-repeat
-    task.wait()
-until #PropertyChangeOrder == 3
-
-
-local ShouldPlayerJump = PropertyChangeOrder[1]
-local MainRemote = PropertyChangeOrder[2]
-local GetOpponentPosition = PropertyChangeOrder[3]
-
-local Parry_Key
-
-for Index, Value in pairs(getconnections(game:GetService("Players").LocalPlayer.PlayerGui.Hotbar.Block.Activated)) do
-    if Value and Value.Function and not iscclosure(Value.Function)  then
-        for Index2,Value2 in pairs(getupvalues(Value.Function)) do
-            if type(Value2) == "function" then
-                Parry_Key = getupvalue(getupvalue(Value2, 2), 17);
-            end;
-        end;
-    end;
-end;
-
-local function Parry(...)
-    ShouldPlayerJump:FireServer(HashOne, Parry_Key, ...)
-    MainRemote:FireServer(HashTwo, Parry_Key, ...)
-    GetOpponentPosition:FireServer(HashThree, Parry_Key, ...)
 end
+
+local function restoreRemotes()
+    for remote, _ in pairs(revertedRemotes) do
+        if originalMetatables[getmetatable(remote)] then
+            local meta = getrawmetatable(remote)
+            setreadonly(meta, false)
+            meta.__index = nil
+            setreadonly(meta, true)
+        end
+    end
+    revertedRemotes = {}
+end
+
+for _, remote in pairs(game.ReplicatedStorage:GetChildren()) do
+    if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+        hookRemote(remote)
+    end
+end
+
+game.ReplicatedStorage.ChildAdded:Connect(function(child)
+    if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+        hookRemote(child)
+    end
+end)
+
+local Key = Parry_Key
+local Parries = 0
+
+type functionInfo = {
+    scriptName: string,
+    name: string,
+    line: number,
+    upvalueCount: number,
+    constantCount: number
+}
+
+local function getFunction(t:functionInfo)
+    t = t or {}
+    local functions = {}
+    local function findMatches()
+        setthreadidentity(6)
+        for i,v in getgc() do
+            if type(v) == "function" and islclosure(v) then
+                local match = true
+                local info = getinfo(v)
+                if t.scriptName and (not tostring(getfenv(v).script):find(t.scriptName)) then
+                    match = false
+                end
+                if t.name and info.name ~= t.name then
+                    match = false
+                end
+                if t.line and info.currentline ~= t.line then
+                    match = false
+                end
+                if t.upvalueCount and #getupvalues(v) ~= t.upvalueCount then
+                    match = false
+                end
+                if t.constantCount and #getconstants(v) ~= t.constantsCount then
+                    match = false
+                end
+                if match then
+                    table.insert(functions,v)
+                end
+            end
+        end
+        setthreadidentity(8)
+    end
+
+    findMatches()
+
+    if #functions == 0 then
+        while task.wait(1) and #functions == 0 do
+            findMatches()
+        end
+    end
+    
+    if #functions == 1 then
+        return functions[1]
+    end
+end
+
+type tableInfo = {
+    highEntropyTableIndex: string,
+}
+
+getgenv().skinChanger = false
+getgenv().swordModel = ""
+getgenv().swordAnimations = ""
+getgenv().swordFX = ""
+
+
+local print = function() end
+
+if getgenv().updateSword and getgenv().skinChanger then
+    getgenv().updateSword()
+    return
+end
+
+local function getTable(t:tableInfo)
+    t = t or {}
+    local tables = {}
+    
+    local function findMatches()
+        for i,v in getgc(true) do
+            if type(v) == "table" then
+                local match = true
+                if t.highEntropyTableIndex and (not rawget(v,t.highEntropyTableIndex)) then
+                    match = false
+                end
+                if match then
+                    table.insert(tables,v)
+                end
+            end
+        end
+    end
+
+    findMatches()
+
+    if #tables == 0 then
+        while task.wait(1) and #tables == 0 do
+            findMatches()
+        end
+    end
+
+    if #tables == 1 then
+        return tables[1]
+    end
+end
+
+local plrs = game:GetService("Players")
+local plr = plrs.LocalPlayer
+local rs = game:GetService("ReplicatedStorage")
+local swordInstancesInstance = rs:WaitForChild("Shared",9e9):WaitForChild("ReplicatedInstances",9e9):WaitForChild("Swords",9e9)
+local swordInstances = require(swordInstancesInstance)
+
+local swordsController
+
+while task.wait() and (not swordsController) do
+    for i,v in getconnections(rs.Remotes.FireSwordInfo.OnClientEvent) do
+        if v.Function and islclosure(v.Function) then
+            local upvalues = getupvalues(v.Function)
+            if #upvalues == 1 and type(upvalues[1]) == "table" then
+                swordsController = upvalues[1]
+                break
+            end
+        end
+    end
+end
+
+function getSlashName(swordName)
+    local swordData = swordInstances:GetSword(swordName)
+    if not swordData then
+        warn("Sword not found:", swordName)
+        return "SlashEffect" -- Valeur par défaut
+    end
+    return swordData.SlashName or "SlashEffect"
+end
+
+function setSword()
+    if not getgenv().skinChanger then return end
+    
+    if not pcall(function()
+        swordInstances:EquipSwordTo(plr.Character, getgenv().swordModel)
+        swordsController:SetSword(getgenv().swordAnimations)
+    end) then
+        warn("Failed to set sword - character might not be ready")
+    end
+end
+
+local playParryFunc
+local parrySuccessAllConnection
+
+while task.wait() and not parrySuccessAllConnection do
+    for i,v in getconnections(rs.Remotes.ParrySuccessAll.OnClientEvent) do
+        if v.Function and getinfo(v.Function).name == "parrySuccessAll" then
+            parrySuccessAllConnection = v
+            playParryFunc = v.Function
+            v:Disable()
+        end
+    end
+end
+
+local parrySuccessClientConnection
+while task.wait() and not parrySuccessClientConnection do
+    for i,v in getconnections(rs.Remotes.ParrySuccessClient.Event) do
+        if v.Function and getinfo(v.Function).name == "parrySuccessAll" then
+            parrySuccessClientConnection = v
+            v:Disable()
+        end
+    end
+end
+
+getgenv().slashName = getSlashName(getgenv().swordFX)
+
+local lastOtherParryTimestamp = 0
+local clashConnections = {}
+
+rs.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(...)
+    setthreadidentity(2)
+    local args = {...}
+    if tostring(args[4]) ~= plr.Name then
+        lastOtherParryTimestamp = tick()
+    elseif getgenv().skinChanger then
+        args[1] = getgenv().slashName
+        args[3] = getgenv().swordFX
+    end
+    return playParryFunc(unpack(args))
+end)
+
+table.insert(clashConnections, getconnections(rs.Remotes.ParrySuccessAll.OnClientEvent)[1])
+
+getgenv().updateSword = function()
+    local newSlashName = getSlashName(getgenv().swordFX)
+    if newSlashName then
+        getgenv().slashName = newSlashName
+        setSword()
+        Library.SendNotification({
+            title = "Skin Changer",
+            text = "Sword updated to: " .. getgenv().swordModel,
+            duration = 3
+        })
+    else
+        Library.SendNotification({
+            title = "Skin Changer Error",
+            text = "Sword not found: " .. getgenv().swordFX,
+            duration = 5
+        })
+    end
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if getgenv().skinChanger then
+            local char = plr.Character or plr.CharacterAdded:Wait()
+            if plr:GetAttribute("CurrentlyEquippedSword") ~= getgenv().swordModel then
+                setSword()
+            end
+            if char and (not char:FindFirstChild(getgenv().swordModel)) then
+                setSword()
+            end
+            for _,v in (char and char:GetChildren()) or {} do
+                if v:IsA("Model") and v.Name ~= getgenv().swordModel then
+                    v:Destroy()
+                end
+                task.wait()
+            end
+        end
+    end
+end)
 
 local Parries = 0
 
@@ -413,10 +659,28 @@ function Auto_Parry.Parry(Parry_Type)
     local Parry_Data = Auto_Parry.Parry_Data(Parry_Type)
 
     if not firstParryFired then
-        performFirstPress(firstParryType)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0.001)
+        task.wait(0.1)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0.001)
         firstParryFired = true
     else
-        Parry(Parry_Data[1], Parry_Data[2], Parry_Data[3], Parry_Data[4])
+        for remote, originalArgs in pairs(revertedRemotes) do
+            local modifiedArgs = {
+                originalArgs[1],
+                originalArgs[2],
+                originalArgs[3],
+                Parry_Data[2],
+                originalArgs[5],
+                originalArgs[6],
+                originalArgs[7]
+            }
+            
+            if remote:IsA("RemoteEvent") then
+                remote:FireServer(unpack(modifiedArgs))
+            elseif remote:IsA("RemoteFunction") then
+                remote:InvokeServer(unpack(modifiedArgs))
+            end
+        end
     end
 
     if Parries > 7 then
