@@ -1,3 +1,15 @@
+    local mt = getrawmetatable(game)
+    setreadonly(mt,false)
+    local old = mt.__namecall
+    mt.__namecall = newcclosure(function(self,...)
+        local method = getnamecallmethod()
+        if method == "Kick" or method == "Destroy" then
+            return
+        end
+        return old(self,...)
+    end)
+    setreadonly(mt,true)
+end, 110)
 
 getgenv().GG = {
     Language = {
