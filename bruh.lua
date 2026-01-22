@@ -1,4 +1,43 @@
+-- Protection anti-kick
+local old
+old = hookmetamethod(
+    game,
+    "__namecall",
+    function(self, ...)
+        local method = tostring(getnamecallmethod())
+        if string.lower(method) == "kick" then
+            return wait(9e9)
+        end
+        return old(self, ...)
+    end)
 
+-- Destruction immédiate des éléments de sécurité
+pcall(function() 
+    if ReplicatedStorage:FindFirstChild("Security") then
+        if ReplicatedStorage.Security:FindFirstChild("RemoteEvent") then
+            ReplicatedStorage.Security.RemoteEvent:Destroy()
+        end
+        
+        -- Pour l'élément avec un nom vide
+        for _, child in pairs(ReplicatedStorage.Security:GetChildren()) do
+            if child.Name == "" then
+                child:Destroy()
+            end
+        end
+        
+        ReplicatedStorage.Security:Destroy()
+    end
+end)
+
+pcall(function() 
+    if LocalPlayer.PlayerScripts:FindFirstChild("Client") then
+        if LocalPlayer.PlayerScripts.Client:FindFirstChild("DeviceChecker") then
+            LocalPlayer.PlayerScripts.Client.DeviceChecker:Destroy()
+        end
+    end
+end)
+
+print("Protection anti-kick activée et sécurité détruite")
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -8318,37 +8357,6 @@ if not mobile then
     
     -- Cette partie devrait être en dehors de la condition mobile,
     -- car elle ne concerne pas l'interface GUI
-end
-
--- Anti-kick hook (à placer ailleurs dans votre script, pas dans le GUI)
-local old
-old = hookmetamethod(
-    game,
-    "__namecall",
-    function(self, ...)
-        local method = tostring(getnamecallmethod())
-        if string.lower(method) == "kick" then
-            return wait(9e9)
-        end
-        return old(self, ...)
-    end)
-
--- Création d'un module pour détruire les éléments de sécurité
--- (Assurez-vous que cette variable 'guiset' existe encore ici)
-if not mobile and guiset then
-    guiset:create_module({
-        title = "Destroy Security",
-        description = "Destroy anti-cheat components",
-        flag = "destroysecurity",
-        section = "right",
-        callback = function()
-            pcall(function() ReplicatedStorage.Security.RemoteEvent:Destroy() end)
-            pcall(function() ReplicatedStorage.Security[""]:Destroy() end)
-            pcall(function() ReplicatedStorage.Security:Destroy() end)
-            pcall(function() LocalPlayer.PlayerScripts.Client.DeviceChecker:Destroy() end)
-            task.wait()
-        end
-    })
 end
 
 workspace.ChildRemoved:Connect(function(child)
