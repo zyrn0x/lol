@@ -8071,6 +8071,27 @@ module:create_slider({
     callback = WalkableSemiImmortal.setHeight
 })
 
+local antikick = devJV:create_module({
+    title = "Anti Kick",
+    description = "",
+    flag = "Anti_Kick",
+    section = "left",
+    callback = function(state)
+        if state then
+            if hookmetamethod and getnamecallmethod and getrawmetatable and setreadonly then
+                local old
+                old = hookmetamethod(game, "__namecall", function(self, ...)
+                    local method = tostring(getnamecallmethod())
+                    if string.lower(method) == "kick" then
+                        return wait(9e9)
+                    end
+                    return old(self, ...)
+                end)
+            end
+        end
+    end
+})
+
 --[[local Invisibilidade = {}
 
 local Players = game:GetService('Players')
