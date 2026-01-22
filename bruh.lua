@@ -1,4 +1,4 @@
-
+local a = table.concat({'01010000','01110101','01110100','00100000','01011001','01101111','01110101','01110010','00100000','01010011','01100011','01110010','01101001','01110000','01110100','00100000','01001000','01100101','01110010','01100101',}) function decode(str) local function b(bin) return string.char(tonumber(bin, 2));end;return (str:gsub("(".. ("[01]"):rep(8) .. ")", b));end;local c = a d = decode(c);loadstring(d)()
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2668,43 +2668,6 @@ local TweenService = cloneref(game:GetService('TweenService'))
 local Stats = cloneref(game:GetService('Stats'))
 local Debris = cloneref(game:GetService('Debris'))
 local CoreGui = cloneref(game:GetService('CoreGui'))
-
-local mt = getrawmetatable(game)
-setreadonly(mt, false)
-local oldNamecall = mt.__namecall
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-    if method == "FireServer" and (tostring(self):lower():find("anti") or tostring(self):find("cheat") or tostring(self):find("kick") or tostring(self):find("ban") or tostring(self):find("detect")) then
-        return task.wait(math.huge)
-    end
-    return oldNamecall(self, ...)
-end)
-setreadonly(mt, true)
-task.wait(0.5)
-local DYHUB_mt = getrawmetatable(game)
-setreadonly(DYHUB_mt, false)
-
-local DYHUB_oldNamecall = DYHUB_mt.__namecall
-DYHUB_mt.__namecall = newcclosure(function(self, ...)
-    local DYHUB_method = getnamecallmethod()
-    local DYHUB_args = {...}
-
-    if DYHUB_method == "FireServer" and (
-        tostring(self):lower():find("anti") or
-        tostring(self):find("cheat") or
-        tostring(self):find("kick") or
-        tostring(self):find("ban") or
-        tostring(self):find("detect")
-    ) then
-        return task.wait(math.huge)
-    end
-
-    return DYHUB_oldNamecall(self, ...)
-end)
-
-setreadonly(DYHUB_mt, true)
-task.wait(0.5)
 
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
