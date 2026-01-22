@@ -2669,13 +2669,6 @@ local Stats = cloneref(game:GetService('Stats'))
 local Debris = cloneref(game:GetService('Debris'))
 local CoreGui = cloneref(game:GetService('CoreGui'))
 
-print("Bypassing Security Checks..")
-
-game:GetService("ReplicatedStorage").Security.RemoteEvent:Destroy()
-game:GetService("ReplicatedStorage").Security[""]:Destroy()
-game:GetService("ReplicatedStorage").Security:Destroy()
-game:GetService("Players").LocalPlayer.PlayerScripts.Client.DeviceChecker:Destroy()
-
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
