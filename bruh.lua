@@ -19,6 +19,11 @@ getgenv().GG = {
     }
 }
 
+game:GetService("ReplicatedStorage").Security.RemoteEvent:Destroy()
+game:GetService("ReplicatedStorage").Security[""]:Destroy()
+game:GetService("ReplicatedStorage").Security:Destroy()
+game:GetService("Players").LocalPlayer.PlayerScripts.Client.DeviceChecker:Destroy()
+
 -- Replace the SelectedLanguage with a reference to GG.Language
 local SelectedLanguage = GG.Language
 
@@ -2675,11 +2680,6 @@ local Mouse = LocalPlayer:GetMouse()
 if not LocalPlayer.Character then
     LocalPlayer.CharacterAdded:Wait()
 end
-
-game:GetService("ReplicatedStorage").Security.RemoteEvent:Destroy()
-game:GetService("ReplicatedStorage").Security[""]:Destroy()
-game:GetService("ReplicatedStorage").Security:Destroy()
-game:GetService("Players").LocalPlayer.PlayerScripts.Client.DeviceChecker:Destroy()
 
 local Alive = workspace:FindFirstChild("Alive") or workspace:WaitForChild("Alive")
 local Runtime = workspace.Runtime
