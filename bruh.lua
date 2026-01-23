@@ -6737,7 +6737,7 @@ if isStudio then
 		}
 	})
 	
-	--[[local Window = Luna:CreateWindow({
+	local Window = Luna:CreateWindow({
 		Name = "Luna Example Window",
 		Subtitle = "Test",
 		LogoID = "6031097225",
@@ -6922,7 +6922,7 @@ if isStudio then
 	s:CreateDropdown()
 
 	Tabs.Premium:BuildConfigSection()
-	Tabs.Premium:BuildThemeSection()]]
+	Tabs.Premium:BuildThemeSection()
 end
 
 -- THIS IS THE DEBUG DEMO, ONLY USED WHEN TESTING NEW ELEMENTS AND CODE
