@@ -1,30 +1,3 @@
-task.spawn(function()
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
-
-local Window = WindUI:CreateWindow({
-    Title = "OMZ Hub",
-    --Author = "zyrn0x",
-    Folder = "OMZ_Config",
-    Icon = "solar:folder-2-bold-duotone",
-    OpenButton = {
-        Title = "Ouvrir OMZ",
-        CornerRadius = UDim.new(1,0),
-        Enabled = true,
-        Draggable = true,
-        Scale = 0.55,
-        Color = ColorSequence.new(
-            Color3.fromHex("#00ffea"),
-            Color3.fromHex("#ff00aa")
-        )
-    },
-    Topbar = { Height = 44, ButtonsType = "Mac" },
-})
-
--- Tags (optionnel)
-Window:Tag({ Title = "v1.0 • OMZ", Icon = "github", Color = Color3.fromHex("#1c1c1c"), Border = true })
-
-end)
-
 local Players = cloneref(game:GetService('Players'))
 local ReplicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
 local UserInputService = cloneref(game:GetService('UserInputService'))
@@ -1159,6 +1132,30 @@ local function destroy_mobile_gui(gui_data)
         gui_data.gui:Destroy()
     end
 end
+
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "OMZ Hub",
+    --Author = "zyrn0x",
+    Folder = "OMZ_Config",
+    Icon = "solar:folder-2-bold-duotone",
+    OpenButton = {
+        Title = "Ouvrir OMZ",
+        CornerRadius = UDim.new(1,0),
+        Enabled = true,
+        Draggable = true,
+        Scale = 0.55,
+        Color = ColorSequence.new(
+            Color3.fromHex("#00ffea"),
+            Color3.fromHex("#ff00aa")
+        )
+    },
+    Topbar = { Height = 44, ButtonsType = "Mac" },
+})
+
+-- Tags (optionnel)
+Window:Tag({ Title = "v1.0 • OMZ", Icon = "github", Color = Color3.fromHex("#1c1c1c"), Border = true })
 
 -- ────────────────────────────────────────────────────────────────
 --  COMBAT / AUTOPARRY / SPAM TAB
