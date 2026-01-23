@@ -455,6 +455,12 @@ function System.parry.execute()
     end)
 end
 
+local function PF()
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+    task.wait(0.01)  -- Small delay to simulate a natural press
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+end
+
 function System.parry.keypress()
     if System.__properties.__parries > 10000 or not LocalPlayer.Character then
         return
@@ -1927,7 +1933,7 @@ ManualSpamSection:Slider({
     Title = "Spam Rate",
     Value = { Min = 60, Max = 5000, Default = 240 },
     Step = 10,
-    Callback = ffunction(value)
+    Callback = function(value)
         System.__properties.__spam_rate = value
     end
 })
