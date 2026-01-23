@@ -1,27 +1,3 @@
-local WindUI
-
-do
-    local ok, result = pcall(function()
-        return require("./src/Init")
-    end)
-    
-    if ok then
-        WindUI = result
-    else 
-        if cloneref(game:GetService("RunService"):IsStudio()) then
-            WindUI = require(cloneref(ReplicatedStorage:WaitForChild("WindUI"):WaitForChild("Init")))
-        else
-            WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
-        end
-    end
-end
-
-local Window = WindUI:CreateWindow({
-    Title = "My Super Hub",
-    Icon = "door-open", -- lucide icon. optional
-    Author = "by .ftgs and .ftgs", -- optional
-})
-
 repeat task.wait() until game:IsLoaded()
 
 local Players = cloneref(game:GetService('Players'))
@@ -1158,6 +1134,30 @@ local function destroy_mobile_gui(gui_data)
         gui_data.gui:Destroy()
     end
 end
+
+local WindUI
+
+do
+    local ok, result = pcall(function()
+        return require("./src/Init")
+    end)
+    
+    if ok then
+        WindUI = result
+    else 
+        if cloneref(game:GetService("RunService"):IsStudio()) then
+            WindUI = require(cloneref(ReplicatedStorage:WaitForChild("WindUI"):WaitForChild("Init")))
+        else
+            WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+        end
+    end
+end
+
+local Window = WindUI:CreateWindow({
+    Title = "My Super Hub",
+    Icon = "door-open", -- lucide icon. optional
+    Author = "by .ftgs and .ftgs", -- optional
+})
 
 -- ────────────────────────────────────────────────────────────────
 --  COMBAT / AUTOPARRY / SPAM TAB
