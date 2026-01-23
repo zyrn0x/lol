@@ -1,15 +1,3 @@
-local RunService = game:GetService("RunService")
---[[
-
-    WindUI Example (wip)
-    
-]]
-
-
-local cloneref = (cloneref or clonereference or function(instance) return instance end)
-local ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
-
-
 local WindUI
 
 do
