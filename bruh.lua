@@ -1,6 +1,6 @@
+task.spawn(function()
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
--- Création de la fenêtre principale
 local Window = WindUI:CreateWindow({
     Title = "OMZ Hub",
     --Author = "zyrn0x",
@@ -23,7 +23,7 @@ local Window = WindUI:CreateWindow({
 -- Tags (optionnel)
 Window:Tag({ Title = "v1.0 • OMZ", Icon = "github", Color = Color3.fromHex("#1c1c1c"), Border = true })
 
-repeat task.wait() until game:IsLoaded()
+end)
 
 local Players = cloneref(game:GetService('Players'))
 local ReplicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
@@ -3037,305 +3037,26 @@ OtherVisualsSection:Toggle({
     end
 })
 
-local HttpService = game:GetService("HttpService")
-local UserInputService = game:GetService("UserInputService")
-
-local save_folder = workspace:FindFirstChild("OwO") or Instance.new("Folder", workspace)
-save_folder.Name = "OwO"
-
-local function load_pos()
-    local file = save_folder:FindFirstChild("ball_ui_pos")
-    if not file then return nil end
-
-    local ok, data = pcall(function()
-        return HttpService:JSONDecode(file.Value)
-    end)
-
-    if ok and data and data.x and data.y then
-        return UDim2.new(0, data.x, 0, data.y)
-    end
-
-    return nil
-end
-
-local function save_pos(udim)
-    local data = {
-        x = udim.X.Offset,
-        y = udim.Y.Offset
-    }
-
-    local json = HttpService:JSONEncode(data)
-
-    local file = save_folder:FindFirstChild("ball_ui_pos") or Instance.new("StringValue", save_folder)
-    file.Name = "ball_ui_pos"
-    file.Value = json
-end
-
-
-local ball_velocity = {
-    __config = {
-        gui_name = "BallStatsGui",
-        colors = {
-            background = Color3.fromRGB(18, 18, 18),
-            container = Color3.fromRGB(28, 28, 28),
-            header = Color3.fromRGB(12, 12, 12),
-            text_primary = Color3.fromRGB(255, 255, 255),
-            text_secondary = Color3.fromRGB(170, 170, 170),
-            accent_green = Color3.fromRGB(34, 197, 94),
-            accent_orange = Color3.fromRGB(249, 115, 22),
-            border = Color3.fromRGB(40, 40, 40)
-        }
-    },
-
-    __state = {
-        active = false,
-        gui = nil,
-        ball_data = {},
-        is_dragging = false
-    }
-}
-
-function ball_velocity.create_corner(radius)
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, radius or 8)
-    return corner
-end
-
-function ball_velocity.create_stroke(thickness, color)
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = thickness or 1
-    stroke.Color = color or ball_velocity.__config.colors.border
-    return stroke
-end
-
-function ball_velocity.create_gui()
-    local gui = Instance.new("ScreenGui")
-    gui.Name = ball_velocity.__config.gui_name
-    gui.ResetOnSpawn = false
-    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    gui.Parent = LocalPlayer:WaitForChild("CoreGui")
-
-    local main_frame = Instance.new("Frame")
-    main_frame.Name = "MainFrame"
-    main_frame.Size = UDim2.new(0, 180, 0, 95)
-    main_frame.Position = load_pos() or UDim2.new(0, 20, 0, 150)
-    main_frame.BackgroundColor3 = ball_velocity.__config.colors.background
-    main_frame.BorderSizePixel = 0
-    main_frame.Parent = gui
-
-    ball_velocity.create_corner(10).Parent = main_frame
-    ball_velocity.create_stroke(1, ball_velocity.__config.colors.border).Parent = main_frame
-
-    local header = Instance.new("Frame")
-    header.Name = "Header"
-    header.Size = UDim2.new(1, 0, 0, 26)
-    header.Position = UDim2.new(0, 0, 0, 0)
-    header.BackgroundColor3 = ball_velocity.__config.colors.header
-    header.BorderSizePixel = 0
-    header.Parent = main_frame
-
-    ball_velocity.create_corner(10).Parent = header
-
-    local title = Instance.new("TextLabel")
-    title.Name = "Title"
-    title.Size = UDim2.new(1, -12, 1, 0)
-    title.Position = UDim2.new(0, 12, 0, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "Ball Stats"
-    title.TextColor3 = ball_velocity.__config.colors.text_primary
-    title.TextSize = 13
-    title.Font = Enum.Font.GothamBold
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.Parent = header
-
-    local content = Instance.new("Frame")
-    content.Name = "Content"
-    content.Size = UDim2.new(1, -18, 1, -34)
-    content.Position = UDim2.new(0, 9, 0, 30)
-    content.BackgroundTransparency = 1
-    content.Parent = main_frame
-
-    local current_label = Instance.new("TextLabel")
-    current_label.Name = "CurrentLabel"
-    current_label.Size = UDim2.new(1, 0, 0, 14)
-    current_label.Position = UDim2.new(0, 0, 0, 2)
-    current_label.BackgroundTransparency = 1
-    current_label.Text = "Current"
-    current_label.TextColor3 = ball_velocity.__config.colors.text_secondary
-    current_label.TextSize = 10
-    current_label.Font = Enum.Font.Gotham
-    current_label.TextXAlignment = Enum.TextXAlignment.Left
-    current_label.Parent = content
-
-    local current_value = Instance.new("TextLabel")
-    current_value.Name = "CurrentValue"
-    current_value.Size = UDim2.new(1, 0, 0, 20)
-    current_value.Position = UDim2.new(0, 0, 0, 14)
-    current_value.BackgroundTransparency = 1
-    current_value.Text = "0.0"
-    current_value.TextColor3 = ball_velocity.__config.colors.accent_green
-    current_value.TextSize = 16
-    current_value.Font = Enum.Font.GothamBold
-    current_value.TextXAlignment = Enum.TextXAlignment.Left
-    current_value.Parent = content
-
-    local peak_label = Instance.new("TextLabel")
-    peak_label.Name = "PeakLabel"
-    peak_label.Size = UDim2.new(1, 0, 0, 14)
-    peak_label.Position = UDim2.new(0, 0, 0, 36)
-    peak_label.BackgroundTransparency = 1
-    peak_label.Text = "Peak"
-    peak_label.TextColor3 = ball_velocity.__config.colors.text_secondary
-    peak_label.TextSize = 10
-    peak_label.Font = Enum.Font.Gotham
-    peak_label.TextXAlignment = Enum.TextXAlignment.Left
-    peak_label.Parent = content
-
-    local peak_value = Instance.new("TextLabel")
-    peak_value.Name = "PeakValue"
-    peak_value.Size = UDim2.new(1, 0, 0, 20)
-    peak_value.Position = UDim2.new(0, 0, 0, 50)
-    peak_value.BackgroundTransparency = 1
-    peak_value.Text = "0.0"
-    peak_value.TextColor3 = ball_velocity.__config.colors.accent_orange
-    peak_value.TextSize = 16
-    peak_value.Font = Enum.Font.GothamBold
-    peak_value.TextXAlignment = Enum.TextXAlignment.Left
-    peak_value.Parent = content
-
-
-    local drag_start, start_pos
-
-    header.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-
-            ball_velocity.__state.is_dragging = true
-            drag_start = input.Position
-            start_pos = main_frame.Position
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if ball_velocity.__state.is_dragging and
-            (input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch) then
-
-            local delta = input.Position - drag_start
-            local newpos = UDim2.new(
-                start_pos.X.Scale, start_pos.X.Offset + delta.X,
-                start_pos.Y.Scale, start_pos.Y.Offset + delta.Y
-            )
-
-            main_frame.Position = newpos
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-
-            ball_velocity.__state.is_dragging = false
-            save_pos(main_frame.Position)
-        end
-    end)
-
-    return gui, current_value, peak_value
-end
-
-function ball_velocity.start()
-    if ball_velocity.__state.active then return end
-
-    ball_velocity.__state.active = true
-    ball_velocity.__state.ball_data = {}
-
-    local gui, current_value, peak_value = ball_velocity.create_gui()
-    ball_velocity.__state.gui = gui
-
-    System.__properties.__connections.ball_velocity =
-        RunService.Heartbeat:Connect(function()
-
-            local ball = System.ball.get()
-
-            if not ball then
-                current_value.Text = "0.0"
-                peak_value.Text = "0.0"
-                return
-            end
-
-            local zoomies = ball:FindFirstChild("zoomies")
-            if not zoomies then
-                current_value.Text = "0.0"
-                return
-            end
-
-            local velocity = zoomies.VectorVelocity.Magnitude
-
-            ball_velocity.__state.ball_data[ball] =
-                ball_velocity.__state.ball_data[ball] or 0
-
-            if velocity > ball_velocity.__state.ball_data[ball] then
-                ball_velocity.__state.ball_data[ball] = velocity
-            end
-
-            current_value.Text = string.format("%.1f", velocity)
-            peak_value.Text = string.format("%.1f",
-                ball_velocity.__state.ball_data[ball])
-        end)
-end
-
-function ball_velocity.stop()
-    if not ball_velocity.__state.active then return end
-
-    ball_velocity.__state.active = false
-
-    if System.__properties.__connections.ball_velocity then
-        System.__properties.__connections.ball_velocity:Disconnect()
-        System.__properties.__connections.ball_velocity = nil
-    end
-
-    if ball_velocity.__state.gui then
-        ball_velocity.__state.gui:Destroy()
-        ball_velocity.__state.gui = nil
-    end
-
-    ball_velocity.__state.ball_data = {}
-end
-
-OtherVisualsSection:Toggle({
-    Title = "Show Ball Velocity",
-    Default = false,
-    Callback = function(state)
-        if state then
-            ball_velocity.start()
-        else
-            ball_velocity.stop()
-        end
-    end
-})
-
 local Connections_Manager = {}
 
 local No_Render = OtherVisualsSection:Toggle({
     Title = "No Render",
     Default = false,
     Callback = function(state)
-            LocalPlayer.PlayerScripts.EffectScripts.ClientFX.Disabled = state
-    
-            if state then
-                Connections_Manager['No Render'] = workspace.Runtime.ChildAdded:Connect(function(Value)
-                    Debris:AddItem(Value, 0)
-                end)
-            else
-                if Connections_Manager['No Render'] then
-                    Connections_Manager['No Render']:Disconnect()
-                    Connections_Manager['No Render'] = nil
-                end
+        LocalPlayer.PlayerScripts.EffectScripts.ClientFX.Disabled = state
+
+        if state then
+            Connections_Manager['No Render'] = workspace.Runtime.ChildAdded:Connect(function(Value)
+                Debris:AddItem(Value, 0)   -- Debris est probablement game:GetService("Debris")
+            end)
+        else
+            if Connections_Manager['No Render'] then
+                Connections_Manager['No Render']:Disconnect()
+                Connections_Manager['No Render'] = nil
             end
         end
-    })
-
-    No_Render:change_state(false)
+    end
+})
 
 local swordInstancesInstance = ReplicatedStorage:WaitForChild("Shared",9e9):WaitForChild("ReplicatedInstances",9e9):WaitForChild("Swords",9e9)
 local swordInstances = require(swordInstancesInstance)
@@ -3442,8 +3163,8 @@ task.spawn(function()
     end
 end)
 
-local SkinChangerSection = VisualTab:Section({ 
-    Title = "Skin Changer" 
+local SkinChangerSection = VisualTab:Section({
+    Title = "Skin Changer"
 })
 
 SkinChangerSection:Toggle({
@@ -3463,7 +3184,7 @@ SkinChangerSection:Toggle({
 SkinChangerSection:Toggle({
     Title = "Change Sword Model",
     Desc = "Active le changement de modèle d'épée",   -- optionnel
-    Value = true,                -- état initial (true = coché au démarrage)
+    Value = false,                -- état initial (true = coché au démarrage)
     Flag = "ChangeSwordModel",   -- pour le système de config/save
     Callback = function(value: boolean)
         getgenv().changeSwordModel = value
@@ -3477,7 +3198,7 @@ SkinChangerSection:Input({
     Title = "Sword Model Name",
     Desc = "Nom du modèle d'épée à utiliser",
     Placeholder = "Enter Sword Model Name...",
-    Value = "",                      -- valeur par défaut (vide au départ)
+    Value = "",                    -- valeur par défaut (vide au départ)
     Flag = "SwordModelTextbox",
     InputIcon = "sword",             -- icône lucide optionnelle (cherche "sword" sur lucide.dev/icons)
     Callback = function(text: string)
@@ -3491,7 +3212,7 @@ SkinChangerSection:Input({
 -- Checkbox + Textbox pour Change Sword Animation
 SkinChangerSection:Toggle({
     Title = "Change Sword Animation",
-    Value = true,
+    Value = false,
     Flag = "ChangeSwordAnimation",
     Callback = function(value: boolean)
         getgenv().changeSwordAnimation = value
@@ -3519,7 +3240,7 @@ SkinChangerSection:Input({
 -- Checkbox + Textbox pour Change Sword FX
 SkinChangerSection:Toggle({
     Title = "Change Sword FX",
-    Value = true,
+    Value = false,
     Flag = "ChangeSwordFX",
     Callback = function(value: boolean)
         getgenv().changeSwordFX = value
@@ -3551,8 +3272,8 @@ SkinChangerSection:Input({
 -- ────────────────────────────────────────────────────────────────
 
 local PlayerTab = Window:Tab({ 
-    Title = "Player", 
-    Icon = "solar:eye-bold", 
+    Title = "Player",
+    Icon = "solar:eye-bold",
     IconColor = Color3.fromHex("#257AF7") 
 })
 
@@ -3601,11 +3322,6 @@ FOVSection:Slider({
     end
 })
 
-local PlayerTab = Window:Tab({ 
-    Title = "Character", 
-    Icon = "solar:user-bold", 
-    IconColor = Color3.fromHex("#EF4F1D") })
-
 local CharacterModifierSection = PlayerTab:Section({ 
     Title = "Character Modifier" 
 })
@@ -3614,8 +3330,7 @@ CharacterModifierSection:Toggle({
     Title = 'Character Modifier',
     Flag = 'CharacterModifier',
     Description = 'Changes various character properties',
-
-    callback = function(value)
+    Callback = function(value)
         getgenv().CharacterModifierEnabled = value
 
         if value then
@@ -4678,12 +4393,12 @@ AutoPlayModule.movement = {
 }
 
 AutoPlayModule.signal = {
-    connect = function(name, connection, callback)
+    connect = function(name, connection, Callback)
         if not name then
             name = AutoPlayModule.customService.HttpService:GenerateGUID()
         end
     
-        AutoPlayModule.signals[name] = connection:Connect(callback)
+        AutoPlayModule.signals[name] = connection:Connect(Callback)
         return AutoPlayModule.signals[name]
     end,
     
