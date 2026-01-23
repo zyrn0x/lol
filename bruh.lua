@@ -1557,7 +1557,7 @@ local function GetIcon(icon, source)
 
 			local r = sizedicons[icon]
 			if not r then
-				error("Lucide Icons: Failed to find icon by the name of \"" .. icon .. "\.", 2)
+				error("Lucide Icons: Failed to find icon by the name of \"" .. icon .. "", 2)
 			end
 
 			local rirs = r[2]
@@ -6970,5 +6970,9 @@ end
     t1:CreateDropdown({Callback = function(t) print(unpack(t)) end})
     t1:CreateDropdown({Description = "Special Type - Player", Callback = "", SpecialType = "Player"})
 end]]--
+
+task.delay(4, function() 
+	Luna:LoadAutoloadConfig()
+end)
 
 return Luna
