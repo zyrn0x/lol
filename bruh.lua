@@ -17,6 +17,9 @@ end
 local Alive = workspace:FindFirstChild("Alive") or workspace:WaitForChild("Alive")
 local Runtime = workspace.Runtime
 
+local parryDelay = 0.05
+local maxParryCount = 34
+
 local System = {
     __properties = {
         __autoparry_enabled = false,
@@ -55,7 +58,9 @@ local System = {
             __deathslash = false,
             __timehole = false,
             __slashesoffury = false,
-            __phantom = false
+            __phantom = false,
+            __auto_ability = false,
+            __cooldown_protection = false
         }
     },
     
@@ -67,13 +72,54 @@ local System = {
         __parry_delay = 0.5
     }
 }
-local firstParryFired = false
-local revertedRemotes = {}
-local originalMetatables = {}
-local Parry_Key = nil
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local VirtualInputService = game:GetService("VirtualInputManager")
-local GuiService = game:GetService('GuiService')
+local playerGui = LocalPlayer.PlayerGui
+local ParryCD, AbilityCD
+local success1, result1 = pcall(function() return playerGui:WaitForChild("Hotbar"):WaitForChild("Block"):WaitForChild("UIGradient") end)
+if success1 then ParryCD = result1 else warn("ParryCD not found") end
+
+local success2, result2 = pcall(function() return playerGui:WaitForChild("Hotbar"):WaitForChild("Ability"):WaitForChild("UIGradient") end)
+if success2 then AbilityCD = result2 else warn("AbilityCD not found") end
+
+local function isCooldownInEffect1(uigradient)
+    if not uigradient then return false end
+    return uigradient.Offset.Y < 0.4
+end
+
+local function isCooldownInEffect2(uigradient)
+    if not uigradient then return false end
+    return uigradient.Offset.Y == 0.5
+end
+
+local function cooldownProtection()
+    if not ParryCD then return false end
+    if isCooldownInEffect1(ParryCD) then
+        ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
+        return true
+    end
+    return false
+end
+
+local function autoAbility()
+    if not AbilityCD then return false end
+    if isCooldownInEffect2(AbilityCD) then
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Abilities") then
+            local abilities = LocalPlayer.Character.Abilities
+            if (abilities:FindFirstChild("Raging Deflection") and abilities["Raging Deflection"].Enabled) or
+               (abilities:FindFirstChild("Rapture") and abilities["Rapture"].Enabled) or
+               (abilities:FindFirstChild("Calming Deflection") and abilities["Calming Deflection"].Enabled) or
+               (abilities:FindFirstChild("Aerodynamic Slash") and abilities["Aerodynamic Slash"].Enabled) or
+               (abilities:FindFirstChild("Fracture") and abilities["Fracture"].Enabled) or
+               (abilities:FindFirstChild("Death Slash") and abilities["Death Slash"].Enabled) then
+                System.__properties.__parried = true
+                ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
+                task.wait(2.432)
+                ReplicatedStorage.Remotes.DeathSlashShootActivation:FireServer(true)
+                return true
+            end
+        end
+    end
+    return false
+end
 
 local function updateNavigation(guiObject: GuiObject | nil)
     GuiService.SelectedObject = guiObject
@@ -668,6 +714,27 @@ ReplicatedStorage.Remotes.TimeHoleHoldBall.OnClientEvent:Connect(function(e, f)
     System.__properties.__timehole_active = f or false
 end)
 
+-- Slashes of Fury handling
+workspace:WaitForChild("Balls").ChildAdded:Connect(function(ball)
+    ball.ChildAdded:Connect(function(child)
+        if child.Name == 'ComboCounter' and System.__config.__detections.__slashesoffury then
+            local Sof_Label = child:FindFirstChildOfClass('TextLabel')
+            if Sof_Label then
+                task.spawn(function()
+                    local parry_count = 0
+                    while child.Parent and parry_count < maxParryCount do
+                        local Slashes_Counter = tonumber(Sof_Label.Text) or 0
+                        if Slashes_Counter >= 32 then break end
+                        System.parry.execute_action()
+                        parry_count = parry_count + 1
+                        task.wait(parryDelay)
+                    end
+                end)
+            end
+        end
+    end)
+end)
+
 System.triggerbot = {}
 
 function System.triggerbot.trigger(ball)
@@ -1042,6 +1109,17 @@ function System.autoparry.start()
             end
             
             if System.__config.__detections.__slashesoffury and ball:FindFirstChild('ComboCounter') then
+                continue
+            end
+            end
+            
+            -- Cooldown Protection
+            if System.__config.__detections.__cooldown_protection and cooldownProtection() then
+                continue
+            end
+            
+            -- Auto Ability
+            if System.__config.__detections.__auto_ability and autoAbility() then
                 continue
             end
             
@@ -3365,6 +3443,22 @@ DetectionSection:Toggle({
 })
 
 DetectionSection:Toggle({
+    Title = "Auto Ability",
+    Default = false,
+    Callback = function(value)
+        System.__config.__detections.__auto_ability = value
+    end
+})
+
+DetectionSection:Toggle({
+    Title = "Cooldown Protection",
+    Default = false,
+    Callback = function(value)
+        System.__config.__detections.__cooldown_protection = value
+    end
+})
+
+DetectionSection:Toggle({
     Title = "Slashes Of Fury Detection",
     Default = false,
     Callback = function(value)
@@ -3374,7 +3468,7 @@ DetectionSection:Toggle({
 
 DetectionSection:Slider({
     Title = "Parry Delay",
-    Value = { Min = 0.001, Max = 0.250, Default = 0.05 },
+    Value = { Min = 0.001, Max = 0.25, Default = 0.05 },
     Step = 0.001,
     Callback = function(value)
         parryDelay = value
@@ -3383,7 +3477,7 @@ DetectionSection:Slider({
 
 DetectionSection:Slider({
     Title = "Max Parry Count",
-    Value = { Min = 1, Max = 36, Default = 36 },
+    Value = { Min = 1, Max = 34, Default = 34 },
     Step = 1,
     Callback = function(value)
         maxParryCount = value
