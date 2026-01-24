@@ -656,25 +656,16 @@ ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(a, b)
 end)
 
 -- Detection connections
-ReplicatedStorage.Remotes.InfinityBall.OnClientEvent:Connect(function()
-    System.__properties.__infinity_active = true
-    task.delay(5, function()
-        System.__properties.__infinity_active = false
-    end)
+ReplicatedStorage.Remotes.InfinityBall.OnClientEvent:Connect(function(a, b)
+    System.__properties.__infinity_active = b or false
 end)
 
-ReplicatedStorage.Remotes.DeathBall.OnClientEvent:Connect(function()
-    System.__properties.__deathslash_active = true
-    task.delay(5, function()
-        System.__properties.__deathslash_active = false
-    end)
+ReplicatedStorage.Remotes.DeathBall.OnClientEvent:Connect(function(c, d)
+    System.__properties.__deathslash_active = d or false
 end)
 
-ReplicatedStorage.Remotes.TimeHoleHoldBall.OnClientEvent:Connect(function()
-    System.__properties.__timehole_active = true
-    task.delay(5, function()
-        System.__properties.__timehole_active = false
-    end)
+ReplicatedStorage.Remotes.TimeHoleHoldBall.OnClientEvent:Connect(function(e, f)
+    System.__properties.__timehole_active = f or false
 end)
 
 System.triggerbot = {}
@@ -817,7 +808,7 @@ System.auto_spam = {}
 function System.auto_spam:get_entity_properties()
     System.player.get_closest()
     
-    if not Closest_Entity then return false end
+    if not Closest_Entity or not Closest_Entity.PrimaryPart or not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return false end
     
     local entity_velocity = Closest_Entity.PrimaryPart.Velocity
     local entity_direction = (LocalPlayer.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Unit
@@ -832,7 +823,7 @@ end
 
 function System.auto_spam:get_ball_properties()
     local ball = System.ball.get()
-    if not ball then return false end
+    if not ball or not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return false end
     
     local ball_velocity = Vector3.zero
     local ball_origin = ball
@@ -4433,7 +4424,7 @@ local ConfigSection = ConfigTab:Section({
 
 local configName = "OMZ_Party_Config"
 
-ConfigSection:Textbox({
+ConfigSection:Input({
     Title = "Config Name",
     Default = "OMZ_Party_Config",
     Callback = function(value)
