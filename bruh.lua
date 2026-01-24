@@ -2934,6 +2934,22 @@ local Window = WindUI:CreateWindow({
     Title = "Omz Hub",
     Icon = "door-open", -- lucide icon. optional
     Author = "by Omz", -- optional
+    Theme = "Sapphire",
+    NewElements = true,
+    HideSearchBar = false,
+    Folder = "OMZ_Config",
+    OpenButton = {
+        Title = "Ouvrir OMZ",
+        CornerRadius = UDim.new(1,0),
+        Enabled = true,
+        Draggable = true,
+        Scale = 0.55,
+        Color = ColorSequence.new(
+            Color3.fromHex("#00ffea"),
+            Color3.fromHex("#ff00aa")
+        )
+    },
+    Topbar = { Height = 44, ButtonsType = "Mac" },
 })
 
 -- Tags (optionnel)
