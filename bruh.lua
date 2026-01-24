@@ -4327,207 +4327,78 @@ AISection:Slider({
     end
 })
 
--- Config Tab
+-- ────────────────────────────────────────────────────────────────
+--  CONFIG TAB
+-- ────────────────────────────────────────────────────────────────
+
 local ConfigTab = Window:Tab({ 
     Title = "Config", 
     Icon = "solar:settings-bold", 
-    IconColor = Blue,
+    IconColor = Color3.fromHex("#00FFFF"),
     IconShape = "Square",
     Border = true
 })
 
 ConfigTab:Paragraph({
-    Title = "Configuration Settings",
-    Desc = "Fine-tune your gameplay experience with advanced configuration options for parry, spam, detections, and more. Customize to perfection!",
+    Title = "Configuration Management",
+    Desc = "Save and load your toggle settings for different parties or sessions.",
     Image = "solar:settings-bold",
     Color = "Blue"
 })
 
-ConfigTab:Image({
-    Image = "https://repository-images.githubusercontent.com/880118829/22c020eb-d1b1-4b34-ac4d-e33fd88db38d",
-    AspectRatio = "16:9",
-    Radius = 9,
+local ConfigSection = ConfigTab:Section({
+    Title = "Save/Load Config"
 })
 
-local GeneralSection = ConfigTab:Section({
-    Title = "General Settings",
-    Desc = "Basic toggles and options."
-})
-
-GeneralSection:Toggle({
-    Title = "Auto Parry",
-    Desc = "Enable automatic parrying system.",
-    Default = System.__properties.__autoparry_enabled,
-    Callback = function(value)
-        System.__properties.__autoparry_enabled = value
+ConfigSection:Button({
+    Title = "Save Current Config",
+    Callback = function()
+        local config = {
+            autoparry_enabled = System.__properties.__autoparry_enabled,
+            triggerbot_enabled = System.__properties.__triggerbot_enabled,
+            manual_spam_enabled = System.__properties.__manual_spam_enabled,
+            auto_spam_enabled = System.__properties.__auto_spam_enabled,
+            play_animation = System.__properties.__play_animation,
+            curve_mode = System.__properties.__curve_mode,
+            accuracy = System.__properties.__accuracy,
+            spam_threshold = System.__properties.__spam_threshold,
+            detections = System.__config.__detections,
+            triggerbot_enabled_tb = System.__triggerbot.__enabled,
+            max_parries = System.__triggerbot.__max_parries,
+            parry_delay = System.__triggerbot.__parry_delay
+        }
+        writefile("OMZ_Party_Config.json", game:GetService("HttpService"):JSONEncode(config))
+        print("Config saved!")
     end
 })
 
-GeneralSection:Toggle({
-    Title = "Triggerbot",
-    Desc = "Enable triggerbot for automatic parries.",
-    Default = System.__triggerbot.__enabled,
-    Callback = function(value)
-        System.__triggerbot.__enabled = value
-    end
-})
-
-GeneralSection:Toggle({
-    Title = "Manual Spam",
-    Desc = "Enable manual spamming.",
-    Default = System.__properties.__manual_spam_enabled,
-    Callback = function(value)
-        System.__properties.__manual_spam_enabled = value
-    end
-})
-
-GeneralSection:Toggle({
-    Title = "Auto Spam",
-    Desc = "Enable automatic spamming.",
-    Default = System.__properties.__auto_spam_enabled,
-    Callback = function(value)
-        System.__properties.__auto_spam_enabled = value
-    end
-})
-
-GeneralSection:Toggle({
-    Title = "Play Animation",
-    Desc = "Play parry animation.",
-    Default = System.__properties.__play_animation,
-    Callback = function(value)
-        System.__properties.__play_animation = value
-    end
-})
-
-ConfigTab:Space()
-
-local ParrySection = ConfigTab:Section({
-    Title = "Parry Configuration",
-    Desc = "Adjust parry accuracy and modes."
-})
-
-ParrySection:Dropdown({
-    Title = "Curve Mode",
-    Desc = "Select the parry curve mode.",
-    Values = System.__config.__curve_names,
-    Default = System.__config.__curve_names[System.__properties.__curve_mode] or "Camera",
-    Callback = function(value)
-        for i, name in ipairs(System.__config.__curve_names) do
-            if name == value then
-                System.__properties.__curve_mode = i
-                break
-            end
+ConfigSection:Button({
+    Title = "Load Saved Config",
+    Callback = function()
+        if isfile("OMZ_Party_Config.json") then
+            local config = game:GetService("HttpService"):JSONDecode(readfile("OMZ_Party_Config.json"))
+            System.__properties.__autoparry_enabled = config.autoparry_enabled or false
+            System.__properties.__triggerbot_enabled = config.triggerbot_enabled or false
+            System.__properties.__manual_spam_enabled = config.manual_spam_enabled or false
+            System.__properties.__auto_spam_enabled = config.auto_spam_enabled or false
+            System.__properties.__play_animation = config.play_animation or false
+            System.__properties.__curve_mode = config.curve_mode or 1
+            System.__properties.__accuracy = config.accuracy or 1
+            System.__properties.__spam_threshold = config.spam_threshold or 1.5
+            System.__config.__detections = config.detections or {
+                __infinity = false,
+                __deathslash = false,
+                __timehole = false,
+                __slashesoffury = false,
+                __phantom = false
+            }
+            System.__triggerbot.__enabled = config.triggerbot_enabled_tb or false
+            System.__triggerbot.__max_parries = config.max_parries or 10000
+            System.__triggerbot.__parry_delay = config.parry_delay or 0.5
+            print("Config loaded!")
+        else
+            print("No saved config found!")
         end
-    end
-})
-
-ParrySection:Slider({
-    Title = "Accuracy",
-    Desc = "Set parry accuracy level.",
-    Value = { Min = 1, Max = 100, Default = System.__properties.__accuracy },
-    Step = 1,
-    Callback = function(value)
-        System.__properties.__accuracy = value
-        update_divisor()
-    end
-})
-
-ParrySection:Slider({
-    Title = "Spam Threshold",
-    Desc = "Threshold for spam detection.",
-    Value = { Min = 0.1, Max = 5, Default = System.__properties.__spam_threshold },
-    Step = 0.1,
-    Callback = function(value)
-        System.__properties.__spam_threshold = value
-    end
-})
-
-ParrySection:Slider({
-    Title = "Spam Rate",
-    Desc = "Rate of spamming.",
-    Value = { Min = 100, Max = 500, Default = System.__properties.__spam_rate },
-    Step = 10,
-    Callback = function(value)
-        System.__properties.__spam_rate = value
-    end
-})
-
-ConfigTab:Space()
-
-local DetectionSection = ConfigTab:Section({
-    Title = "Detection Settings",
-    Desc = "Configure special move detections."
-})
-
-DetectionSection:Toggle({
-    Title = "Infinity Detection",
-    Desc = "Detect infinity moves.",
-    Default = System.__config.__detections.__infinity,
-    Callback = function(value)
-        System.__config.__detections.__infinity = value
-    end
-})
-
-DetectionSection:Toggle({
-    Title = "Deathslash Detection",
-    Desc = "Detect deathslash moves.",
-    Default = System.__config.__detections.__deathslash,
-    Callback = function(value)
-        System.__config.__detections.__deathslash = value
-    end
-})
-
-DetectionSection:Toggle({
-    Title = "Timehole Detection",
-    Desc = "Detect timehole moves.",
-    Default = System.__config.__detections.__timehole,
-    Callback = function(value)
-        System.__config.__detections.__timehole = value
-    end
-})
-
-DetectionSection:Toggle({
-    Title = "Slashes of Fury Detection",
-    Desc = "Detect slashes of fury.",
-    Default = System.__config.__detections.__slashesoffury,
-    Callback = function(value)
-        System.__config.__detections.__slashesoffury = value
-    end
-})
-
-DetectionSection:Toggle({
-    Title = "Phantom Detection",
-    Desc = "Detect phantom moves.",
-    Default = System.__config.__detections.__phantom,
-    Callback = function(value)
-        System.__config.__detections.__phantom = value
-    end
-})
-
-ConfigTab:Space()
-
-local TriggerbotSection = ConfigTab:Section({
-    Title = "Triggerbot Settings",
-    Desc = "Configure triggerbot parameters."
-})
-
-TriggerbotSection:Slider({
-    Title = "Max Parries",
-    Desc = "Maximum parries for triggerbot.",
-    Value = { Min = 1, Max = 10000, Default = System.__triggerbot.__max_parries },
-    Step = 100,
-    Callback = function(value)
-        System.__triggerbot.__max_parries = value
-    end
-})
-
-TriggerbotSection:Slider({
-    Title = "Parry Delay",
-    Desc = "Delay between parries.",
-    Value = { Min = 0, Max = 2, Default = System.__triggerbot.__parry_delay },
-    Step = 0.1,
-    Callback = function(value)
-        System.__triggerbot.__parry_delay = value
     end
 })
 
