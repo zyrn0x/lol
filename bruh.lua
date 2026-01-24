@@ -1622,16 +1622,6 @@ local function create_animation(object, info, value)
     animation:Destroy()
 end
 
-local animation_system = {
-    storage = {},
-    current = nil,
-    track = nil
-}
-
-animation_system.load_animations()
-local emotes_data = animation_system.get_emotes_list()
-local selected_animation = emotes_data[1]
-
 local ability_esp = {
     __config = {
         gui_name = "AbilityESPGui",
@@ -2934,7 +2924,10 @@ AutoPlayModule.runThread = function()
     AutoPlayModule.signal.connect("synchronize", AutoPlayModule.customService.RunService.PostSimulation, AutoPlayModule.ballUtils.getBall)
 end
 
-task.spawn(function()
+task.defer(function()
+-- Note: If loading is slow, you can preload WindUI by running this separately:
+-- local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+-- Then comment out the loadstring below and use the preloaded one.
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
 local Window = WindUI:CreateWindow({
@@ -2959,14 +2952,32 @@ local Window = WindUI:CreateWindow({
 -- Tags (optionnel)
 Window:Tag({ Title = "v1.0 • OMZ", Icon = "github", Color = Color3.fromHex("#1c1c1c"), Border = true })
 
+-- Icon Colors
+local Purple = Color3.fromHex("#7775F2")
+local Yellow = Color3.fromHex("#ECA201")
+local Green = Color3.fromHex("#10C550")
+local Grey = Color3.fromHex("#83889E")
+local Blue = Color3.fromHex("#257AF7")
+local Red = Color3.fromHex("#EF4F1D")
+
 -- ────────────────────────────────────────────────────────────────
 --  COMBAT / AUTOPARRY / SPAM TAB
 -- ────────────────────────────────────────────────────────────────
 
 local CombatTab = Window:Tab({ 
     Title = "Combat", 
-    Icon = "solar:sword-bold", 
-    IconColor = Color3.fromHex("#FF3B30") })
+    Icon = "solar:shield-bold", 
+    IconColor = Red,
+    IconShape = "Square",
+    Border = true
+})
+
+CombatTab:Paragraph({
+    Title = "Combat Features",
+    Desc = "Configure your auto parry, spam, and detection systems for optimal gameplay.",
+    Image = "solar:shield-bold",
+    Color = "Red"
+})
 
     local ParrySection = CombatTab:Section({
         Title = "Auto Parry",
@@ -2999,6 +3010,8 @@ ParrySection:Toggle({
     end
 })
 
+ParrySection:Space()
+
 ParrySection:Dropdown({
     Title = "Parry Mode",
     Values = {"Remote", "Keypress"},
@@ -3007,6 +3020,8 @@ ParrySection:Dropdown({
         getgenv().AutoParryMode = value
     end
 })
+
+ParrySection:Space()
 
 ParrySection:Dropdown({
     Title = "AutoCurve",
@@ -3040,7 +3055,11 @@ ParrySection:Toggle({
     end
 })
 
-ParrySection:Toggle({ 
+ParrySection:Space()
+
+local ParryGroup = ParrySection:Group({})
+
+ParryGroup:Toggle({ 
     Title = "Notify",
     Default = false,
     Callback = function(value)
@@ -3048,7 +3067,9 @@ ParrySection:Toggle({
     end 
 })
 
-ParrySection:Toggle({ 
+ParryGroup:Space()
+
+ParryGroup:Toggle({ 
     Title = "Cooldown Protection", 
     Default = false, 
     Callback = function(value)
@@ -3056,7 +3077,9 @@ ParrySection:Toggle({
     end 
 })
 
-ParrySection:Toggle({ 
+ParryGroup:Space()
+
+ParryGroup:Toggle({ 
     Title = "Auto Ability", 
     Default = false, 
     Callback = function(value)
@@ -3440,9 +3463,18 @@ ManualSpamSection:Slider({
 -- ────────────────────────────────────────────────────────────────
 
 local VisualTab = Window:Tab({ 
-    Title = "Emotes", 
-    Icon = "solar:emoji-funny-bold", 
-    IconColor = Color3.fromHex("#ECA201") })
+    Title = "Visual", 
+    Icon = "solar:eye-bold", 
+    IconColor = Yellow,
+    IconShape = "Square",
+    Border = true
+})
+
+VisualTab:Paragraph({
+    Title = "Visual Enhancements",
+    Content = "Customize your visual experience with avatar changes, ESP options, and other display modifications to enhance gameplay visibility.",
+    Image = "solar:eye-bold"
+})
 
 local AvatarChangerSection = VisualTab:Section({
     Title = "Avatar Changer",
@@ -3518,50 +3550,7 @@ AvatarChangerSection:Input({
     end
 })
 
-local EmotesSection = VisualTab:Section({
-    Title = "Emotes",
-})
-
-EmotesSection:Toggle({
-    Title = "Emotes",
-    Default = false,
-    Callback = function(value)
-        getgenv().Animations = value
-        
-        if value then
-            animation_system.start()
-            
-            if selected_animation then
-                animation_system.play(selected_animation)
-            end
-        else
-            animation_system.cleanup()
-        end
-    end
-})
-
-EmotesSection:Toggle({
-    Title = "Auto Stop",
-    Default = true,
-    Callback = function(value)
-        getgenv().AutoStop = value
-    end
-})
-
-local animation_dropdown = EmotesSection:Dropdown({
-    Title = "Emote Type",
-    Values = emotes_data,
-    Default = "None",
-    Callback = function(value)
-        selected_animation = value
-        
-        if getgenv().Animations then
-            animation_system.play(value)
-        end
-    end
-})
-
-animation_dropdown:Select(selected_animation)
+VisualTab:Space()
 
 local OtherVisualsSection = VisualTab:Section({ 
     Title = "Other Visuals" 
@@ -3596,6 +3585,8 @@ local No_Render = OtherVisualsSection:Toggle({
     end
 })
 
+VisualTab:Space()
+
 local SkinChangerSection = VisualTab:Section({
     Title = "Skin Changer"
 })
@@ -3609,6 +3600,10 @@ SkinChangerSection:Toggle({
             getgenv().updateSword()
         end
     end
+})
+
+local SkinGroup = SkinChangerSection:Group({
+    Title = "Sword Customization Options"
 })
 
 -- SkinChangerSection est déjà créé avant (ex: local SkinChangerSection = Tab:Section({ Title = "Skin Changer" }))
@@ -3706,8 +3701,16 @@ SkinChangerSection:Input({
 
 local PlayerTab = Window:Tab({ 
     Title = "Player",
-    Icon = "solar:eye-bold",
-    IconColor = Color3.fromHex("#257AF7") 
+    Icon = "solar:user-bold",
+    IconColor = Blue,
+    IconShape = "Square",
+    Border = true
+})
+
+PlayerTab:Paragraph({
+    Title = "Player Enhancements",
+    Content = "Customize your player experience with FOV adjustments, speed modifications, and other enhancements to improve your gameplay.",
+    Image = "solar:user-bold"
 })
 
 local FOVSection = PlayerTab:Section({ 
@@ -3852,6 +3855,10 @@ CharacterModifierSection:Toggle({
             end
         end
     end
+})
+
+local ModifierGroup = CharacterModifierSection:Group({
+    Title = "Modifier Options"
 })
 
 CharacterModifierSection:Toggle({
@@ -4033,14 +4040,24 @@ CharacterModifierSection:Slider({
     end
 })
 
+CharacterModifierSection:Space()
+
 -- ────────────────────────────────────────────────────────────────
 --  AUTOFARM TAB
 -- ────────────────────────────────────────────────────────────────
 
 local AutoFarmTab = Window:Tab({ 
     Title = "Auto Farm", 
-    Icon = "solar:eye-bold", 
-    IconColor = Color3.fromHex("#257AF7") 
+    Icon = "solar:play-bold", 
+    IconColor = Green,
+    IconShape = "Square",
+    Border = true
+})
+
+AutoFarmTab:Paragraph({
+    Title = "Automated Farming",
+    Content = "Set up automated gameplay features including semi-immortal modes and AI-assisted play for hands-free farming and progression.",
+    Image = "solar:play-bold"
 })
 
 local WKISection = AutoFarmTab:Section({ 
@@ -4073,8 +4090,7 @@ WKISection:Slider({
     Callback = WalkableSemiImmortal.setHeight
 })
 
-
-
+AutoFarmTab:Space()
 
 local AISection = AutoFarmTab:Section({ 
     Title = "AI Play (Experimental)" 
@@ -4090,6 +4106,10 @@ AISection:Toggle({
             AutoPlayModule.finishThread()
         end
     end
+})
+
+local AIConfigGroup = AISection:Group({
+    Title = "AI Configuration Settings"
 })
 
 AISection:Toggle({
