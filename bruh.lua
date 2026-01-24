@@ -585,6 +585,14 @@ ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(_, root
     
     local curve_detected = System.detection.is_curved()
     
+    -- Skip if detections active
+    if (System.__config.__detections.__infinity and System.__properties.__infinity_active) or
+       (System.__config.__detections.__deathslash and System.__properties.__deathslash_active) or
+       (System.__config.__detections.__timehole and System.__properties.__timehole_active) or
+       (System.__config.__detections.__slashesoffury and ball:FindFirstChild('ComboCounter')) then
+        return
+    end
+    
     if target_distance < 15 and distance < 15 and dot > -0.25 then
         if curve_detected then
             System.parry.execute_action()
@@ -647,6 +655,28 @@ ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(a, b)
     end
 end)
 
+-- Detection connections
+ReplicatedStorage.Remotes.InfinityBall.OnClientEvent:Connect(function()
+    System.__properties.__infinity_active = true
+    task.delay(5, function()
+        System.__properties.__infinity_active = false
+    end)
+end)
+
+ReplicatedStorage.Remotes.DeathBall.OnClientEvent:Connect(function()
+    System.__properties.__deathslash_active = true
+    task.delay(5, function()
+        System.__properties.__deathslash_active = false
+    end)
+end)
+
+ReplicatedStorage.Remotes.TimeHoleHoldBall.OnClientEvent:Connect(function()
+    System.__properties.__timehole_active = true
+    task.delay(5, function()
+        System.__properties.__timehole_active = false
+    end)
+end)
+
 System.triggerbot = {}
 
 function System.triggerbot.trigger(ball)
@@ -656,6 +686,23 @@ function System.triggerbot.trigger(ball)
     
     if LocalPlayer.Character and LocalPlayer.Character.PrimaryPart and 
        LocalPlayer.Character.PrimaryPart:FindFirstChild('SingularityCape') then
+        return
+    end
+    
+    -- Detection skips
+    if System.__config.__detections.__infinity and System.__properties.__infinity_active then
+        return
+    end
+    
+    if System.__config.__detections.__deathslash and System.__properties.__deathslash_active then
+        return
+    end
+    
+    if System.__config.__detections.__timehole and System.__properties.__timehole_active then
+        return
+    end
+    
+    if System.__config.__detections.__slashesoffury and ball:FindFirstChild('ComboCounter') then
         return
     end
     
@@ -856,6 +903,23 @@ function System.auto_spam.start()
         
         if System.__properties.__slashesoffury_active then return end
         
+        -- Detection skips
+        if System.__config.__detections.__infinity and System.__properties.__infinity_active then
+            return
+        end
+        
+        if System.__config.__detections.__deathslash and System.__properties.__deathslash_active then
+            return
+        end
+        
+        if System.__config.__detections.__timehole and System.__properties.__timehole_active then
+            return
+        end
+        
+        if System.__config.__detections.__slashesoffury and ball:FindFirstChild('ComboCounter') then
+            return
+        end
+        
         local zoomies = ball:FindFirstChild('zoomies')
         if not zoomies then return end
         
@@ -970,6 +1034,23 @@ function System.autoparry.start()
             local curved = System.detection.is_curved()
             
             if one_ball and one_ball:GetAttribute('target') == LocalPlayer.Name and curved then
+                continue
+            end
+            
+            -- Detection skips
+            if System.__config.__detections.__infinity and System.__properties.__infinity_active then
+                continue
+            end
+            
+            if System.__config.__detections.__deathslash and System.__properties.__deathslash_active then
+                continue
+            end
+            
+            if System.__config.__detections.__timehole and System.__properties.__timehole_active then
+                continue
+            end
+            
+            if System.__config.__detections.__slashesoffury and ball:FindFirstChild('ComboCounter') then
                 continue
             end
             
@@ -4350,6 +4431,16 @@ local ConfigSection = ConfigTab:Section({
     Title = "Save/Load Config"
 })
 
+local configName = "OMZ_Party_Config"
+
+ConfigSection:Textbox({
+    Title = "Config Name",
+    Default = "OMZ_Party_Config",
+    Callback = function(value)
+        configName = value
+    end
+})
+
 ConfigSection:Button({
     Title = "Save Current Config",
     Callback = function()
@@ -4367,16 +4458,16 @@ ConfigSection:Button({
             max_parries = System.__triggerbot.__max_parries,
             parry_delay = System.__triggerbot.__parry_delay
         }
-        writefile("OMZ_Party_Config.json", game:GetService("HttpService"):JSONEncode(config))
-        print("Config saved!")
+        writefile(configName .. ".json", game:GetService("HttpService"):JSONEncode(config))
+        print("Config saved as " .. configName)
     end
 })
 
 ConfigSection:Button({
     Title = "Load Saved Config",
     Callback = function()
-        if isfile("OMZ_Party_Config.json") then
-            local config = game:GetService("HttpService"):JSONDecode(readfile("OMZ_Party_Config.json"))
+        if isfile(configName .. ".json") then
+            local config = game:GetService("HttpService"):JSONDecode(readfile(configName .. ".json"))
             System.__properties.__autoparry_enabled = config.autoparry_enabled or false
             System.__properties.__triggerbot_enabled = config.triggerbot_enabled or false
             System.__properties.__manual_spam_enabled = config.manual_spam_enabled or false
@@ -4395,9 +4486,9 @@ ConfigSection:Button({
             System.__triggerbot.__enabled = config.triggerbot_enabled_tb or false
             System.__triggerbot.__max_parries = config.max_parries or 10000
             System.__triggerbot.__parry_delay = config.parry_delay or 0.5
-            print("Config loaded!")
+            print("Config loaded from " .. configName)
         else
-            print("No saved config found!")
+            print("No saved config found for " .. configName)
         end
     end
 })
