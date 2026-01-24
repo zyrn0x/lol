@@ -2931,22 +2931,9 @@ task.defer(function()
 local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 
 local Window = WindUI:CreateWindow({
-    Title = "OMZ Hub",
-    --Author = "zyrn0x",
-    Folder = "OMZ_Config",
-    Icon = "solar:folder-2-bold-duotone",
-    OpenButton = {
-        Title = "Ouvrir OMZ",
-        CornerRadius = UDim.new(1,0),
-        Enabled = true,
-        Draggable = true,
-        Scale = 0.55,
-        Color = ColorSequence.new(
-            Color3.fromHex("#00ffea"),
-            Color3.fromHex("#ff00aa")
-        )
-    },
-    Topbar = { Height = 44, ButtonsType = "Mac" },
+    Title = "Omz Hub",
+    Icon = "door-open", -- lucide icon. optional
+    Author = "by Omz", -- optional
 })
 
 -- Tags (optionnel)
