@@ -10,6 +10,14 @@ local CoreGui = cloneref(game:GetService('CoreGui'))
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
+if not getgenv then
+    getgenv = function() return _G end
+end
+
+if not Library then
+    Library = {}
+end
+
 if not LocalPlayer.Character then
     LocalPlayer.CharacterAdded:Wait()
 end
@@ -1064,18 +1072,19 @@ function System.autoparry.start()
         end
 
         for _, ball in pairs(balls) do
+            local skip = false
             if System.__triggerbot.__enabled then return end
             if getgenv().BallVelocityAbove800 then return end
-            if not ball then continue end
+            if not ball then skip = true end
             
             local zoomies = ball:FindFirstChild('zoomies')
-            if not zoomies then continue end
+            if not zoomies then skip = true end
             
             ball:GetAttributeChangedSignal('target'):Once(function()
                 System.__properties.__parried = false
             end)
             
-            if System.__properties.__parried then continue end
+            if System.__properties.__parried then skip = true end
             
             local ball_target = ball:GetAttribute('target')
             local velocity = zoomies.VectorVelocity
@@ -1092,36 +1101,38 @@ function System.autoparry.start()
             local curved = System.detection.is_curved()
             
             if one_ball and one_ball:GetAttribute('target') == LocalPlayer.Name and curved then
-                continue
+                skip = true
             end
             
             -- Detection skips
             if System.__config.__detections.__infinity and System.__properties.__infinity_active then
-                continue
+                skip = true
             end
             
             if System.__config.__detections.__deathslash and System.__properties.__deathslash_active then
-                continue
+                skip = true
             end
             
             if System.__config.__detections.__timehole and System.__properties.__timehole_active then
-                continue
+                skip = true
             end
             
             if System.__config.__detections.__slashesoffury and ball:FindFirstChild('ComboCounter') then
-                continue
+                skip = true
             end
             end
             
             -- Cooldown Protection
             if System.__config.__detections.__cooldown_protection and cooldownProtection() then
-                continue
+                skip = true
             end
             
             -- Auto Ability
             if System.__config.__detections.__auto_ability and autoAbility() then
-                continue
+                skip = true
             end
+            
+            if not skip then
             
             if ball_target == LocalPlayer.Name and distance <= parry_accuracy then
                 if getgenv().AutoParryMode == "Keypress" then
@@ -1137,6 +1148,7 @@ function System.autoparry.start()
                 RunService.Stepped:Wait()
             until (tick() - last_parrys) >= 1 or not System.__properties.__parried
             System.__properties.__parried = false
+            end
         end
 
         if training_ball then
@@ -1176,8 +1188,8 @@ function System.autoparry.start()
                 end
             end
         end
-    end)
-end
+    end
+
 
 function System.autoparry.stop()
     if System.__properties.__connections.__autoparry then
@@ -3078,7 +3090,11 @@ task.defer(function()
 -- Note: If loading is slow, you can preload WindUI by running this separately:
 -- local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
 -- Then comment out the loadstring below and use the preloaded one.
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+local success, WindUI = pcall(function() return loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))() end)
+if not success or not WindUI then
+    warn("Failed to load WindUI library")
+    return
+end
 
 WindUI:AddTheme({
     Name = "Sapphire",
@@ -3093,7 +3109,6 @@ WindUI:AddTheme({
     Icon = Color3.fromHex("#66CCFF"),
     
     Hover = Color3.fromHex("#FFFFFF"),
-    BackgroundTransparency = 0,
     
     WindowBackground = Color3.fromHex("#001122"),
     WindowShadow = Color3.fromHex("#000000"),
