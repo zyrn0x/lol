@@ -4497,10 +4497,7 @@ CheatSection:Toggle({
 
 -- ────────────────────────────────────────────────────────────────
 --  CONFIG TAB
--- ────────────────────────────────────────────────────────────────
-
-if not RunService:IsStudio() and writefile and printidentity() then
-    do -- config UI (elements)
+-- ───────────────────────────────────────────────────────────────
 local ConfigTab = Window:Tab({ 
     Title = "Config", 
     Icon = "solar:settings-bold", 
