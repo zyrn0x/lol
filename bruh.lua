@@ -1133,6 +1133,7 @@ local function destroy_mobile_gui(gui_data)
     end
 end
 
+task.spawn(function()
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
 local Window = WindUI:CreateWindow({
@@ -4685,11 +4686,10 @@ AISection:Slider({
     end
 })
 
-workspace.ChildRemoved:Connect(function(child)
+end)
     if child.Name == 'Balls' then
         System.__properties.__cached_balls = nil
     end
-end)
 
 local balls = workspace:FindFirstChild('Balls')
 if balls then
