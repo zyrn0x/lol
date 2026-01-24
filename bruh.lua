@@ -3160,13 +3160,6 @@ local CombatTab = Window:Tab({
     Border = true
 })
 
-CombatTab:Paragraph({
-    Title = "Combat Features",
-    Desc = "Optimise ton combat avec des réglages précis : auto-parry intelligent, spam contrôlé, et détections avancées.\n\nChoisis ton style de parry, règle l'accuracy, et active les notifications pour rester maître du duel.",
-    Image = "solar:shield-bold",
-    Color = "Red"
-})
-
     local ParrySection = CombatTab:Section({
         Title = "Auto Parry",
     })
@@ -3658,13 +3651,6 @@ local VisualTab = Window:Tab({
     Border = true
 })
 
-VisualTab:Paragraph({
-    Title = "Visual Enhancements",
-    Content = "Habille ton jeu : change d'avatar, active des ESP élégants, et règle les effets pour une lisibilité maximale.\n\nAnimations subtiles, icônes et palette Nebula rendent l'interface immersive.",
-    Image = "solar:eye-bold",
-    Color = "Yellow"
-})
-
 local AvatarChangerSection = VisualTab:Section({
     Title = "Avatar Changer",
 })
@@ -3894,13 +3880,6 @@ local PlayerTab = Window:Tab({
     IconColor = Blue,
     IconShape = "Square",
     Border = true
-})
-
-PlayerTab:Paragraph({
-    Title = "Player Enhancements",
-    Content = "Prends le contrôle total du personnage : FOV, vitesse, saut infini et tweaks de mouvement.\n\nParamètres pensés pour l'équilibre entre puissance et confort de jeu.",
-    Image = "solar:user-bold",
-    Color = "Blue"
 })
 
 local FOVSection = PlayerTab:Section({ 
@@ -4244,13 +4223,6 @@ local AutoFarmTab = Window:Tab({
     Border = true
 })
 
-AutoFarmTab:Paragraph({
-    Title = "Automated Farming",
-    Content = "Automatise les routines : modes semi-immortels, AI assistée et pathfinding optimisé pour farmer sans effort.\n\nSécurité et options configurables pour éviter les interruptions indésirables.",
-    Image = "solar:play-bold",
-    Color = "Green"
-})
-
 local WKISection = AutoFarmTab:Section({ 
     Title = "Walkable Semi-Immortal" 
 })
@@ -4533,13 +4505,6 @@ local ConfigTab = Window:Tab({
     IconColor = Color3.fromHex("#00FFFF"),
     IconShape = "Square",
     Border = true
-})
-
-ConfigTab:Paragraph({
-    Title = "Configuration Management",
-    Desc = "Sauvegarde et charge tes configurations rapidement — profils prêts pour chaque session ou party.\n\nExport/Import simple, nomme tes presets et partage-les si tu veux.",
-    Image = "solar:settings-bold",
-    Color = "Blue"
 })
 
 local ConfigSection = ConfigTab:Section({
