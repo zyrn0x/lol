@@ -25,7 +25,7 @@ local System = {
         __auto_spam_enabled = false,
         __play_animation = false,
         __curve_mode = 1,
-        __accuracy = 1,
+        __accuracy = 50,
         __divisor_multiplier = 1.1,
         __parried = false,
         __training_parried = false,
@@ -1028,10 +1028,10 @@ local function autoparry_process_ball(ball, one_ball, curved, ping_ms, tti_min, 
     local to_us = (root.Position - ball.Position).Unit
     local vel_unit = velocity.Unit
     local dot = to_us:Dot(vel_unit)
-    if dot < 0.75 then return end
+    if dot < 0.68 then return end
     
     local distance = (root.Position - ball.Position).Magnitude
-    if distance < 4 or distance > 55 then return end
+    if distance < 3 or distance > 58 then return end
     
     local tti = distance / (speed + 6)
     local t_min = tti_min * acc_scale
@@ -1073,21 +1073,43 @@ local function autoparry_process_ball(ball, one_ball, curved, ping_ms, tti_min, 
     end
     
     if getgenv().AutoAbility then
-        local ab = LocalPlayer.Character:FindFirstChild("Abilities")
-        local hb = LocalPlayer.PlayerGui:FindFirstChild("Hotbar")
-        if ab and hb and hb:FindFirstChild("Ability") then
-            local AbilityCD = hb.Ability:FindFirstChild("UIGradient")
-            if AbilityCD and AbilityCD.Offset.Y == 0.5 then
-                local ball_target = ball:GetAttribute('target')
-                local velocity = zoomies.VectorVelocity
-                local speed = velocity.Magnitude
-                local distance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
-                local is_targeted = (ball_target == LocalPlayer.Name)
-                local is_close = (distance < 35)
-                local is_very_close = (distance < 20)
-                local is_fast = (speed > 200)
-                
-                local ability_priority = {
+        local ok, done = pcall(function()
+            local ab = LocalPlayer.Character:FindFirstChild("Abilities")
+            local hb = LocalPlayer.PlayerGui:FindFirstChild("Hotbar")
+            if not ab or not hb then return false end
+            local abBtn = hb:FindFirstChild("Ability")
+            if not abBtn then return false end
+            local AbilityCD = abBtn:FindFirstChild("UIGradient")
+            local oy = AbilityCD and AbilityCD.Offset.Y or 0
+            if oy < 0.44 or oy > 0.56 then return false end
+            local ball_target = ball:GetAttribute('target')
+            local velocity = zoomies.VectorVelocity
+            local speed = velocity.Magnitude
+            local distance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
+            local is_targeted = (ball_target == LocalPlayer.Name)
+            local is_close = (distance < 45)
+            local is_very_close = (distance < 28)
+            local is_fast = (speed > 180)
+            local core_deflect = {"Raging Deflection", "Rapture", "Calming Deflection", "Aerodynamic Slash", "Fracture", "Death Slash"}
+            for _, n in ipairs(core_deflect) do
+                local abil = ab:FindFirstChild(n)
+                if abil and abil.Enabled then
+                    System.__properties.__parried_balls[ball] = tick() + 2.5
+                    ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
+                    if n == "Death Slash" then
+                        task.spawn(function()
+                            task.wait(2.432)
+                            local rs = ReplicatedStorage:FindFirstChild("Remotes")
+                            if rs then
+                                local ds = rs:FindFirstChild("DeathSlashShootActivation")
+                                if ds then ds:FireServer(true) end
+                            end
+                        end)
+                    end
+                    return true
+                end
+            end
+            local ability_priority = {
                     -- DEFENSIVE (🟢) - Activate when ball targets us and is close
                     {"Invisibility", function() return is_targeted and is_close end},
                     {"Freeze", function() return is_targeted and is_close and speed > 100 end},
@@ -1162,7 +1184,6 @@ local function autoparry_process_ball(ball, one_ball, curved, ping_ms, tti_min, 
                     if abil and abil.Enabled and should_activate() then
                         System.__properties.__parried_balls[ball] = tick() + 2.5
                         ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
-                        
                         if ability_name == "Death Slash" then
                             task.spawn(function()
                                 task.wait(2.432)
@@ -1173,11 +1194,12 @@ local function autoparry_process_ball(ball, one_ball, curved, ping_ms, tti_min, 
                                 end
                             end)
                         end
-                        return
+                        return true
                     end
                 end
-            end
-        end
+            return false
+        end)
+        if ok and done then return end
     end
     
     if getgenv().AutoParryMode == "Keypress" then
@@ -1231,10 +1253,10 @@ function System.autoparry.start()
         System.__properties.__ping_smooth = smooth
         local ping_ms = math.floor(smooth + 0.5)
         local sec = ping_ms * 0.001
-        local tti_min = sec * 0.46 + 0.026
-        local tti_max = sec * 0.64 + 0.172
+        local tti_min = sec * 0.42 + 0.028
+        local tti_max = sec * 0.70 + 0.20
         local acc = math.clamp(System.__properties.__accuracy or 50, 1, 100)
-        local acc_scale = 0.9 + (acc / 100) * 0.22
+        local acc_scale = 0.82 + (acc / 100) * 0.36
         
         local curved = false
         if one_ball and one_ball:GetAttribute('target') == LocalPlayer.Name then
@@ -1260,9 +1282,9 @@ function System.autoparry.start()
                             local root = LocalPlayer.Character.PrimaryPart
                             local to_us = (root.Position - training_ball.Position).Unit
                             local dot = to_us:Dot(velocity.Unit)
-                            if dot >= 0.75 then
+                            if dot >= 0.68 then
                                 local distance = (root.Position - training_ball.Position).Magnitude
-                                if distance >= 4 and distance <= 55 then
+                                if distance >= 3 and distance <= 58 then
                                     local tti = distance / (speed + 6)
                                     local t_min = tti_min * acc_scale
                                     local t_max = tti_max * acc_scale
@@ -4893,7 +4915,7 @@ ConfigSection:Button({
             System.__properties.__auto_spam_enabled = config.auto_spam_enabled or false
             System.__properties.__play_animation = config.play_animation or false
             System.__properties.__curve_mode = config.curve_mode or 1
-            System.__properties.__accuracy = config.accuracy or 1
+            System.__properties.__accuracy = config.accuracy or 50
             System.__properties.__spam_threshold = config.spam_threshold or 1.5
             System.__properties.__spam_rate = config.spam_rate or 240
             System.__properties.__parry_prediction_ms = config.parry_prediction_ms or 0
