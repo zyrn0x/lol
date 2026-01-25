@@ -97,9 +97,7 @@ if LocalPlayer.PlayerGui:FindFirstChild("Hotbar") and LocalPlayer.PlayerGui.Hotb
 end
 
 local function update_divisor()
-    local acc = System.__properties.__accuracy
-    local inv = 101 - math.clamp(acc, 1, 100)
-    System.__properties.__divisor_multiplier = 0.75 + (inv - 1) * (3 / 99)
+    System.__properties.__divisor_multiplier = 0.75 + (System.__properties.__accuracy - 1) * (3 / 99)
 end
 
 function isValidRemoteArgs(args)
@@ -1023,25 +1021,17 @@ local function autoparry_process_ball(ball, one_ball, curved, ping_val, parry_ac
     local speed = velocity.Magnitude
     local distance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
     
-    local tti = distance / (speed + 8)
-    local max_tti = math.clamp(0.14 + ping_val / 3200, 0.1, 0.24)
-    if tti > max_tti then return end
-    
     local pred_ms = System.__properties.__parry_prediction_ms or 0
     if pred_ms <= 0 then
-        pred_ms = math.min(math.max(ping_val * 0.32, 12), 70)
+        pred_ms = math.min(math.max(ping_val * 0.4, 15), 85)
     end
-    local pred_mult = math.max(0.36, 380 / (380 + speed))
-    pred_ms = pred_ms * pred_mult
     if curved and one_ball and ball == one_ball then
-        pred_ms = pred_ms + math.min(14, 220 / (speed + 30))
+        pred_ms = pred_ms + 28
     end
     local effective_distance = distance - speed * (pred_ms / 1000)
-    local base_acc = parry_accuracy_func(speed)
-    local buffer = math.max(0, 3.5 - speed / 110)
-    local parry_accuracy = base_acc + buffer
+    local parry_accuracy = parry_accuracy_func(speed) + 2
     if curved and one_ball and ball == one_ball then
-        parry_accuracy = parry_accuracy + math.max(0, 1.5 - speed / 180)
+        parry_accuracy = parry_accuracy + 4
     end
     
     if ball:FindFirstChild('AeroDynamicSlashVFX') then
@@ -1175,32 +1165,23 @@ function System.autoparry.start()
                 local cooldown = System.__properties.__parried_balls[training_ball]
                 if not cooldown or tick() >= cooldown then
                     local ball_target = training_ball:GetAttribute('target')
-                    if ball_target == LocalPlayer.Name then
-                        local velocity = zoomies.VectorVelocity
-                        local speed = velocity.Magnitude
-                        local distance = (LocalPlayer.Character.PrimaryPart.Position - training_ball.Position).Magnitude
-                        local tti = distance / (speed + 8)
-                        local max_tti = math.clamp(0.14 + ping_val / 3200, 0.1, 0.24)
-                        if tti <= max_tti then
-                            local pred_ms = System.__properties.__parry_prediction_ms or 0
-                            if pred_ms <= 0 then
-                                pred_ms = math.min(math.max(ping_val * 0.32, 12), 70)
-                            end
-                            local pred_mult = math.max(0.36, 380 / (380 + speed))
-                            pred_ms = pred_ms * pred_mult
-                            local effective_distance = distance - speed * (pred_ms / 1000)
-                            local base_acc = parry_acc(speed)
-                            local buffer = math.max(0, 3.5 - speed / 110)
-                            local parry_accuracy = base_acc + buffer
-                            if effective_distance <= parry_accuracy then
-                                if getgenv().AutoParryMode == "Keypress" then
-                                    System.parry.keypress()
-                                else
-                                    System.parry.execute_action()
-                                end
-                                System.__properties.__parried_balls[training_ball] = tick() + 0.82
-                            end
+                    local velocity = zoomies.VectorVelocity
+                    local speed = velocity.Magnitude
+                    local distance = (LocalPlayer.Character.PrimaryPart.Position - training_ball.Position).Magnitude
+                    local pred_ms = System.__properties.__parry_prediction_ms or 0
+                    if pred_ms <= 0 then
+                        pred_ms = math.min(math.max(ping_val * 0.4, 15), 85)
+                    end
+                    local parry_accuracy = parry_acc(speed) + 2
+                    local effective_distance = distance - speed * (pred_ms / 1000)
+                    
+                    if ball_target == LocalPlayer.Name and effective_distance <= parry_accuracy then
+                        if getgenv().AutoParryMode == "Keypress" then
+                            System.parry.keypress()
+                        else
+                            System.parry.execute_action()
                         end
+                        System.__properties.__parried_balls[training_ball] = tick() + 0.82
                     end
                 end
             end
@@ -4818,7 +4799,6 @@ ConfigSection:Button({
             System.__properties.__play_animation = config.play_animation or false
             System.__properties.__curve_mode = config.curve_mode or 1
             System.__properties.__accuracy = config.accuracy or 1
-            update_divisor()
             System.__properties.__spam_threshold = config.spam_threshold or 1.5
             System.__properties.__spam_rate = config.spam_rate or 240
             System.__properties.__parry_prediction_ms = config.parry_prediction_ms or 0
