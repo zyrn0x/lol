@@ -160,23 +160,7 @@ local System = {
     }
 }
 
--- Metamethod Hook for Desync Hiding
-local oldIndex
-oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
-    if not System.__properties.__god_immortal or checkcaller() then
-        return oldIndex(self, key)
-    end
-    
-    if key == "CFrame" then
-        if self == (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")) then
-            return System.desync_data.originalCFrame or CFrame.new()
-        elseif self == (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")) then
-            return (System.desync_data.originalCFrame or CFrame.new()) + Vector3.new(0, 1.5, 0)
-        end
-    end
-    
-    return oldIndex(self, key)
-end))
+-- Metamethod Logic handled near module for better encapsulation
 
 System.desync_data = {
     originalCFrame = nil,
@@ -5927,16 +5911,12 @@ AISection:Slider({
 
 local Invisibilidade = {}
 
-local Players = game:GetService('Players')
-local RunService = game:GetService('RunService')
-local Workspace = game:GetService('Workspace')
-local LocalPlayer = Players.LocalPlayer
-
 local state = {
     enabled = false,
     notify = false,
     heartbeatConnection = nil,
-    ballTrackingConnection = nil
+    ballTrackingConnection = nil,
+    postConnection = nil
 }
 
 local desyncData = {
@@ -5948,18 +5928,8 @@ local cache = {
     character = nil,
     hrp = nil,
     head = nil,
-    headOffset = Vector3.new(0, 0, 0),
+    headOffset = Vector3.new(0, 0, 0), -- Vector3 as per original implementation
     aliveFolder = nil
-}
-
-local hooks = {
-    oldIndex = nil
-}
-
-local constants = {
-    emptyCFrame = CFrame.new(),
-    invisibleY = -200000,
-    velocityThreshold = 800
 }
 
 local ballData = {
@@ -5967,33 +5937,15 @@ local ballData = {
     currentBall = nil
 }
 
-local function performGodDesync()
-    updateCache()
-    if not System.__properties.__god_immortal or not cache.hrp or not isInAliveFolder() then return end
-    
-    local hrp = cache.hrp
-    local velocity = getgenv().BallPeakVelocity or 0
-    
-    -- Teleport happens BEFORE physics
-    System.desync_data.originalCFrame = hrp.CFrame
-    System.desync_data.originalVelocity = hrp.AssemblyLinearVelocity
-    
-    local target_y = -100000000 -- 10^8 Studs for maximum safety
-    hrp.CFrame = CFrame.new(hrp.Position.X, target_y, hrp.Position.Z)
-    hrp.AssemblyLinearVelocity = Vector3.new(0, 10^15, 0) -- Break prediction server-side
-end
-
-local function restoreGodDesync()
-    if not System.__properties.__god_immortal or not cache.hrp or not System.desync_data.originalCFrame then return end
-    
-    -- Restoration happens AFTER physics
-    cache.hrp.CFrame = System.desync_data.originalCFrame
-    cache.hrp.AssemblyLinearVelocity = System.desync_data.originalVelocity
-end
-
-local function shouldApplyDesync()
-    return System.__properties.__god_immortal and (getgenv().BallVelocityAbove800 == true or (ballData.currentBall and ballData.currentBall:GetAttribute("target") == LocalPlayer.Name))
-end
+local constants = {
+    emptyCFrame = CFrame.new(),
+    baseRadius = 25,
+    currentRadius = 25,
+    baseHeight = 5,
+    riseHeight = 30,
+    cycleSpeed = 11.9,
+    velocity = Vector3.new(1, 1, 1)
+}
 
 local function updateCache()
     local character = LocalPlayer.Character
@@ -6022,8 +5974,7 @@ local function trackBallVelocity()
     if not ball then
         ballData.currentBall = nil
         ballData.peakVelocity = 0
-        getgenv().BallPeakVelocity = 0
-        getgenv().BallVelocityAbove800 = false
+        constants.currentRadius = constants.baseRadius
         return
     end
 
@@ -6033,28 +5984,59 @@ local function trackBallVelocity()
     end
 
     local zoomies = ball:FindFirstChild("zoomies")
-    if not zoomies then return end
-
-    local velocity = zoomies.VectorVelocity.Magnitude
-
-    if velocity > ballData.peakVelocity then
-        ballData.peakVelocity = velocity
+    if zoomies then
+        local velocity = zoomies.VectorVelocity.Magnitude
+        if velocity > ballData.peakVelocity then
+            ballData.peakVelocity = velocity
+        end
+        
+        -- AMELIORATION: Adaptive Radius Scaling
+        local speedFactor = math.clamp(ballData.peakVelocity / 500, 1, 4)
+        constants.currentRadius = constants.baseRadius * speedFactor
     end
-
-    getgenv().BallPeakVelocity = ballData.peakVelocity
-    getgenv().BallVelocityAbove800 = ballData.peakVelocity >= 800
 end
 
-local function performDesync()
-    if System.__properties.__god_immortal then
-        performGodDesync()
-    end
+local function calculateOrbitPosition(hrp)
+    local angle = math.random(-2147483647, 2147483647) * 1000
+    local cycle = math.floor(tick() * constants.cycleSpeed) % 2
+    local yOffset = cycle == 0 and 0 or constants.riseHeight
+    
+    local pos = hrp.Position
+    local yBase = pos.Y - hrp.Size.Y * 0.5 + constants.baseHeight + yOffset
+    
+    return CFrame.new(
+        pos.X + math.cos(angle) * constants.currentRadius,
+        yBase,
+        pos.Z + math.sin(angle) * constants.currentRadius
+    )
+end
+
+local function performGodDesync()
+    updateCache()
+    if not state.enabled or not cache.hrp or not isInAliveFolder() then return end
+    
+    local hrp = cache.hrp
+    System.desync_data.originalCFrame = hrp.CFrame
+    System.desync_data.originalVelocity = hrp.AssemblyLinearVelocity
+    
+    hrp.CFrame = calculateOrbitPosition(hrp)
+    hrp.AssemblyLinearVelocity = constants.velocity
+end
+
+local function restoreGodDesync()
+    if not System.desync_data.originalCFrame or not cache.hrp then return end
+    
+    cache.hrp.CFrame = System.desync_data.originalCFrame
+    cache.hrp.AssemblyLinearVelocity = System.desync_data.originalVelocity
+    
+    System.desync_data.originalCFrame = nil
+    System.desync_data.originalVelocity = nil
 end
 
 local function sendNotification(text)
     if state.notify and WindUI then
         WindUI:Notify({
-            Title = "Immortal [GOD MODE]",
+            Title = "Walkable Immortal",
             Content = text,
             Duration = 3
         })
@@ -6062,25 +6044,24 @@ local function sendNotification(text)
 end
 
 function Invisibilidade.toggle(enabled)
-    if System.__properties.__god_immortal == enabled then return end
-    
+    if state.enabled == enabled then return end
+    state.enabled = enabled
     System.__properties.__god_immortal = enabled
     
     if enabled then
-        -- Multi-connection setup for high stability
         if not state.ballTrackingConnection then
             state.ballTrackingConnection = RunService.Heartbeat:Connect(trackBallVelocity)
         end
-        if not state.preSimulationConnection then
-            state.preSimulationConnection = RunService.PreSimulation:Connect(performGodDesync)
+        if not state.heartbeatConnection then
+            state.heartbeatConnection = RunService.PreSimulation:Connect(performGodDesync)
         end
-        if not state.postSimulationConnection then
-            state.postSimulationConnection = RunService.PostSimulation:Connect(restoreGodDesync)
+        if not state.postConnection then
+            state.postConnection = RunService.PostSimulation:Connect(restoreGodDesync)
         end
     else
         if state.ballTrackingConnection then state.ballTrackingConnection:Disconnect(); state.ballTrackingConnection = nil end
-        if state.preSimulationConnection then state.preSimulationConnection:Disconnect(); state.preSimulationConnection = nil end
-        if state.postSimulationConnection then state.postSimulationConnection:Disconnect(); state.postSimulationConnection = nil end
+        if state.heartbeatConnection then state.heartbeatConnection:Disconnect(); state.heartbeatConnection = nil end
+        if state.postConnection then state.postConnection:Disconnect(); state.postConnection = nil end
 
         updateCache()
         if cache.hrp and System.desync_data.originalCFrame then
@@ -6091,57 +6072,64 @@ function Invisibilidade.toggle(enabled)
         System.desync_data.originalCFrame = nil
         System.desync_data.originalVelocity = nil
         ballData.peakVelocity = 0
-        getgenv().BallPeakVelocity = 0
     end
     
-    sendNotification(enabled and "ULTIMATE IMMORTAL ON" or "ULTIMATE IMMORTAL OFF")
+    sendNotification(enabled and "ON" or "OFF")
 end
 
 function Invisibilidade.setNotify(enabled)
     state.notify = enabled
-    getgenv().IDKNotify = enabled
 end
 
-LocalPlayer.CharacterRemoving:Connect(function()
-    cache.character = nil
-    cache.hrp = nil
-    cache.head = nil
-    cache.aliveFolder = nil
-end)
+function Invisibilidade.setRadius(value)
+    constants.baseRadius = value
+end
 
--- Metamethod logic handled at top of script
+function Invisibilidade.setHeight(value)
+    constants.riseHeight = value
+end
 
-local DupeSection = ExclusiveTab:Section({ Title = "Immortal [GOD MODE]", Side = "Right", Box = true, Opened = true })
+-- Advanced Metamethod Hook for Orbit Desync Hiding
+local oldIndex
+oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
+    if not state.enabled or checkcaller() or key ~= "CFrame" or not cache.hrp or not isInAliveFolder() then
+        return oldIndex(self, key)
+    end
+    
+    if self == cache.hrp then
+        return System.desync_data.originalCFrame or constants.emptyCFrame
+    elseif self == cache.head and System.desync_data.originalCFrame then
+        return System.desync_data.originalCFrame + cache.headOffset
+    end
+    
+    return oldIndex(self, key)
+end))
+
+local DupeSection = ExclusiveTab:Section({ Title = "Walkable Immortal [GOD MODE]", Side = "Right", Box = true, Opened = true })
 
 DupeSection:Toggle({
-    Title = "Walkable Immortal [GOD MODE]",
-    Description = "Bypasses all detections. Handles 1M+ Velocity & 10-Minute Hold.",
+    Title = "Enable Immortal",
+    Description = "Ameliorated UwU Orbit logic. Ultra Stable.",
     Value = false,
     Callback = Invisibilidade.toggle
 })
 
-DupeSection:Slider({
-    Title = "Desync Height",
-    Value = { Min = -5000, Max = 5000, Value = -500 },
-    LeftText = "Min",
-    Callback = function(v)
-        System.__properties.__desync_height = v
-    end
-})
-
 DupeSection:Toggle({
-    Type = "Checkbox",
     Title = "Notify",
     Value = false,
     Callback = Invisibilidade.setNotify
 })
 
 DupeSection:Slider({
-    Title = 'Velocity Threshold',
-    Value = { Min = 0, Max = 1500, Value = 100 },
-    Callback = function(value)
-        constants.velocityThreshold = value
-    end
+    Title = 'Immortal Radius',
+    Value = { Min = 0, Max = 100, Value = 25 },
+    Callback = Invisibilidade.setRadius
+})
+
+DupeSection:Slider({
+    Title = 'Immortal Height',
+    Value = { Min = 0, Max = 60, Value = 30 },
+    Callback = Invisibilidade.setHeight
 })
 
 local AboutSection = AboutTab:Section({ Title = "Information", Box = true, Opened = true })
