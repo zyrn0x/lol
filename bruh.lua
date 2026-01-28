@@ -113,7 +113,7 @@ local System = {
         __is_mobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled,
         __mobile_guis = {},
         __god_immortal = false,
-        __god_spam = true,
+        __elite_spam = true, -- Elite Spam Replacement
         __target_history = {},
         __last_target_change = tick(),
         __dribble_count = 0,
@@ -130,7 +130,9 @@ local System = {
         __calibration_offset = 0,
         __recent_parries = {},
         __success_rate = 1.0,
-        __average_timing_error = 0
+        __average_timing_error = 0,
+        __tti_threshold = 0.5, -- Time-To-Impact Threshold
+        __critical_range = 15   -- Distance for burst spam
     },
 
     
@@ -478,15 +480,14 @@ end
 System.parry = {}
 
 function System.parry.execute()
+    -- Aggressive execution with minimal throttling
     local current_tick = tick()
-    if (current_tick - System.__properties.__last_parry_tick) < 0.015 then
+    if (current_tick - System.__properties.__last_parry_tick) < 0.005 then
         return
     end
     System.__properties.__last_parry_tick = current_tick
 
-    if System.__properties.__parries > 10000 or not LocalPlayer.Character then
-        return
-    end
+    if not LocalPlayer.Character then return end
     
     local camera = workspace.CurrentCamera
     local success, mouse = pcall(function()
@@ -495,10 +496,9 @@ function System.parry.execute()
     
     if not success then return end
     
-    local vec2_mouse = {mouse.X, mouse.Y}
     local is_mobile = System.__properties.__is_mobile
-    
     local event_data = {}
+    
     if Alive then
         for _, entity in pairs(Alive:GetChildren()) do
             if entity.PrimaryPart then
@@ -513,27 +513,10 @@ function System.parry.execute()
     end
     
     local curve_cframe = System.curve.get_cframe()
+    local final_aim_target = is_mobile and {camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2} or {mouse.X, mouse.Y}
     
-    if not System.__properties.__first_parry_done then
-        for _, connection in pairs(getconnections(LocalPlayer.PlayerGui.Hotbar.Block.Activated)) do
-            connection:Fire()
-        end
-        System.__properties.__first_parry_done = true
-        return
-    end
-
-    local final_aim_target
-    if is_mobile then
-        local viewport = camera.ViewportSize
-        final_aim_target = {viewport.X / 2, viewport.Y / 2}
-    else
-        final_aim_target = vec2_mouse
-    end
-    
-    local fired_remotes = 0
+    -- Fire ALL available parry remotes for maximum priority
     for remote, original_args in pairs(revertedRemotes) do
-        if fired_remotes >= 1 then break end -- Only fire the first parry remote to prevent queue exhaustion
-        
         local modified_args = {
             original_args[1],
             original_args[2],
@@ -544,18 +527,16 @@ function System.parry.execute()
             original_args[7]
         }
         
-        pcall(function()
-            if remote:IsA('RemoteEvent') then
-                remote:FireServer(unpack(modified_args))
-                fired_remotes = fired_remotes + 1
-            elseif remote:IsA('RemoteFunction') then
-                remote:InvokeServer(unpack(modified_args))
-                fired_remotes = fired_remotes + 1
-            end
+        task.spawn(function()
+            pcall(function()
+                if remote:IsA('RemoteEvent') then
+                    remote:FireServer(unpack(modified_args))
+                elseif remote:IsA('RemoteFunction') then
+                    remote:InvokeServer(unpack(modified_args))
+                end
+            end)
         end)
     end
-    
-    if System.__properties.__parries > 10000 then return end
     
     System.__properties.__parries = System.__properties.__parries + 1
     task.delay(0.5, function()
@@ -1501,9 +1482,11 @@ function System.auto_spam:get_ball_properties()
 end
 
 
--- God Mode Combat Core (Simplified & Super Strong)
-function System.auto_spam.god_combat_loop()
-    if not System.__properties.__god_spam then return end
+-- Elite Auto Spam (Argon Style - Best Ever)
+System.auto_spam = {}
+
+function System.auto_spam.elite_combat_loop()
+    if not System.__properties.__elite_spam then return end
     
     local ball = System.ball.get()
     if not ball then return end
@@ -1511,45 +1494,81 @@ function System.auto_spam.god_combat_loop()
     local char = LocalPlayer.Character
     if not char or not char.PrimaryPart then return end
     
+    local hrp = char.PrimaryPart
     local zoomies = ball:FindFirstChild("zoomies")
     if not zoomies then return end
     
-    local ball_speed = zoomies.VectorVelocity.Magnitude
-    local distance = (char.PrimaryPart.Position - ball.Position).Magnitude
-    local ping = Stats.Network.ServerStatsItem['Data Ping']:GetValue()
+    local velocity = zoomies.VectorVelocity.Magnitude
+    local distance = (hrp.Position - ball.Position).Magnitude
+    local ping = Stats.Network.ServerStatsItem['Data Ping']:GetValue() / 1000
     
-    -- THRESHOLD & DISTANCE ENGINE
-    local reaction_time = (distance / math.max(ball_speed, 1)) * 1000
-    local danger_threshold = ping + (ball_speed / 16)
-    local dynamic_threshold = math.clamp(1.5 - (ball_speed / 1500), 0.01, 2)
+    -- 1. Time-To-Impact (TTI) Prediction
+    local time_to_hit = distance / math.max(velocity, 1)
+    local tti_threshold = System.__properties.__tti_threshold + ping
     
-    -- ADVANCED DETECTIONS
-    local s_detect = System.detection.detect_singularity(ball)
-    local d_detect = System.detection.detect_dribble(ball)
-    local m_detect = System.detection.detect_martyrdom(ball)
-    local p_detect = System.detection.detect_pulse()
-    local c_wait = System.detection.should_wait_for_curve(ball)
+    -- 2. Directionality Check
+    local direction_vector = (hrp.Position - ball.Position).Unit
+    local dot = direction_vector:Dot(zoomies.VectorVelocity.Unit)
+    local is_approaching = dot > 0.2
     
-    -- SCALING
-    if s_detect then danger_threshold = danger_threshold * 1.8 end
-    if d_detect then danger_threshold = danger_threshold * 1.4 end
-    if c_wait and reaction_time > (ping + 80) then return end
-    if p_detect then return end
+    -- 3. Target Check
+    local is_target = ball:GetAttribute("target") == LocalPlayer.Name
     
-    -- PANIC AUTO-ABILITY (Dash/Flash fallback)
-    if reaction_time < (ping + 15) and ball:GetAttribute("target") == LocalPlayer.Name then
-        local ability_remote = ReplicatedStorage:FindFirstChild("AbilityButtonPress", true)
-        if ability_remote then ability_remote:FireServer() end
-    end
-
-    -- EXECUTION
-    if (reaction_time < danger_threshold or m_detect) then
-        if ball:GetAttribute("target") == LocalPlayer.Name then
-            if System.__properties.__parries > dynamic_threshold then
-                System.parry.execute()
+    -- 4. Elite Execution Logic
+    if is_target and is_approaching then
+        if distance < System.__properties.__critical_range or time_to_hit < tti_threshold then
+            System.parry.execute()
+            -- Rapid fire burst for ultra-closeness
+            if distance < 12 then
+                task.spawn(function()
+                    for i = 1, 4 do
+                        System.parry.execute()
+                        task.wait()
+                    end
+                end)
             end
         end
     end
+end
+
+-- Signal-Based Instant Reaction (Argon's Secret)
+function System.auto_spam.setup_signals()
+    local last_ball = nil
+    
+    local function connect_ball(ball)
+        if not ball then return end
+        System.__properties.__connections.__ball_target = ball:GetAttributeChangedSignal("target"):Connect(function()
+            if not System.__properties.__elite_spam then return end
+            if ball:GetAttribute("target") == LocalPlayer.Name then
+                local char = LocalPlayer.Character
+                if char and char.PrimaryPart then
+                    local dist = (char.PrimaryPart.Position - ball.Position).Magnitude
+                    -- INSTANT PARRY if ball targets you while close
+                    if dist < 30 then
+                        System.parry.execute()
+                        -- Maximum Priority Burst
+                        task.spawn(function()
+                            for i = 1, 5 do
+                                System.parry.execute()
+                                task.wait()
+                            end
+                        end)
+                    end
+                end
+            end
+        end)
+    end
+
+    RunService.Heartbeat:Connect(function()
+        local ball = System.ball.get()
+        if ball and ball ~= last_ball then
+            if System.__properties.__connections.__ball_target then
+                System.__properties.__connections.__ball_target:Disconnect()
+            end
+            last_ball = ball
+            connect_ball(ball)
+        end
+    end)
 end
 
 function System.auto_spam.start()
@@ -1558,7 +1577,12 @@ function System.auto_spam.start()
     end
     
     System.__properties.__auto_spam_enabled = true
-    System.__properties.__connections.__auto_spam = RunService.PreSimulation:Connect(System.auto_spam.god_combat_loop)
+    System.__properties.__connections.__auto_spam = RunService.PreSimulation:Connect(System.auto_spam.elite_combat_loop)
+    
+    if not System.__properties.__connections.__ball_signal_setup then
+        System.auto_spam.setup_signals()
+        System.__properties.__connections.__ball_signal_setup = true
+    end
 end
 
 function System.auto_spam.stop()
@@ -2809,23 +2833,32 @@ PhantomSection:Toggle({
     end
 })
 
-local SpamConfigSection = SpamTab:Section({ Title = "GOD-Tier Combat", Side = "Left", Box = true, Opened = true })
+local EliteCombatSection = SpamTab:Section({ Title = "Elite Combat", Side = "Left", Box = true, Opened = true })
 
-SpamConfigSection:Toggle({
-    Title = 'GOD Mode Auto Spam',
-    Description = "Fully Automated & Super Strong",
+EliteCombatSection:Toggle({
+    Title = 'Elite Auto Spam',
+    Description = "High-Performance Argon Style",
     Value = true,
     Callback = function(value)
-        System.__properties.__god_spam = value
+        System.__properties.__elite_spam = value
     end
 })
 
-SpamConfigSection:Toggle({
-    Title = 'ULTIMATE Immortal [GOD MODE]',
-    Description = "1M+ Velocity & 10min stability",
-    Value = false,
+EliteCombatSection:Slider({
+    Title = 'TTI Threshold',
+    Description = 'Time-To-Impact (lower = faster reaction)',
+    Value = { Min = 0.3, Max = 1.0, Value = 0.5, Decimal = 2 },
     Callback = function(value)
-        Invisibilidade.toggle(value)
+        System.__properties.__tti_threshold = value
+    end
+})
+
+EliteCombatSection:Slider({
+    Title = 'Critical Range',
+    Description = 'Distance for burst spamming',
+    Value = { Min = 5, Max = 30, Value = 15 },
+    Callback = function(value)
+        System.__properties.__critical_range = value
     end
 })
 
@@ -6105,28 +6138,28 @@ oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
     return oldIndex(self, key)
 end))
 
-local DupeSection = ExclusiveTab:Section({ Title = "Walkable Immortal [GOD MODE]", Side = "Right", Box = true, Opened = true })
+local ImmortalSection = ExclusiveTab:Section({ Title = "Walkable Immortal", Side = "Right", Box = true, Opened = true })
 
-DupeSection:Toggle({
+ImmortalSection:Toggle({
     Title = "Enable Immortal",
     Description = "Ameliorated UwU Orbit logic. Ultra Stable.",
     Value = false,
     Callback = Invisibilidade.toggle
 })
 
-DupeSection:Toggle({
+ImmortalSection:Toggle({
     Title = "Notify",
     Value = false,
     Callback = Invisibilidade.setNotify
 })
 
-DupeSection:Slider({
+ImmortalSection:Slider({
     Title = 'Immortal Radius',
     Value = { Min = 0, Max = 100, Value = 25 },
     Callback = Invisibilidade.setRadius
 })
 
-DupeSection:Slider({
+ImmortalSection:Slider({
     Title = 'Immortal Height',
     Value = { Min = 0, Max = 60, Value = 30 },
     Callback = Invisibilidade.setHeight
