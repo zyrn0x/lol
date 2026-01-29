@@ -25,7 +25,7 @@ function convertStringToTable(inputString)
     local result = {}
     for value in string.gmatch(inputString, "([^,]+)") do
         local trimmedValue = value:match("^%s*(.-)%s*$")
-        tablein(result, trimmedValue)
+        table.insert(result, trimmedValue)
     end
 
     return result
@@ -263,6 +263,7 @@ local System = {
         __parry_delay = 0.5
     }
 }
+getgenv().System = System
 
 -- [[ SKIN CHANGER BACKEND ]]
 getgenv().updateSword = function()
@@ -363,94 +364,6 @@ ReplicatedStorage.ChildAdded:Connect(function(child)
     end
 end)
 
--- [ BEGIN NEW SKIN CHANGER LOGIC ]
-local LocalPlayer = Player
-local swordInstancesInstance = ReplicatedStorage:WaitForChild("Shared",9e9):WaitForChild("ReplicatedInstances",9e9):WaitForChild("Swords",9e9)
-local swordInstances = require(swordInstancesInstance)
-
-local swordsController
-
-task.spawn(function()
-    while task.wait() and (not swordsController) do
-        for i,v in getconnections(ReplicatedStorage.Remotes.FireSwordInfo.OnClientEvent) do
-            if v.Function and islclosure(v.Function) then
-                local upvalues = getupvalues(v.Function)
-                if #upvalues == 1 and type(upvalues[1]) == "table" then
-                    swordsController = upvalues[1]
-                    break
-                end
-            end
-        end
-    end
-end)
-
-function getSlashName(swordName)
-    local slashName = swordInstances:GetSword(swordName)
-    return (slashName and slashName.SlashName) or "SlashEffect"
-end
-
-function setSword()
-    if not getgenv().skinChangerEnabled then return end
-    
-    setupvalue(rawget(swordInstances,"EquipSwordTo"),3,false)
-    
-    if getgenv().changeSwordModel then
-        swordInstances:EquipSwordTo(LocalPlayer.Character, getgenv().swordModel)
-    end
-    
-    if getgenv().changeSwordAnimation then
-        swordsController:SetSword(getgenv().swordAnimations)
-    end
-end
-
-local playParryFunc
-local parrySuccessAllConnection
-
-task.spawn(function()
-    while task.wait() and not parrySuccessAllConnection do
-        for i,v in getconnections(ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent) do
-            if v.Function and getinfo(v.Function).name == "parrySuccessAll" then
-                parrySuccessAllConnection = v
-                playParryFunc = v.Function
-                v:Disable()
-            end
-        end
-    end
-end)
-
-local parrySuccessClientConnection
-task.spawn(function()
-    while task.wait() and not parrySuccessClientConnection do
-        for i,v in getconnections(ReplicatedStorage.Remotes.ParrySuccessClient.Event) do
-            if v.Function and getinfo(v.Function).name == "parrySuccessAll" then
-                parrySuccessClientConnection = v
-                v:Disable()
-            end
-        end
-    end
-end)
-
-getgenv().slashName = getSlashName(getgenv().swordFX or "")
-
-local lastOtherParryTimestamp = 0
-local clashConnections = {}
-
-ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(...)
-    setthreadidentity(2)
-    local args = {...}
-    if tostring(args[4]) ~= LocalPlayer.Name then
-        lastOtherParryTimestamp = tick()
-    elseif getgenv().skinChangerEnabled and getgenv().changeSwordFX then
-        args[1] = getgenv().slashName
-        args[3] = getgenv().swordFX
-    end
-    if playParryFunc then
-        return playParryFunc(unpack(args))
-    end
-end)
-
-    pcall(getgenv().updateSword)
-end
 
 -- [[ COMBAT & VISUAL MODULES PORTED FROM UWU ]]
 System.animation = {}
@@ -510,6 +423,18 @@ function System.parry.execute()
     task.delay(0.5, function() System.__properties.__parries = math.max(0, System.__properties.__parries - 1) end)
 end
 
+function System.parry.keypress()
+    if System.__properties.__parries > 10000 or not Player.Character then return end
+    if PF then PF() end
+    System.__properties.__parries = System.__properties.__parries + 1
+    task.delay(0.5, function() System.__properties.__parries = math.max(0, System.__properties.__parries - 1) end)
+end
+
+function System.parry.execute_action()
+    System.animation.play_grab_parry()
+    System.parry.execute()
+end
+
 System.triggerbot = {}
 function System.triggerbot.loop()
     if not System.__triggerbot.__enabled then return end
@@ -528,6 +453,22 @@ function System.triggerbot.loop()
     end
 end
 
+function System.triggerbot.enable(enabled)
+    System.__triggerbot.__enabled = enabled
+    if enabled then
+        if not System.__properties.__connections.__triggerbot then
+            System.__properties.__connections.__triggerbot = RunService.Heartbeat:Connect(System.triggerbot.loop)
+        end
+    else
+        if System.__properties.__connections.__triggerbot then
+            System.__properties.__connections.__triggerbot:Disconnect()
+            System.__properties.__connections.__triggerbot = nil
+        end
+        System.__triggerbot.__is_parrying = false
+        System.__triggerbot.__parries = 0
+    end
+end
+
 System.manual_spam = {}
 function System.manual_spam.loop(delta)
     if not System.__properties.__manual_spam_enabled then return end
@@ -536,6 +477,83 @@ function System.manual_spam.loop(delta)
     if System.__properties.__spam_accumulator >= interval then
         System.__properties.__spam_accumulator = 0
         System.parry.execute()
+    end
+end
+
+function System.manual_spam.start()
+    if System.__properties.__connections.__manual_spam then
+        System.__properties.__connections.__manual_spam:Disconnect()
+    end
+    System.__properties.__manual_spam_enabled = true
+    System.__properties.__connections.__manual_spam = RunService.Heartbeat:Connect(System.manual_spam.loop)
+end
+
+function System.manual_spam.stop()
+    System.__properties.__manual_spam_enabled = false
+    if System.__properties.__connections.__manual_spam then
+        System.__properties.__connections.__manual_spam:Disconnect()
+        System.__properties.__connections.__manual_spam = nil
+    end
+end
+
+System.ball = {
+    get = function() return Auto_Parry.Get_Ball() end,
+    get_all = function() return Auto_Parry.Get_Balls() end
+}
+
+System.player = {
+    get_closest = function() return Auto_Parry.Closest_Player() end
+}
+
+System.detection = {
+    is_curved = function() return Auto_Parry.Is_Curved() end
+}
+
+System.auto_spam = {}
+function System.auto_spam.start()
+    if System.__properties.__connections.__auto_spam then
+        System.__properties.__connections.__auto_spam:Disconnect()
+    end
+    System.__properties.__auto_spam_enabled = true
+    System.__properties.__connections.__auto_spam = RunService.PreSimulation:Connect(function()
+        local Ball = System.ball.get()
+        if not Ball then return end
+        if System.__properties.__slashesoffury_active then return end
+        
+        local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+        local Ping_Threshold = math.clamp(Ping / 10, 1, 16)
+        
+        local Ball_Properties = Auto_Parry:Get_Ball_Properties()
+        local Entity_Properties = Auto_Parry:Get_Entity_Properties()
+        
+        if not Ball_Properties or not Entity_Properties then return end
+        
+        local Spam_Accuracy = Auto_Parry.Spam_Service({
+            Ball_Properties = Ball_Properties,
+            Entity_Properties = Entity_Properties,
+            Ping = Ping_Threshold
+        })
+        
+        local Closest = System.player.get_closest()
+        if not Closest or not Closest.PrimaryPart then return end
+        
+        local Target_Distance = Player:DistanceFromCharacter(Closest.PrimaryPart.Position)
+        local Distance = Player:DistanceFromCharacter(Ball.Position)
+        
+        if Target_Distance > Spam_Accuracy or Distance > Spam_Accuracy then return end
+        if Ball:GetAttribute('target') == Player.Name and Target_Distance > 30 and Distance > 30 then return end
+        
+        if Distance <= Spam_Accuracy and System.__properties.__parries > System.__properties.__spam_threshold then
+            System.parry.execute()
+        end
+    end)
+end
+
+function System.auto_spam.stop()
+    System.__properties.__auto_spam_enabled = false
+    if System.__properties.__connections.__auto_spam then
+        System.__properties.__connections.__auto_spam:Disconnect()
+        System.__properties.__connections.__auto_spam = nil
     end
 end
 
@@ -883,106 +901,6 @@ local function getTable(t:tableInfo)
     end
 end
 
-local plrs = game:GetService("Players")
-local plr = plrs.LocalPlayer
-local rs = game:GetService("ReplicatedStorage")
-local swordInstancesInstance = rs:WaitForChild("Shared",9e9):WaitForChild("ReplicatedInstances",9e9):WaitForChild("Swords",9e9)
-local swordInstances = require(swordInstancesInstance)
-
-local swordsController
-
-while task.wait() and (not swordsController) do
-    for i,v in getconnections(rs.Remotes.FireSwordInfo.OnClientEvent) do
-        if v.Function and islclosure(v.Function) then
-            local upvalues = getupvalues(v.Function)
-            if #upvalues == 1 and type(upvalues[1]) == "table" then
-                swordsController = upvalues[1]
-                break
-            end
-        end
-    end
-end
-
-function getSlashName(swordName)
-    local slashName = swordInstances:GetSword(swordName)
-    return (slashName and slashName.SlashName) or "SlashEffect"
-end
-
-function setSword()
-    if not getgenv().skinChanger then return end
-    
-    setupvalue(rawget(swordInstances,"EquipSwordTo"),2,false)
-    
-    swordInstances:EquipSwordTo(plr.Character, getgenv().swordModel)
-    swordsController:SetSword(getgenv().swordAnimations)
-end
-
-local playParryFunc
-local parrySuccessAllConnection
-
-while task.wait() and not parrySuccessAllConnection do
-    for i,v in getconnections(rs.Remotes.ParrySuccessAll.OnClientEvent) do
-        if v.Function and getinfo(v.Function).name == "parrySuccessAll" then
-            parrySuccessAllConnection = v
-            playParryFunc = v.Function
-            v:Disable()
-        end
-    end
-end
-
-local parrySuccessClientConnection
-while task.wait() and not parrySuccessClientConnection do
-    for i,v in getconnections(rs.Remotes.ParrySuccessClient.Event) do
-        if v.Function and getinfo(v.Function).name == "parrySuccessAll" then
-            parrySuccessClientConnection = v
-            v:Disable()
-        end
-    end
-end
-
-getgenv().slashName = getSlashName(getgenv().swordFX)
-
-local lastOtherParryTimestamp = 0
-local clashConnections = {}
-
-rs.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(...)
-    setthreadidentity(2)
-    local args = {...}
-    if tostring(args[4]) ~= plr.Name then
-        lastOtherParryTimestamp = tick()
-    elseif getgenv().skinChanger then
-        args[1] = getgenv().slashName
-        args[3] = getgenv().swordFX
-    end
-    return playParryFunc(unpack(args))
-end)
-
-table.insert(clashConnections, getconnections(rs.Remotes.ParrySuccessAll.OnClientEvent)[1])
-
-getgenv().updateSword = function()
-    getgenv().slashName = getSlashName(getgenv().swordFX)
-    setSword()
-end
-
-task.spawn(function()
-    while task.wait(1) do
-        if getgenv().skinChanger then
-            local char = plr.Character or plr.CharacterAdded:Wait()
-            if plr:GetAttribute("CurrentlyEquippedSword") ~= getgenv().swordModel then
-                setSword()
-            end
-            if char and (not char:FindFirstChild(getgenv().swordModel)) then
-                setSword()
-            end
-            for _,v in (char and char:GetChildren()) or {} do
-                if v:IsA("Model") and v.Name ~= getgenv().swordModel then
-                    v:Destroy()
-                end
-                task.wait()
-            end
-        end
-    end
-end)
 
 local Parries = 0
 
@@ -1609,7 +1527,7 @@ end)
 
 
 
-if not player10239123 then return end
+if not Player then return end
 
 RunTime.ChildAdded:Connect(function(Object)
     local Name = Object.Name
@@ -1617,7 +1535,7 @@ RunTime.ChildAdded:Connect(function(Object)
         if Name == "maxTransmission" or Name == "transmissionpart" then
             local Weld = Object:FindFirstChildWhichIsA("WeldConstraint")
             if Weld then
-                local Character = player10239123.Character or player10239123.CharacterAdded:Wait()
+                local Character = Player.Character or Player.CharacterAdded:Wait()
                 if Character and Weld.Part1 == Character.HumanoidRootPart then
                     CurrentBall = GetBall()
                     Weld:Destroy()
