@@ -167,6 +167,7 @@ local revertedRemotes = {}
 local originalMetatables = {}
 local Parry_Key = nil
 local SC = nil
+local Camera = workspace.CurrentCamera
 
 if ReplicatedStorage:FindFirstChild("Controllers") then
     for _, child in ipairs(ReplicatedStorage.Controllers:GetChildren()) do
@@ -1444,6 +1445,39 @@ function Auto_Parry.Parry_Data(Parry_Type)
     end
     
     return Parry_Type
+end
+
+-- [[ PARRY REMOTE FIRING FUNCTION ]]
+local function Parry(delay, curve_cframe, event_data, vec2_mouse)
+    task.wait(delay or 0)
+    
+    local final_aim_target
+    if isMobile then
+        local viewport = Camera.ViewportSize
+        final_aim_target = {viewport.X / 2, viewport.Y / 2}
+    else
+        final_aim_target = vec2_mouse or {Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2}
+    end
+    
+    for remote, original_args in pairs(revertedRemotes) do
+        local modified_args = {
+            original_args[1],
+            original_args[2],
+            original_args[3],
+            curve_cframe or Camera.CFrame,
+            event_data or {},
+            final_aim_target,
+            original_args[7]
+        }
+        
+        pcall(function()
+            if remote:IsA('RemoteEvent') then
+                remote:FireServer(unpack(modified_args))
+            elseif remote:IsA('RemoteFunction') then
+                remote:InvokeServer(unpack(modified_args))
+            end
+        end)
+    end
 end
 
 function Auto_Parry.Parry(Parry_Type)
