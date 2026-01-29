@@ -18,58 +18,99 @@ getgenv().GG = {
     }
 }
 
--- Replace the SelectedLanguage with a reference to GG.Language
-local SelectedLanguage = GG.Language
-
-function convertStringToTable(inputString)
-    local result = {}
-    for value in string.gmatch(inputString, "([^,]+)") do
-        local trimmedValue = value:match("^%s*(.-)%s*$")
-        table.insert(result, trimmedValue)
-    end
-
-    return result
-end
-
-function convertTableToString(inputTable)
-    return table.concat(inputTable, ", ")
-end
-
-local function getPlayerNames()
-    local names = {}
-    for _, p in pairs(game:GetService("Players"):GetPlayers()) do
-        table.insert(names, p.Name)
-    end
-    return names
-end
-
+local cloneref = cloneref or function(o) return o end
 local UserInputService = cloneref(game:GetService('UserInputService'))
-local ContentProvider = cloneref(game:GetService('ContentProvider'))
-local TweenService = cloneref(game:GetService('TweenService'))
-local HttpService = cloneref(game:GetService('HttpService'))
-local TextService = cloneref(game:GetService('TextService'))
-local RunService = cloneref(game:GetService('RunService'))
-local Lighting = cloneref(game:GetService('Lighting'))
 local Players = cloneref(game:GetService('Players'))
+local Player = Players.LocalPlayer
+local LocalPlayer = Player
+local ReplicatedStorage = game:GetService('ReplicatedStorage')
+local RunService = cloneref(game:GetService('RunService'))
 local CoreGui = cloneref(game:GetService('CoreGui'))
 local Debris = cloneref(game:GetService('Debris'))
+local TweenService = cloneref(game:GetService('TweenService'))
 
-local mouse = Players.LocalPlayer:GetMouse()
-local old_March = CoreGui:FindFirstChild('March')
-
-if old_March then
-    Debris:AddItem(old_March, 0)
-end
-
-if not isfolder("March") then
-    makefolder("March")
-end
-
-local Library = {
-    _config = {
-        _flags = {}
-    }
+-- [[ SYSTEM & GLOBAL INITIALIZATION ]]
+getgenv().System = {
+    __properties = {
+        __autoparry_enabled = false,
+        __triggerbot_enabled = false,
+        __manual_spam_enabled = false,
+        __auto_spam_enabled = false,
+        __play_animation = true,
+        __curve_mode = 1,
+        __accuracy = 50,
+        __divisor_multiplier = 1.1,
+        __parried = false,
+        __training_parried = false,
+        __spam_threshold = 1.5,
+        __parries = 0,
+        __parry_key = nil,
+        __grab_animation = nil,
+        __tornado_time = tick(),
+        __first_parry_done = false,
+        __connections = {},
+        __reverted_remotes = {},
+        __spam_accumulator = 0,
+        __spam_rate = 240,
+        __infinity_active = false,
+        __deathslash_active = false,
+        __timehole_active = false,
+        __slashesoffury_active = false,
+        __slashesoffury_count = 0,
+        __is_mobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled,
+        __mobile_guis = {}
+    },
+    __config = {
+        __curve_names = {'Camera', 'Random', 'Accelerated', 'Backwards', 'Slow', 'High'},
+        __detections = {
+            __infinity = false,
+            __deathslash = false,
+            __timehole = false,
+            __slashesoffury = false,
+            __phantom = false
+        }
+    },
+    __triggerbot = {
+        __enabled = false,
+        __is_parrying = false,
+        __parries = 0,
+        __max_parries = 10000,
+        __parry_delay = 0.05
+    },
+    animation = {},
+    ability_esp = {
+        __config = {
+            gui_name = "AbilityESPGui",
+            gui_size = UDim2.new(0, 200, 0, 40),
+            studs_offset = Vector3.new(0, 3.2, 0),
+            text_color = Color3.fromRGB(255, 255, 255),
+            stroke_color = Color3.fromRGB(0, 0, 0),
+            font = Enum.Font.GothamBold,
+            text_size = 14,
+            update_rate = 1/30
+        },
+        __state = {
+            active = false,
+            players = {},
+            update_task = nil
+        },
+        enable = function() end -- Placeholder until backend loads
+    },
+    detectors = { loop = function() end },
+    parry = {},
+    autoparry = { start = function() end, stop = function() end }
 }
+
+getgenv().Auto_Parry = {
+    Play_Animation = function() end,
+    Parry = function() end,
+    Get_Balls = function() return {} end
+}
+getgenv().Emotes_Data = {}
+getgenv().Parried = false
+getgenv().Parries = 0
+
+local SelectedLanguage = GG.Language
 
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
@@ -83,44 +124,24 @@ local Window = WindUI:CreateWindow({
     SideBarWidth = 200
 })
 
-local rage = Window:Tab({ Title = "Blatant", Icon = "rbxassetid://76499042599127" })
-local player = Window:Tab({ Title = "Player", Icon = "rbxassetid://126017907477623" })
-local world = Window:Tab({ Title = "World", Icon = "rbxassetid://85168909131990" })
-
-local WorldVisuals = world:Section({ Title = "Visuals" })
-
-WorldVisuals:Toggle({
-    Title = "Ability ESP",
-    Flag = "Ability_ESP_Enabled",
-    Callback = function(value)
-        System.ability_esp.enable(value)
-    end
-})
-local farm = Window:Tab({ Title = "Farm", Icon = "rbxassetid://132243429647479" })
-local misc = Window:Tab({ Title = "Misc", Icon = "rbxassetid://132243429647479" })
-
-repeat task.wait() until game:IsLoaded()
-local Players = game:GetService('Players')
-local Player = Players.LocalPlayer
-local ReplicatedStorage = game:GetService('ReplicatedStorage')
-local Tornado_Time = tick()
-local Last_Input = UserInputService:GetLastInputType()
-local Vector2_Mouse_Location = nil
-local Grab_Parry = nil
-local Remotes = {}
-local Parry_Key = nil
-local Speed_Divisor_Multiplier = 1.1
-local LobbyAP_Speed_Divisor_Multiplier = 1.1
-local firstParryFired = false
-local Previous_Positions = {}
-local VirtualInputManager = game:GetService("VirtualInputManager")
-local VirtualInputService = game:GetService("VirtualInputManager")
-
-
+-- Consolidating System and Cleaned up redundant definitions
 local GuiService = game:GetService('GuiService')
+local function getPlayerNames()
+    local names = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        table.insert(names, p.Name)
+    end
+    return names
+end
+
+local function connectRemote(remote, callback)
+    if remote and remote.Connect then
+        return remote:Connect(callback)
+    end
+end
 
 local function updateNavigation(guiObject: GuiObject | nil)
-    GuiService.SelectedObject = guiObject
+    pcall(function() GuiService.SelectedObject = guiObject end)
 end
 
 local function performFirstPress(parryType)
@@ -221,61 +242,35 @@ ReplicatedStorage.ChildAdded:Connect(function(child)
     end
 end)
 
-local System = {
-    __properties = {
-        __autoparry_enabled = false,
-        __triggerbot_enabled = false,
-        __manual_spam_enabled = false,
-        __auto_spam_enabled = false,
-        __play_animation = false,
-        __curve_mode = 1,
-        __accuracy = 1,
-        __divisor_multiplier = 1.1,
-        __parried = false,
-        __training_parried = false,
-        __spam_threshold = 1.5,
-        __parries = 0,
-        __parry_key = nil,
-        __grab_animation = nil,
-        __tornado_time = tick(),
-        __first_parry_done = false,
-        __connections = {},
-        __reverted_remotes = {},
-        __spam_accumulator = 0,
-        __spam_rate = 240,
-        __infinity_active = false,
-        __deathslash_active = false,
-        __timehole_active = false,
-        __slashesoffury_active = false,
-        __slashesoffury_count = 0,
-        __is_mobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled,
-        __mobile_guis = {}
-    },
-    
-    __config = {
-        __curve_names = {'Camera', 'Random', 'Accelerated', 'Backwards', 'Slow', 'High'},
-        __detections = {
-            __infinity = false,
-            __deathslash = false,
-            __timehole = false,
-            __slashesoffury = false,
-            __phantom = false
-        }
-    },
-    
-    __triggerbot = {
-        __enabled = false,
-        __is_parrying = false,
-        __parries = 0,
-        __max_parries = 10000,
-        __parry_delay = 0.5
-    }
-}
-getgenv().System = System
+-- Corrected UI tab creation and consolidated System definition
+local rage = Window:Tab({ Title = "Blatant", Icon = "rbxassetid://76499042599127" })
+local player = Window:Tab({ Title = "Player", Icon = "rbxassetid://126017907477623" })
+local world = Window:Tab({ Title = "World", Icon = "rbxassetid://85168909131990" })
+local farm = Window:Tab({ Title = "Farm", Icon = "rbxassetid://132243429647479" })
+local misc = Window:Tab({ Title = "Misc", Icon = "rbxassetid://132243429647479" })
 
--- [[ SKIN CHANGER BACKEND ]]
-local swordInstancesInstance = ReplicatedStorage:WaitForChild("Shared", 9e9):WaitForChild("ReplicatedInstances", 9e9):WaitForChild("Swords", 9e9)
-local swordInstances = require(swordInstancesInstance)
+local WorldVisuals = world:Section({ Title = "Visuals" })
+
+WorldVisuals:Toggle({
+    Title = "Ability ESP",
+    Flag = "Ability_ESP_Enabled",
+    Callback = function(value)
+        System.ability_esp.enable(value)
+    end
+})
+
+-- Consolidated System definition moved to top
+
+-- [[ SKIN CHANGER BACKEND (NON-BLOCKING) ]]
+local swordInstances
+task.spawn(function()
+    local success, inst = pcall(function() 
+        return ReplicatedStorage:WaitForChild("Shared", 5):WaitForChild("ReplicatedInstances", 5):WaitForChild("Swords", 5) 
+    end)
+    if success and inst then
+        swordInstances = require(inst)
+    end
+end)
 
 local swordsController
 task.spawn(function()
@@ -479,7 +474,7 @@ end)
 
 
 -- [[ COMBAT & VISUAL MODULES PORTED FROM UWU ]]
-System.animation = {}
+System.animation = System.animation or {}
 function System.animation.play_grab_parry()
     if not System.__properties.__play_animation then return end
     local character = Player.Character
@@ -500,22 +495,21 @@ function System.animation.play_grab_parry()
     end
 end
 
-System.ability_esp = {
-    __config = {
-        gui_name = "AbilityESPGui",
-        gui_size = UDim2.new(0, 200, 0, 40),
-        studs_offset = Vector3.new(0, 3.2, 0),
-        text_color = Color3.fromRGB(255, 255, 255),
-        stroke_color = Color3.fromRGB(0, 0, 0),
-        font = Enum.Font.GothamBold,
-        text_size = 14,
-        update_rate = 1/30
-    },
-    __state = {
-        active = false,
-        players = {},
-        update_task = nil
-    }
+-- Corrected ability_esp structure preservation
+System.ability_esp.__config = System.ability_esp.__config or {
+    gui_name = "AbilityESPGui",
+    gui_size = UDim2.new(0, 200, 0, 40),
+    studs_offset = Vector3.new(0, 3.2, 0),
+    text_color = Color3.fromRGB(255, 255, 255),
+    stroke_color = Color3.fromRGB(0, 0, 0),
+    font = Enum.Font.GothamBold,
+    text_size = 14,
+    update_rate = 1/30
+}
+System.ability_esp.__state = System.ability_esp.__state or {
+    active = false,
+    players = {},
+    update_task = nil
 }
 
 function System.ability_esp.create_billboard(player)
@@ -1111,9 +1105,9 @@ getgenv().swordFX = ""
 
 local print = function() end
 
+-- Removed problematic return that caused UI load failure
 if getgenv().updateSword and getgenv().skinChanger then
     getgenv().updateSword()
-    return
 end
 
 local function getTable(t:tableInfo)
@@ -1367,7 +1361,7 @@ local function destroy_mobile_gui(gui_data)
 end
 
 -- [[ CHARACTER MODIFIER BACKEND ]]
-local CharacterModifier = {
+local CharacterModifier = CharacterModifier or {
     Connection = nil,
     OriginalValues = {},
     SpinAngle = 0
