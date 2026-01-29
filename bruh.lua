@@ -93,7 +93,7 @@ WorldVisuals:Toggle({
     Title = "Ability ESP",
     Flag = "Ability_ESP_Enabled",
     Callback = function(value)
-        getgenv().AbilityESP = value
+        System.ability_esp.enable(value)
     end
 })
 local farm = Window:Tab({ Title = "Farm", Icon = "rbxassetid://132243429647479" })
@@ -274,74 +274,167 @@ local System = {
 getgenv().System = System
 
 -- [[ SKIN CHANGER BACKEND ]]
-getgenv().updateSword = function()
-    local char = Player.Character
-    if not char then return end
-    
-    local success, sword_api = pcall(function() return ReplicatedStorage.Shared.SwordAPI.Collection end)
-    if not success or not sword_api then return end
-    
-    local currentlyEquipped = char:GetAttribute("CurrentlyEquippedSword")
-    
-    if getgenv().skinChangerEnabled then
-        local swordModelName = getgenv().swordModel or currentlyEquipped
-        local swordAnimName = getgenv().swordAnimations or currentlyEquipped
-        local swordFXName = getgenv().swordFX or currentlyEquipped
-        
-        -- Override local attributes for visual systems
-        if getgenv().changeSwordModel then
-            -- Note: Actual model swapping usually requires hooking the character added or child added
-            -- for the tool and replacing the Handle child.
+local swordInstancesInstance = ReplicatedStorage:WaitForChild("Shared", 9e9):WaitForChild("ReplicatedInstances", 9e9):WaitForChild("Swords", 9e9)
+local swordInstances = require(swordInstancesInstance)
+
+local swordsController
+task.spawn(function()
+    while task.wait(0.5) and (not swordsController) do
+        local connections = getconnections(ReplicatedStorage.Remotes.FireSwordInfo.OnClientEvent)
+        for _, v in pairs(connections) do
+            if v.Function and islclosure(v.Function) then
+                local upvalues = getupvalues(v.Function)
+                if #upvalues == 1 and type(upvalues[1]) == "table" then
+                    swordsController = upvalues[1]
+                    break
+                end
+            end
         end
     end
+end)
+
+local function getSlashName(swordName)
+    local success, result = pcall(function()
+        return swordInstances:GetSword(swordName)
+    end)
+    return (success and result and result.SlashName) or "SlashEffect"
 end
 
--- Persistent loop for Skin Changer
+local function setSword()
+    if not getgenv().skinChangerEnabled then return end
+    
+    pcall(function()
+        setupvalue(rawget(swordInstances, "EquipSwordTo"), 3, false)
+        
+        if getgenv().changeSwordModel and getgenv().swordModel then
+            swordInstances:EquipSwordTo(Player.Character, getgenv().swordModel)
+        end
+        
+        if getgenv().changeSwordAnimation and getgenv().swordAnimations and swordsController then
+            swordsController:SetSword(getgenv().swordAnimations)
+        end
+    end)
+end
+
+local playParryFunc
+local parrySuccessAllConnection
+
+task.spawn(function()
+    while task.wait(0.5) and not parrySuccessAllConnection do
+        local connections = getconnections(ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent)
+        for _, v in pairs(connections) do
+            if v.Function and getinfo(v.Function).name == "parrySuccessAll" then
+                parrySuccessAllConnection = v
+                playParryFunc = v.Function
+                v:Disable()
+                break
+            end
+        end
+    end
+end)
+
+getgenv().slashName = getSlashName(getgenv().swordFX)
+
+connectRemote(ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent, function(...)
+    local args = {...}
+    if tostring(args[4]) ~= Player.Name then
+        -- Handle others (optional)
+    elseif getgenv().skinChangerEnabled and getgenv().changeSwordFX and getgenv().swordFX then
+        args[1] = getgenv().slashName or getSlashName(getgenv().swordFX)
+        args[3] = getgenv().swordFX
+    end
+    
+    if playParryFunc then
+        return playParryFunc(unpack(args))
+    end
+end)
+
+getgenv().updateSword = function()
+    if getgenv().changeSwordFX and getgenv().swordFX then
+        getgenv().slashName = getSlashName(getgenv().swordFX)
+    end
+    setSword()
+end
+
 task.spawn(function()
     while task.wait(1) do
         if getgenv().skinChangerEnabled then
-            pcall(getgenv().updateSword)
+            local char = Player.Character
+            if char then
+                if getgenv().changeSwordModel and getgenv().swordModel then
+                    if Player:GetAttribute("CurrentlyEquippedSword") ~= getgenv().swordModel or (not char:FindFirstChild(getgenv().swordModel)) then
+                        setSword()
+                    end
+                    
+                    for _, v in pairs(char:GetChildren()) do
+                        if v:IsA("Model") and v.Name ~= getgenv().swordModel and swordInstances:GetSword(v.Name) then
+                            v:Destroy()
+                        end
+                    end
+                end
+            end
         end
     end
 end)
 
 -- [[ AVATAR CHANGER BACKEND ]]
-local __avatar_flags = {}
-local __persistent_tasks = {}
+local avatarChanger = {
+    currentDesc = nil,
+    targetUserId = nil,
+    persistentTasks = {},
+    connections = {}
+}
 
-local function __descriptions_match(a, b)
+local function descriptions_match(a, b)
     if not a or not b then return false end
     local keys = {"Shirt", "Pants", "ShirtGraphic", "Head", "Face", "BodyTypeScale", "HeightScale", "WidthScale", "DepthScale", "ProportionScale"}
-    for _,k in ipairs(keys) do
-        if tostring(a[k]) ~= tostring(b[k]) then return false end
+    for _, k in ipairs(keys) do
+        local av = a[k]
+        local bv = b[k]
+        if (av ~= nil and bv ~= nil) and tostring(av) ~= tostring(bv) then
+            return false
+        end
     end
     return true
 end
 
-local function __force_apply(hum, desc)
+local function force_apply(hum, desc)
     if not hum or not desc then return end
-    for _ = 1, 5 do
-        pcall(function() hum:ApplyDescriptionClientServer(desc) end)
-        task.wait(0.1)
-    end
+    task.spawn(function()
+        for i = 1, 10 do
+            pcall(function() hum:ApplyDescriptionClientServer(desc) end)
+            task.wait(0.1)
+            local applied = nil
+            pcall(function() applied = hum:GetAppliedDescription() end)
+            if applied and descriptions_match(applied, desc) then break end
+        end
+    end)
 end
 
-local function __start_persistent_avatar(character, desc)
-    if not character or not desc or __persistent_tasks[character] then return end
+function avatarChanger.start_persistent(char, desc)
+    if not char or not desc or avatarChanger.persistentTasks[char] then return end
     local stop = false
-    __persistent_tasks[character] = { stop = function() stop = true end }
+    avatarChanger.persistentTasks[char] = { stop = function() stop = true end }
     
     task.spawn(function()
-        local hum = character:WaitForChild("Humanoid", 10)
-        while not stop and character.Parent do
-            local current = nil
-            pcall(function() current = hum:GetAppliedDescription() end)
-            if not current or not __descriptions_match(current, desc) then
-                __force_apply(hum, desc)
-            end
-            task.wait(2)
+        local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 10)
+        if not hum then
+            avatarChanger.persistentTasks[char] = nil
+            return
         end
-        __persistent_tasks[character] = nil
+        
+        while not stop and char.Parent do
+            local applied = nil
+            pcall(function() applied = hum:GetAppliedDescription() end)
+            if not applied or not descriptions_match(applied, desc) then
+                pcall(function() hum:ApplyDescriptionClientServer(desc) end)
+            end
+            task.wait(3)
+            if not hum.Parent then
+                hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5)
+            end
+        end
+        avatarChanger.persistentTasks[char] = nil
     end)
 end
 
@@ -349,14 +442,26 @@ getgenv().setAvatar = function(name)
     local char = Player.Character
     if not char or not name or name == "" then return end
     
-    local success, desc = pcall(function()
-        local id = Players:GetUserIdFromNameAsync(name)
-        return Players:GetHumanoidDescriptionFromUserId(id)
+    task.spawn(function()
+        local success, id = pcall(function() return Players:GetUserIdFromNameAsync(name) end)
+        if not success then return end
+        
+        local success2, desc = pcall(function() return Players:GetHumanoidDescriptionFromUserId(id) end)
+        if not success2 or not desc then return end
+        
+        avatarChanger.currentDesc = desc
+        avatarChanger.targetUserId = id
+        
+        local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5)
+        if hum then
+            pcall(function() 
+                Player:ClearCharacterAppearance()
+                hum.Description = Instance.new("HumanoidDescription")
+            end)
+            force_apply(hum, desc)
+            avatarChanger.start_persistent(char, desc)
+        end
     end)
-    
-    if success and desc then
-        __start_persistent_avatar(char, desc)
-    end
 end
 
 Player.CharacterAdded:Connect(function(char)
@@ -394,6 +499,139 @@ function System.animation.play_grab_parry()
         System.__properties.__grab_animation:Play()
     end
 end
+
+System.ability_esp = {
+    __config = {
+        gui_name = "AbilityESPGui",
+        gui_size = UDim2.new(0, 200, 0, 40),
+        studs_offset = Vector3.new(0, 3.2, 0),
+        text_color = Color3.fromRGB(255, 255, 255),
+        stroke_color = Color3.fromRGB(0, 0, 0),
+        font = Enum.Font.GothamBold,
+        text_size = 14,
+        update_rate = 1/30
+    },
+    __state = {
+        active = false,
+        players = {},
+        update_task = nil
+    }
+}
+
+function System.ability_esp.create_billboard(player)
+    local character = player.Character
+    if not character then return nil end
+    local head = character:FindFirstChild("Head")
+    if not head then return nil end
+    
+    local existing = head:FindFirstChild(System.ability_esp.__config.gui_name)
+    if existing then existing:Destroy() end
+    
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = System.ability_esp.__config.gui_name
+    billboard.Adornee = head
+    billboard.Size = System.ability_esp.__config.gui_size
+    billboard.StudsOffset = System.ability_esp.__config.studs_offset
+    billboard.AlwaysOnTop = true
+    billboard.Parent = head
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = System.ability_esp.__config.text_color
+    label.TextStrokeTransparency = 0.5
+    label.Font = System.ability_esp.__config.font
+    label.TextSize = System.ability_esp.__config.text_size
+    label.TextWrapped = true
+    label.Parent = billboard
+    
+    return label, billboard
+end
+
+function System.ability_esp.update_loop()
+    while System.ability_esp.__state.active do
+        task.wait(System.ability_esp.__config.update_rate)
+        for player, data in pairs(System.ability_esp.__state.players) do
+            if not player or not player.Parent then
+                System.ability_esp.remove_player(player)
+                continue
+            end
+            local character = player.Character
+            if not character or not character.Parent then
+                if data.billboard then data.billboard:Destroy(); data.billboard = nil; data.label = nil end
+                continue
+            end
+            if not data.billboard then
+                local label, billboard = System.ability_esp.create_billboard(player)
+                if label then data.label = label; data.billboard = billboard end
+            end
+            if data.label then
+                local ability = player:GetAttribute("EquippedAbility") or "None"
+                data.label.Text = player.DisplayName .. " [" .. ability .. "]"
+            end
+        end
+    end
+end
+
+function System.ability_esp.add_player(player)
+    if player == Player then return end
+    System.ability_esp.__state.players[player] = {}
+    player.CharacterAdded:Connect(function() task.wait(0.5); System.ability_esp.add_player(player) end)
+end
+
+function System.ability_esp.remove_player(player)
+    local data = System.ability_esp.__state.players[player]
+    if data and data.billboard then data.billboard:Destroy() end
+    System.ability_esp.__state.players[player] = nil
+end
+
+function System.ability_esp.enable(value)
+    System.ability_esp.__state.active = value
+    if value then
+        for _, p in pairs(Players:GetPlayers()) do System.ability_esp.add_player(p) end
+        System.ability_esp.__state.update_task = task.spawn(System.ability_esp.update_loop)
+    else
+        if System.ability_esp.__state.update_task then task.cancel(System.ability_esp.__state.update_task) end
+        for p in pairs(System.ability_esp.__state.players) do System.ability_esp.remove_player(p) end
+    end
+end
+
+-- [[ DETECTORS BACKEND ]]
+System.detectors = {}
+local infinity_parts = {"InfinityEffect", "InfinityCircle", "InfinityAura"}
+local deathslash_parts = {"DeathSlashEffect", "DeathSlashAura"}
+
+function System.detectors.loop()
+    while true do
+        task.wait(0.1)
+        getgenv().Infinity = false
+        getgenv().deathshit = false
+        getgenv().timehole = false
+        
+        for _, p in pairs(Players:GetPlayers()) do
+            local char = p.Character
+            if char then
+                if System.__config.__detections.__infinity then
+                    for _, name in ipairs(infinity_parts) do
+                        if char:FindFirstChild(name, true) then getgenv().Infinity = true; break end
+                    end
+                end
+                if System.__config.__detections.__deathslash then
+                    for _, name in ipairs(deathslash_parts) do
+                        if char:FindFirstChild(name, true) then getgenv().deathshit = true; break end
+                    end
+                end
+                if System.__config.__detections.__slashesoffury then
+                    if char:FindFirstChild("SlashesOfFuryEffect", true) then getgenv().SlashesOfFuryActive = true end
+                end
+                if System.__config.__detections.__timehole and workspace:FindFirstChild("TimeHole") then
+                    getgenv().timehole = true
+                end
+            end
+        end
+    end
+end
+task.spawn(System.detectors.loop)
 
 System.parry = {}
 function System.parry.execute()
@@ -1076,6 +1314,123 @@ function Auto_Parry:Get_Entity_Properties()
     }
 end
 
+local function create_mobile_button(name, position_y, color)
+    local gui = Instance.new('ScreenGui')
+    gui.Name = 'Allusive' .. name .. 'Mobile'
+    gui.ResetOnSpawn = false
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    local button = Instance.new('TextButton')
+    button.Size = UDim2.new(0, 140, 0, 50)
+    button.Position = UDim2.new(0.5, -70, position_y, 0)
+    button.BackgroundTransparency = 1
+    button.AnchorPoint = Vector2.new(0.5, 0)
+    button.Draggable = true
+    button.AutoButtonColor = false
+    button.ZIndex = 2
+    
+    local bg = Instance.new('Frame')
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    bg.Parent = button
+    
+    local corner = Instance.new('UICorner')
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = bg
+    
+    local stroke = Instance.new('UIStroke')
+    stroke.Color = color
+    stroke.Thickness = 1
+    stroke.Transparency = 0.3
+    stroke.Parent = bg
+    
+    local text = Instance.new('TextLabel')
+    text.Size = UDim2.new(1, 0, 1, 0)
+    text.BackgroundTransparency = 1
+    text.Text = name
+    text.Font = Enum.Font.GothamBold
+    text.TextSize = 16
+    text.TextColor3 = Color3.fromRGB(255, 255, 255)
+    text.ZIndex = 3
+    text.Parent = button
+    
+    button.Parent = gui
+    gui.Parent = CoreGui
+    
+    return {gui = gui, button = button, text = text, bg = bg}
+end
+
+local function destroy_mobile_gui(gui_data)
+    if gui_data and gui_data.gui then
+        gui_data.gui:Destroy()
+    end
+end
+
+-- [[ CHARACTER MODIFIER BACKEND ]]
+local CharacterModifier = {
+    Connection = nil,
+    OriginalValues = {},
+    SpinAngle = 0
+}
+
+function CharacterModifier.Start()
+    if CharacterModifier.Connection then CharacterModifier.Connection:Disconnect() end
+    CharacterModifier.Connection = RunService.Heartbeat:Connect(function()
+        local char = Player.Character
+        if not char or not getgenv().CharacterModifierEnabled then return end
+        
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        local root = char.PrimaryPart
+        
+        if humanoid then
+            if not CharacterModifier.OriginalValues.WalkSpeed then
+                CharacterModifier.OriginalValues.WalkSpeed = humanoid.WalkSpeed
+                CharacterModifier.OriginalValues.JumpPower = humanoid.JumpPower
+                CharacterModifier.OriginalValues.AutoRotate = humanoid.AutoRotate
+            end
+            
+            if getgenv().WalkspeedCheckboxEnabled then
+                humanoid.WalkSpeed = getgenv().CustomWalkSpeed or 36
+            end
+            
+            if getgenv().JumpPowerCheckboxEnabled then
+                humanoid.JumpPower = getgenv().CustomJumpPower or 50
+            end
+            
+            if getgenv().SpinbotCheckboxEnabled and root then
+                humanoid.AutoRotate = false
+                CharacterModifier.SpinAngle = (CharacterModifier.SpinAngle + (getgenv().CustomSpinSpeed or 5)) % 360
+                root.CFrame = CFrame.new(root.Position) * CFrame.Angles(0, math.rad(CharacterModifier.SpinAngle), 0)
+            else
+                humanoid.AutoRotate = CharacterModifier.OriginalValues.AutoRotate or true
+            end
+        end
+        
+        if getgenv().GravityCheckboxEnabled then
+            workspace.Gravity = getgenv().CustomGravity or 196.2
+        else
+            workspace.Gravity = 196.2
+        end
+    end)
+end
+
+function CharacterModifier.Stop()
+    if CharacterModifier.Connection then
+        CharacterModifier.Connection:Disconnect()
+        CharacterModifier.Connection = nil
+    end
+    local char = Player.Character
+    if char then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if humanoid and CharacterModifier.OriginalValues.WalkSpeed then
+            humanoid.WalkSpeed = CharacterModifier.OriginalValues.WalkSpeed
+            humanoid.JumpPower = CharacterModifier.OriginalValues.JumpPower
+            humanoid.AutoRotate = CharacterModifier.OriginalValues.AutoRotate
+        end
+    end
+    workspace.Gravity = 196.2
+end
+
 local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
 
 
@@ -1631,6 +1986,49 @@ local function AutoAbility()
 end
 
 do
+    local detections = rage:Section({ Title = 'Detections' })
+
+    detections:Toggle({
+        Title = 'Infinity Detection',
+        Flag = 'Infinity_Detection_Toggle',
+        Callback = function(value)
+            System.__config.__detections.__infinity = value
+        end
+    })
+
+    detections:Toggle({
+        Title = 'Death Slash Detection',
+        Flag = 'Death_Slash_Detection_Toggle',
+        Callback = function(value)
+            System.__config.__detections.__deathslash = value
+        end
+    })
+
+    detections:Toggle({
+        Title = 'Time Hole Detection',
+        Flag = 'Time_Hole_Detection_Toggle',
+        Callback = function(value)
+            System.__config.__detections.__timehole = value
+        end
+    })
+
+    detections:Toggle({
+        Title = 'Slashes Of Fury Detection',
+        Flag = 'Slashes_Of_Fury_Toggle',
+        Callback = function(value)
+            System.__config.__detections.__slashesoffury = value
+        end
+    })
+
+    detections:Slider({
+        Title = "Parry Delay",
+        Flag = "slashes_parry_delay",
+        Value = { Max = 0.25, Min = 0.05, Default = 0.05 },
+        Callback = function(value)
+            getgenv().slashesParryDelay = value
+        end
+    })
+
     local module = rage:Section({ Title = 'Auto Parry' })
 
     module:Toggle({
@@ -1654,112 +2052,88 @@ do
             end
             if value then
                 Connections_Manager['Auto Parry'] = RunService.PreSimulation:Connect(function()
-                    local One_Ball = Auto_Parry.Get_Ball()
-                    local Balls = Auto_Parry.Get_Balls()
+                    if getgenv().parryCooldown and tick() < getgenv().parryCooldown then return end
+                    local balls = Auto_Parry.Get_Balls()
+                    local one_ball = Auto_Parry.Get_Ball()
+                    
+                    local training_ball = Auto_Parry.Lobby_Balls()
 
-                    for _, Ball in pairs(Balls) do
-
-                        if not Ball then
-                            return
-                        end
-
-                        local Zoomies = Ball:FindFirstChild('zoomies')
-                        if not Zoomies then
-                            return
-                        end
-
-                        Ball:GetAttributeChangedSignal('target'):Once(function()
-                            Parried = false
-                        end)
-
-                        if Parried then
-                            return
-                        end
-
-                        local Ball_Target = Ball:GetAttribute('target')
-                        local One_Target = One_Ball:GetAttribute('target')
-
-                        local Velocity = Zoomies.VectorVelocity
-
-                        local char = Player.Character
-                        if not char or not char.PrimaryPart then return end
+                    for _, ball in pairs(balls) do
+                        if not ball then continue end
                         
-                        local Distance = (char.PrimaryPart.Position - Ball.Position).Magnitude
-
-                        local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue() / 10
-
-                        local Ping_Threshold = math.clamp(Ping / 10, 5, 17)
-
-                        local Speed = Velocity.Magnitude
-
-                        local cappedSpeedDiff = math.min(math.max(Speed - 9.5, 0), 650)
-                        local speed_divisor_base = 2.4 + cappedSpeedDiff * 0.002
-
+                        local zoomies = ball:FindFirstChild('zoomies')
+                        if not zoomies then continue end
+                        
+                        ball:GetAttributeChangedSignal('target'):Once(function()
+                            getgenv().parryCooldown = 0
+                        end)
+                        
+                        local ball_target = ball:GetAttribute('target')
+                        local velocity = zoomies.VectorVelocity
+                        local distance = (Player.Character.PrimaryPart.Position - ball.Position).Magnitude
+                        
+                        local ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue() / 10
+                        local ping_threshold = math.clamp(ping / 10, 5, 17)
+                        local speed = velocity.Magnitude
+                        
+                        local capped_speed_diff = math.min(math.max(speed - 9.5, 0), 650)
+                        local speed_divisor_base = (2.4 + capped_speed_diff * 0.002)
+                        
                         local effectiveMultiplier = Speed_Divisor_Multiplier
                         if getgenv().RandomParryAccuracyEnabled then
-                            if Speed < 200 then
-                                effectiveMultiplier = 0.7 + (math.random(40, 100) - 1) * (0.35 / 99)
-                            else
-                                effectiveMultiplier = 0.7 + (math.random(1, 100) - 1) * (0.35 / 99)
-                            end
+                            effectiveMultiplier = 0.7 + (math.random(Speed < 200 and 40 or 1, 100) - 1) * (0.35 / 99)
                         end
-
-                        local speed_divisor = speed_divisor_base * effectiveMultiplier
-                        local Parry_Accuracy = Ping_Threshold + math.max(Speed / speed_divisor, 9.5)
-
-                        local Curved = Auto_Parry.Is_Curved()
-
-                        if Ball:FindFirstChild('AeroDynamicSlashVFX') then
-                            Debris:AddItem(Ball.AeroDynamicSlashVFX, 0)
+                        
+                        local parry_accuracy = ping_threshold + math.max(speed / (speed_divisor_base * effectiveMultiplier), 9.5)
+                        local curved = Auto_Parry.Is_Curved()
+                        
+                        -- Detections
+                        if ball:FindFirstChild('AeroDynamicSlashVFX') then
+                            Debris:AddItem(ball.AeroDynamicSlashVFX, 0)
                             Tornado_Time = tick()
                         end
-
-                        if Runtime:FindFirstChild('Tornado') then
-                            if (tick() - Tornado_Time) < (Runtime.Tornado:GetAttribute("TornadoTime") or 1) + 0.314159 then
-                            return
+                        if Runtime:FindFirstChild('Tornado') and (tick() - Tornado_Time) < (Runtime.Tornado:GetAttribute('TornadoTime') or 1) + 0.314 then continue end
+                        if one_ball and one_ball:GetAttribute('target') == Player.Name and curved then continue end
+                        if ball:FindFirstChild('ComboCounter') then continue end
+                        if Player.Character.PrimaryPart:FindFirstChild('SingularityCape') then continue end
+                        
+                        if getgenv().InfinityDetection and Infinity then continue end
+                        if getgenv().DeathSlashDetection and deathshit then continue end
+                        if getgenv().TimeHoleDetection and timehole then continue end
+                        
+                        -- Slashes of Fury (Spam reaction)
+                        if getgenv().Slashes_Of_Fury_Toggle and getgenv().SlashesOfFuryActive then
+                            if distance <= parry_accuracy + 10 then
+                                for i = 1, 3 do
+                                    Auto_Parry.Parry(Selected_Parry_Type)
+                                    task.wait(getgenv().slashesParryDelay or 0.05)
+                                end
+                                getgenv().SlashesOfFuryActive = false -- Reset for next detection
+                                continue
                             end
                         end
 
-                        if One_Target == tostring(Player) and Curved then
-                            return
-                        end
-
-                        if Ball:FindFirstChild("ComboCounter") then
-                            return
-                        end
-
-                        local Singularity_Cape = Player.Character.PrimaryPart:FindFirstChild('SingularityCape')
-                        if Singularity_Cape then
-                            return
-                        end 
-
-                        if getgenv().InfinityDetection and Infinity then
-                            return
-                        end
-
-                        if getgenv().DeathSlashDetection and deathshit then
-                            return
-                        end
-
-                        if getgenv().TimeHoleDetection and timehole then
-                            return
-                        end
-
-                        if Ball_Target == tostring(Player) and Distance <= Parry_Accuracy then
-                            if getgenv().AutoAbility and AutoAbility() then
-                                return
+                        if ball_target == tostring(Player) and distance <= parry_accuracy then
+                            -- Cooldown Protection
+                            if getgenv().CooldownProtection then
+                                local ParryCD = Player.PlayerGui.Hotbar.Block.UIGradient
+                                if ParryCD.Offset.Y < 0.4 then
+                                    ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
+                                    continue
+                                end
                             end
-                        end
-
-                        if Ball_Target == tostring(Player) and Distance <= Parry_Accuracy then
-                            if getgenv().CooldownProtection and cooldownProtection() then
-                                return
-                            end
-
-                            local Parry_Time = os.clock()
-                            local Time_View = Parry_Time - (Last_Parry)
-                            if Time_View > 0.5 then
-                                Auto_Parry.Parry_Animation()
+                            
+                            -- Auto Ability
+                            if getgenv().AutoAbility then
+                                local AbilityCD = Player.PlayerGui.Hotbar.Ability.UIGradient
+                                if AbilityCD.Offset.Y == 0.5 then
+                                    local abs = Player.Character:FindFirstChild("Abilities")
+                                    if abs and (abs:FindFirstChild("Raging Deflection") or abs:FindFirstChild("Rapture") or abs:FindFirstChild("Calming Deflection") or abs:FindFirstChild("Aerodynamic Slash") or abs:FindFirstChild("Fracture") or abs:FindFirstChild("Death Slash")) then
+                                        ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
+                                        getgenv().parryCooldown = tick() + 0.5
+                                        continue
+                                    end
+                                end
                             end
 
                             if getgenv().AutoParryKeypress then
@@ -1767,15 +2141,28 @@ do
                             else
                                 Auto_Parry.Parry(Selected_Parry_Type)
                             end
-
-                            Last_Parry = Parry_Time
-                            Parried = true
+                            getgenv().parryCooldown = tick() + 0.6
                         end
-                        local Last_Parrys = tick()
-                        repeat
-                            RunService.PreSimulation:Wait()
-                        until (tick() - Last_Parrys) >= 1 or not Parried
-                        Parried = false
+                    end
+
+                    if training_ball then
+                        local zoomies = training_ball:FindFirstChild('zoomies')
+                        if zoomies then
+                            local ball_target = training_ball:GetAttribute('target')
+                            local velocity = zoomies.VectorVelocity
+                            local distance = Player:DistanceFromCharacter(training_ball.Position)
+                            local speed = velocity.Magnitude
+                            local parry_accuracy = (game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue() / 100) + math.max(speed / (2.4 * Speed_Divisor_Multiplier), 9.5)
+                            
+                            if ball_target == tostring(Player) and distance <= parry_accuracy then
+                                if getgenv().AutoParryKeypress then
+                                    VirtualInputService:SendKeyEvent(true, Enum.KeyCode.F, false, nil)
+                                else
+                                    Auto_Parry.Parry(Selected_Parry_Type)
+                                end
+                                getgenv().parryCooldown = tick() + 0.6
+                            end
+                        end
                     end
                 end)
             else
@@ -3002,51 +3389,84 @@ do
 
     local CharacterMod = player:Section({ Title = "Character" })
 
+    CharacterMod:Toggle({
+        Title = "Master Toggle",
+        Flag = "CharacterModifierEnabled",
+        Callback = function(value)
+            getgenv().CharacterModifierEnabled = value
+            if value then
+                CharacterModifier.Start()
+            else
+                CharacterModifier.Stop()
+            end
+        end
+    })
+
+    CharacterMod:Toggle({
+        Title = "WalkSpeed Enabled",
+        Flag = "WalkspeedCheckboxEnabled",
+        Callback = function(value)
+            getgenv().WalkspeedCheckboxEnabled = value
+        end
+    })
+
     CharacterMod:Slider({
-        Title = 'WalkSpeed',
+        Title = 'WalkSpeed Value',
         Flag = 'WalkSpeed_Value',
         Value = { Max = 300, Min = 16, Default = 16 },
         Callback = function(value)
-            getgenv().WalkSpeedValue = value
-            local char = Player.Character
-            if char and char:FindFirstChild("Humanoid") then
-                char.Humanoid.WalkSpeed = value
-            end
+            getgenv().CustomWalkSpeed = value
+        end
+    })
+
+    CharacterMod:Toggle({
+        Title = "JumpPower Enabled",
+        Flag = "JumpPowerCheckboxEnabled",
+        Callback = function(value)
+            getgenv().JumpPowerCheckboxEnabled = value
         end
     })
 
     CharacterMod:Slider({
-        Title = 'JumpPower',
+        Title = 'JumpPower Value',
         Flag = 'JumpPower_Value',
         Value = { Max = 500, Min = 50, Default = 50 },
         Callback = function(value)
-            getgenv().JumpPowerValue = value
-            local char = Player.Character
-            if char and char:FindFirstChild("Humanoid") then
-                char.Humanoid.UseJumpPower = true
-                char.Humanoid.JumpPower = value
-            end
+            getgenv().CustomJumpPower = value
+        end
+    })
+
+    CharacterMod:Toggle({
+        Title = "Gravity Enabled",
+        Flag = "GravityCheckboxEnabled",
+        Callback = function(value)
+            getgenv().GravityCheckboxEnabled = value
         end
     })
 
     CharacterMod:Slider({
-        Title = 'Gravity',
+        Title = 'Gravity Value',
         Flag = 'Gravity_Value',
         Value = { Max = 196.2, Min = 0, Default = 196.2 },
         Callback = function(value)
-            workspace.Gravity = value
+            getgenv().CustomGravity = value
+        end
+    })
+
+    CharacterMod:Toggle({
+        Title = "Spinbot Enabled",
+        Flag = "SpinbotCheckboxEnabled",
+        Callback = function(value)
+            getgenv().SpinbotCheckboxEnabled = value
         end
     })
 
     CharacterMod:Slider({
-        Title = 'HipHeight',
-        Flag = 'HipHeight_Value',
-        Value = { Max = 10, Min = 0, Default = 2 },
+        Title = 'Spin Speed',
+        Flag = 'Spin_Speed',
+        Value = { Max = 50, Min = 1, Default = 5 },
         Callback = function(value)
-            local char = Player.Character
-            if char and char:FindFirstChild("Humanoid") then
-                char.Humanoid.HipHeight = value
-            end
+            getgenv().CustomSpinSpeed = value
         end
     })
     
@@ -3185,6 +3605,35 @@ do
                         end
                     end
                 end
+            end
+        end
+    })
+
+    local aim = player:Section({ Title = "Player Aim" })
+
+    aim:Toggle({
+        Title = "Look At Closest",
+        Flag = "AimBotClosest",
+        Callback = function(value)
+            getgenv().AimBotClosest = value
+        end
+    })
+
+    local playerAimDropdown
+    playerAimDropdown = aim:Dropdown({
+        Title = "Target Player",
+        Flag = "SelectedPlayerAim",
+        Options = getPlayerNames(),
+        Callback = function(value)
+            getgenv().SelectedPlayerAim = value
+        end
+    })
+
+    aim:Button({
+        Title = "Refresh List",
+        Callback = function()
+            if playerAimDropdown then
+                playerAimDropdown:SetOptions(getPlayerNames())
             end
         end
     })
@@ -4920,13 +5369,33 @@ do
     AutoPlay:Slider({
         Title = 'Double Jump Chance',
         Flag = 'double_jump_percentage',
-        Value = {
-            Max = 100,
-            Min = 0,
-            Default = AutoPlayModule.CONFIG.DOUBLE_JUMP_PERCENTAGE
-        },
+        Value = { Max = 100, Min = 0, Default = 50 },
         Callback = function(value)
             AutoPlayModule.CONFIG.DOUBLE_JUMP_PERCENTAGE = value
+        end
+    })
+
+    local emotes = misc:Section({ Title = 'Emotes' })
+
+    emotes:Dropdown({
+        Title = "Select Emote",
+        Flag = "selected_emote",
+        Options = Emotes_Data,
+        Default = Emotes_Data[1] or "None",
+        Callback = function(value)
+            getgenv().selected_emote = value
+        end
+    })
+
+    emotes:Toggle({
+        Title = "Play Emote",
+        Flag = "play_emote",
+        Callback = function(value)
+            if value and getgenv().selected_emote then
+                Auto_Parry.Play_Animation(getgenv().selected_emote)
+            else
+                if Animation.track then Animation.track:Stop() end
+            end
         end
     })
 
