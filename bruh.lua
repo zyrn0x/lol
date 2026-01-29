@@ -79,22 +79,8 @@ getgenv().System = {
     },
     animation = {},
     ability_esp = {
-        __config = {
-            gui_name = "AbilityESPGui",
-            gui_size = UDim2.new(0, 200, 0, 40),
-            studs_offset = Vector3.new(0, 3.2, 0),
-            text_color = Color3.fromRGB(255, 255, 255),
-            stroke_color = Color3.fromRGB(0, 0, 0),
-            font = Enum.Font.GothamBold,
-            text_size = 14,
-            update_rate = 1/30
-        },
-        __state = {
-            active = false,
-            players = {},
-            update_task = nil
-        },
-        enable = function() end -- Placeholder until backend loads
+        __config = { gui_name = "AbilityESPGui", update_rate = 1/30 },
+        __state = { active = false, players = {} }
     },
     detectors = { loop = function() end },
     parry = {},
@@ -138,6 +124,14 @@ local function connectRemote(remote, callback)
     if remote and remote.Connect then
         return remote:Connect(callback)
     end
+end
+
+local function getPing()
+    local stats = game:GetService('Stats')
+    local network = stats:FindFirstChild('Network')
+    local serverStats = network and network:FindFirstChild('ServerStatsItem')
+    local dataPing = serverStats and serverStats:FindFirstChild('Data Ping')
+    return dataPing and dataPing:GetValue() or 100 -- Default to 100 if nil
 end
 
 local function updateNavigation(guiObject: GuiObject | nil)
@@ -760,7 +754,7 @@ function System.auto_spam.start()
         if not Ball then return end
         if System.__properties.__slashesoffury_active then return end
         
-        local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+        local Ping = getPing()
         local Ping_Threshold = math.clamp(Ping / 10, 1, 16)
         
         local Ball_Properties = Auto_Parry:Get_Ball_Properties()
@@ -801,55 +795,6 @@ end
 ReplicatedStorage.Remotes.DeathBall.OnClientEvent:Connect(function(_, d) System.__properties.__deathslash_active = d or false end)
 ReplicatedStorage.Remotes.InfinityBall.OnClientEvent:Connect(function(a, b) System.__properties.__infinity_active = b or false end)
 
-local ability_esp = {
-    __config = { gui_name = "AbilityESPGui", update_rate = 1/30 },
-    __state = { active = false, players = {} }
-}
-function ability_esp.update_loop()
-    while ability_esp.__state.active do
-        task.wait(ability_esp.__config.update_rate)
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= Player and p.Character and p.Character:FindFirstChild("Head") then
-                local head = p.Character.Head
-                local existing = head:FindFirstChild(ability_esp.__config.gui_name)
-                if not existing then
-                    local bg = Instance.new("BillboardGui", head)
-                    bg.Name = ability_esp.__config.gui_name
-                    bg.Adornee = head
-                    bg.Size = UDim2.new(0, 200, 0, 40)
-                    bg.StudsOffset = Vector3.new(0, 3, 0)
-                    bg.AlwaysOnTop = true
-                    local tl = Instance.new("TextLabel", bg)
-                    tl.Size = UDim2.new(1, 0, 1, 0)
-                    tl.BackgroundTransparency = 1
-                    tl.TextColor3 = Color3.new(1, 1, 1)
-                    tl.TextStrokeTransparency = 0
-                    tl.Font = Enum.Font.GothamBold
-                    tl.TextSize = 14
-                    local ability = p:GetAttribute("EquippedAbility") or "None"
-                    tl.Text = p.DisplayName .. " [" .. ability .. "]"
-                else
-                    local ability = p:GetAttribute("EquippedAbility") or "None"
-                    existing.TextLabel.Text = p.DisplayName .. " [" .. ability .. "]"
-                end
-            end
-        end
-    end
-end
-
-function ability_esp.toggle(val)
-    ability_esp.__state.active = val
-    if val then task.spawn(ability_esp.update_loop) 
-    else
-        for _, p in pairs(Players:GetPlayers()) do
-            if p.Character and p.Character:FindFirstChild("Head") then
-                local gui = p.Character.Head:FindFirstChild(ability_esp.__config.gui_name)
-                if gui then gui:Destroy() end
-            end
-        end
-    end
-end
-getgenv().ToggleAbilityESP = ability_esp.toggle
 
 -- [[ CHARACTER MODIFIER & EMOTES BACKEND ]]
 local OriginalValues = {}
@@ -860,51 +805,9 @@ local InfiniteJumpConnection = nil
 getgenv().ToggleCharacterModifier = function(value)
     getgenv().CharacterModifierEnabled = value
     if value then
-        if not CharacterConnection then
-            CharacterConnection = RunService.Heartbeat:Connect(function()
-                local char = Player.Character
-                if not char then return end
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                local root = char:FindFirstChild("HumanoidRootPart")
-                if hum then
-                    if not OriginalValues.WalkSpeed then
-                        OriginalValues.WalkSpeed = hum.WalkSpeed
-                        OriginalValues.JumpPower = hum.JumpPower
-                        OriginalValues.JumpHeight = hum.JumpHeight
-                        OriginalValues.HipHeight = hum.HipHeight
-                        OriginalValues.AutoRotate = hum.AutoRotate
-                    end
-                    if getgenv().WalkspeedCheckboxEnabled then hum.WalkSpeed = getgenv().CustomWalkSpeed or 36 end
-                    if getgenv().JumpPowerCheckboxEnabled then
-                        if hum.UseJumpPower then hum.JumpPower = getgenv().CustomJumpPower or 50 else hum.JumpHeight = getgenv().CustomJumpHeight or 7.2 end
-                    end
-                    if getgenv().HipHeightCheckboxEnabled then hum.HipHeight = getgenv().CustomHipHeight or 0 end
-                    if getgenv().SpinbotCheckboxEnabled and root then
-                        hum.AutoRotate = false
-                        spinAngle = (spinAngle + (getgenv().CustomSpinSpeed or 5)) % 360
-                        root.CFrame = CFrame.new(root.Position) * CFrame.Angles(0, math.rad(spinAngle), 0)
-                    else
-                        if OriginalValues.AutoRotate ~= nil then
-                            hum.AutoRotate = OriginalValues.AutoRotate
-                        end
-                    end
-                end
-                if getgenv().GravityCheckboxEnabled and getgenv().CustomGravity then workspace.Gravity = getgenv().CustomGravity end
-            end)
-        end
+        CharacterModifier.Start()
     else
-        if CharacterConnection then CharacterConnection:Disconnect(); CharacterConnection = nil end
-        local char = Player.Character
-        if char then
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum and OriginalValues.WalkSpeed then
-                hum.WalkSpeed = OriginalValues.WalkSpeed
-                if hum.UseJumpPower then hum.JumpPower = OriginalValues.JumpPower else hum.JumpHeight = OriginalValues.JumpHeight end
-                hum.HipHeight = OriginalValues.HipHeight
-                hum.AutoRotate = OriginalValues.AutoRotate
-            end
-        end
-        workspace.Gravity = 196.2
+        CharacterModifier.Stop()
     end
 end
 
@@ -1590,7 +1493,7 @@ function Auto_Parry.Is_Curved()
         return false
     end
 
-    local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+    local Ping = getPing()
     local Velocity = Zoomies.VectorVelocity
     local Ball_Direction = Velocity.Unit
 
@@ -2014,6 +1917,14 @@ do
         end
     })
 
+    detections:Toggle({
+        Title = 'Phantom V2 Detection',
+        Flag = 'PhantomV2_Detection',
+        Callback = function(value)
+            System.__config.__detections.__phantom = value
+        end
+    })
+
     detections:Slider({
         Title = "Parry Delay",
         Flag = "slashes_parry_delay",
@@ -2066,7 +1977,7 @@ do
                         local velocity = zoomies.VectorVelocity
                         local distance = (Player.Character.PrimaryPart.Position - ball.Position).Magnitude
                         
-                        local ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue() / 10
+                        local ping = getPing() / 10
                         local ping_threshold = math.clamp(ping / 10, 5, 17)
                         local speed = velocity.Magnitude
                         
@@ -2146,7 +2057,7 @@ do
                             local velocity = zoomies.VectorVelocity
                             local distance = Player:DistanceFromCharacter(training_ball.Position)
                             local speed = velocity.Magnitude
-                            local parry_accuracy = (game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue() / 100) + math.max(speed / (2.4 * Speed_Divisor_Multiplier), 9.5)
+                            local parry_accuracy = (getPing() / 100) + math.max(speed / (2.4 * Speed_Divisor_Multiplier), 9.5)
                             
                             if ball_target == tostring(Player) and distance <= parry_accuracy then
                                 if getgenv().AutoParryKeypress then
@@ -2342,7 +2253,7 @@ do
 
                     Auto_Parry.Closest_Player()
 
-                    local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+                    local Ping = getPing()
 
                     local Ping_Threshold = math.clamp(Ping / 10, 1, 16)
 
@@ -2456,7 +2367,7 @@ do
     
                         Auto_Parry.Closest_Player()
     
-                        local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+                        local Ping = getPing()
     
                         local Ping_Threshold = math.clamp(Ping / 10, 10, 16)
     
@@ -2699,37 +2610,6 @@ do
         end
     })
 
-    local Detections = rage:Section({ Title = 'Detections' })
-
-    Detections:Toggle({
-        Title = "Slashes of Fury Detection",
-        Flag = "SOF_Detection",
-        Callback = function(value) getgenv().SlashOfFuryDetection = value end
-    })
-
-    Detections:Toggle({
-        Title = "Infinity Detection",
-        Flag = "Infinity_Detection",
-        Callback = function(value) getgenv().InfinityDetection = value end
-    })
-
-    Detections:Toggle({
-        Title = "Death Slash Detection",
-        Flag = "Death_Slash_Detection",
-        Callback = function(value) getgenv().DeathSlashDetection = value end
-    })
-
-    Detections:Toggle({
-        Title = "Time Hole Detection",
-        Flag = "Time_Hole_Detection",
-        Callback = function(value) getgenv().TimeHoleDetection = value end
-    })
-
-    Detections:Toggle({
-        Title = "Phantom V2 Detection",
-        Flag = "PhantomV2_Detection",
-        Callback = function(value) getgenv().PhantomV2Detection = value end
-    })
 
     local HotkeyParryType = rage:Section({ Title = 'Hotkey Parry Type' })
     
@@ -2795,7 +2675,7 @@ do
                     local Distance = Player:DistanceFromCharacter(Ball.Position)
                     local Speed = Velocity.Magnitude
     
-                    local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue() / 10
+                    local Ping = getPing() / 10
                     local LobbyAPcappedSpeedDiff = math.min(math.max(Speed - 9.5, 0), 650)
                     local LobbyAPspeed_divisor_base = 2.4 + LobbyAPcappedSpeedDiff * 0.002
     
@@ -3057,99 +2937,64 @@ do
         end
     end
 
-    local StrafeSpeed = 36
+    local character_section = player:Section({ Title = 'Character Modifier' })
 
-    local Strafe = player:Section({ Title = 'Speed' })
-    
-    Strafe:Toggle({
-        Title = 'Enabled',
-        Flag = 'Speed',
+    character_section:Toggle({
+        Title = "Enabled",
+        Flag = "Character_Modifier_Enabled",
         Callback = function(value)
-            if value then
-                Connections_Manager['Strafe'] = game:GetService("RunService").PreSimulation:Connect(function()
-                    local character = game.Players.LocalPlayer.Character
-                    if character and character:FindFirstChild("Humanoid") then
-                        character.Humanoid.WalkSpeed = StrafeSpeed
-                    end
-                end)
-            else
-                local character = game.Players.LocalPlayer.Character
-                if character and character:FindFirstChild("Humanoid") then
-                    character.Humanoid.WalkSpeed = 36
-                end
-                
-                if Connections_Manager['Strafe'] then
-                    Connections_Manager['Strafe']:Disconnect()
-                    Connections_Manager['Strafe'] = nil
-                end
-            end
-        end
-    })
-    
-    Strafe:Slider({
-        Title = 'Strafe Speed',
-        Flag = 'Strafe_Speed',
-        Value = {
-            Min = 36,
-            Max = 200,
-            Default = 36
-        },
-        Callback = function(value)
-            StrafeSpeed = value
+            getgenv().ToggleCharacterModifier(value)
         end
     })
 
-    local Spinbot = player:Section({ Title = 'Spinbot' })
-    
-    Spinbot:Toggle({
-        Title = 'Enabled',
-        Flag = 'Spinbot',
+    character_section:Toggle({
+        Title = "Walkspeed",
+        Flag = "Walkspeed_Enabled",
         Callback = function(value)
-            getgenv().Spinbot = value
-            if value then
-                getgenv().spin = true
-                getgenv().spinSpeed = getgenv().spinSpeed or 1 
-                local Players = game:GetService("Players")
-                local RunService = game:GetService("RunService")
-                local Client = Players.LocalPlayer
-    
-                local function spinCharacter()
-                    while getgenv().spin do
-                        RunService.Heartbeat:Wait()
-                        local char = Client.Character
-                        local funcHRP = char and char:FindFirstChild("HumanoidRootPart")
-                        
-                        if char and funcHRP then
-                            funcHRP.CFrame *= CFrame.Angles(0, getgenv().spinSpeed, 0)
-                        end
-                    end
-                end
-    
-                if not getgenv().spinThread then
-                    getgenv().spinThread = coroutine.create(spinCharacter)
-                    coroutine.resume(getgenv().spinThread)
-                end
-    
-            else
-                getgenv().spin = false
-    
-                if getgenv().spinThread then
-                    getgenv().spinThread = nil
-                end
-            end
+            getgenv().WalkspeedCheckboxEnabled = value
         end
     })
-    
-    Spinbot:Slider({
-        Title = 'Spinbot Speed',
-        Flag = 'Spinbot_Speed',
-        Value = {
-            Min = 1,
-            Max = 100,
-            Default = 1
-        },
+
+    character_section:Slider({
+        Title = "Custom Walkspeed",
+        Flag = "Custom_Walkspeed",
+        Value = { Min = 16, Max = 250, Default = 36 },
         Callback = function(value)
-            getgenv().spinSpeed = math.rad(value)
+            getgenv().CustomWalkSpeed = value
+        end
+    })
+
+    character_section:Toggle({
+        Title = "Jump Power",
+        Flag = "Jump_Power_Enabled",
+        Callback = function(value)
+            getgenv().JumpPowerCheckboxEnabled = value
+        end
+    })
+
+    character_section:Slider({
+        Title = "Custom Jump Power",
+        Flag = "Custom_Jump_Power",
+        Value = { Min = 30, Max = 250, Default = 50 },
+        Callback = function(value)
+            getgenv().CustomJumpPower = value
+        end
+    })
+
+    character_section:Toggle({
+        Title = "Spinbot",
+        Flag = "Spinbot_Enabled",
+        Callback = function(value)
+            getgenv().SpinbotCheckboxEnabled = value
+        end
+    })
+
+    character_section:Slider({
+        Title = "Spin Speed",
+        Flag = "Spin_Speed",
+        Value = { Min = 1, Max = 100, Default = 5 },
+        Callback = function(value)
+            getgenv().CustomSpinSpeed = value
         end
     })
 
