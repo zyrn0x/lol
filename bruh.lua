@@ -35,6 +35,14 @@ function convertTableToString(inputTable)
     return table.concat(inputTable, ", ")
 end
 
+local function getPlayerNames()
+    local names = {}
+    for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+        table.insert(names, p.Name)
+    end
+    return names
+end
+
 local UserInputService = cloneref(game:GetService('UserInputService'))
 local ContentProvider = cloneref(game:GetService('ContentProvider'))
 local TweenService = cloneref(game:GetService('TweenService'))
@@ -1443,34 +1451,31 @@ local Last_Parry = 0
 
 
 local deathshit = false
-
-ReplicatedStorage.Remotes.DeathBall.OnClientEvent:Connect(function(c, d)
-    if d then
-        deathshit = true
-    else
-        deathshit = false
-    end
-end)
-
 local Infinity = false
-
-ReplicatedStorage.Remotes.InfinityBall.OnClientEvent:Connect(function(a, b)
-    if b then
-        Infinity = true
-    else
-        Infinity = false
-    end
-end)
-
-
 local timehole = false
 
-ReplicatedStorage.Remotes.TimeHoleHoldBall.OnClientEvent:Connect(function(e, f)
-    if f then
-        timehole = true
-    else
-        timehole = false
+local function connectRemote(path, callback)
+    local parts = string.split(path, ".")
+    local current = game
+    for _, part in ipairs(parts) do
+        current = current:FindFirstChild(part)
+        if not current then return nil end
     end
+    if current:IsA("RemoteEvent") then
+        return current.OnClientEvent:Connect(callback)
+    end
+end
+
+connectRemote("ReplicatedStorage.Remotes.DeathBall", function(c, d)
+    deathshit = d or false
+end)
+
+connectRemote("ReplicatedStorage.Remotes.InfinityBall", function(a, b)
+    Infinity = b or false
+end)
+
+connectRemote("ReplicatedStorage.Remotes.TimeHoleHoldBall", function(e, f)
+    timehole = f or false
 end)
 
 
@@ -3294,6 +3299,7 @@ do
 
     local HitSounds = player:Section({ Title = 'Hit Sounds' })
 
+    local hit_Sound_Enabled = false
     HitSounds:Toggle({
         Title = 'Enabled',
         Flag = 'Hit_Sounds',
@@ -3370,7 +3376,7 @@ do
         end
     })
     
-    ReplicatedStorage.Remotes.ParrySuccess.OnClientEvent:Connect(function()
+    connectRemote("ReplicatedStorage.Remotes.ParrySuccess", function()
         if hit_Sound_Enabled then
             hit_Sound:Play()
         end
@@ -5158,7 +5164,7 @@ do
                     net["RF/ClaimAllDailyMissions"]:InvokeServer("Weekly")
                     net["RF/ClaimAllClanBPQuests"]:InvokeServer()
         
-                    local joinTimestamp = tonumber(plr:GetAttribute("JoinedTimestamp")) + 10
+                    local joinTimestamp = tonumber(Player:GetAttribute("JoinedTimestamp") or 0) + 10
                     for i = 1, 6 do
                         while workspace:GetServerTimeNow() < joinTimestamp + (i * 300) + 1 do
                             task.wait(1)
@@ -5261,7 +5267,7 @@ do
     })
 end
 
-ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(_, root)
+connectRemote("ReplicatedStorage.Remotes.ParrySuccessAll", function(_, root)
     if root.Parent and root.Parent ~= Player.Character then
         if root.Parent.Parent ~= workspace.Alive then
             return
@@ -5288,7 +5294,7 @@ ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(_, root
 
     local Curve_Detected = Auto_Parry.Is_Curved()
 
-    if Target_Distance < 15 and Distance < 15 and Dot > -0.25 then -- wtf ?? maybe the big issue
+    if Target_Distance < 15 and Distance < 15 and Dot > -0.25 then
         if Curve_Detected then
             Auto_Parry.Parry(Selected_Parry_Type)
         end
@@ -5301,7 +5307,7 @@ ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(_, root
     Grab_Parry:Stop()
 end)
 
-ReplicatedStorage.Remotes.ParrySuccess.OnClientEvent:Connect(function()
+connectRemote("ReplicatedStorage.Remotes.ParrySuccess", function()
     if Player.Character.Parent ~= workspace.Alive then
         return
     end
@@ -5313,16 +5319,22 @@ ReplicatedStorage.Remotes.ParrySuccess.OnClientEvent:Connect(function()
     Grab_Parry:Stop()
 end)
 
-workspace.Balls.ChildAdded:Connect(function()
-    Parried = false
-end)
+local function connectBalls()
+    local balls = workspace:FindFirstChild("Balls")
+    if not balls then return end
+    
+    balls.ChildAdded:Connect(function()
+        Parried = false
+    end)
 
-workspace.Balls.ChildRemoved:Connect(function(Value)
-    Parries = 0
-    Parried = false
+    balls.ChildRemoved:Connect(function(Value)
+        Parries = 0
+        Parried = false
 
-    if Connections_Manager['Target Change'] then
-        Connections_Manager['Target Change']:Disconnect()
-        Connections_Manager['Target Change'] = nil
-    end
-end)
+        if Connections_Manager['Target Change'] then
+            Connections_Manager['Target Change']:Disconnect()
+            Connections_Manager['Target Change'] = nil
+        end
+    end)
+end
+connectBalls()
