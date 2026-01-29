@@ -732,6 +732,10 @@ function Auto_Parry:Get_Entity_Properties()
         return false
     end
 
+    if not Closest_Entity or not Closest_Entity.PrimaryPart or not Player.Character or not Player.Character.PrimaryPart then
+        return nil
+    end
+
     local Entity_Velocity = Closest_Entity.PrimaryPart.Velocity
     local Entity_Direction = (Player.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Unit
     local Entity_Distance = (Player.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Magnitude
@@ -912,7 +916,10 @@ function Auto_Parry.Is_Curved()
     local Velocity = Zoomies.VectorVelocity
     local Ball_Direction = Velocity.Unit
 
-    local playerPos = Player.Character.PrimaryPart.Position
+    local char = Player.Character
+    if not char or not char.PrimaryPart then return false end
+    
+    local playerPos = char.PrimaryPart.Position
     local ballPos = Ball.Position
     local Direction = (playerPos - ballPos).Unit
     local Dot = Direction:Dot(Ball_Direction)
@@ -1351,7 +1358,10 @@ do
 
                         local Velocity = Zoomies.VectorVelocity
 
-                        local Distance = (Player.Character.PrimaryPart.Position - Ball.Position).Magnitude
+                        local char = Player.Character
+                        if not char or not char.PrimaryPart then return end
+                        
+                        local Distance = (char.PrimaryPart.Position - Ball.Position).Magnitude
 
                         local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue() / 10
 
@@ -1526,9 +1536,11 @@ do
         if newType then
             Selected_Parry_Type = parryTypeMap[newType] or newType
             
-            -- WindUI support for Set not guaranteed, attempting Set() as best guess replacement for update()
-            if dropdown.Set then
-                dropdown:Set(newType) 
+            -- WindUI support for Set not guaranteed, using SetValue() with safety check
+            if dropdown and dropdown.SetValue then
+                dropdown:SetValue(newType) 
+            elseif dropdown and dropdown.Set then
+                dropdown:Set(newType)
             end
             
             if getgenv().HotkeyParryTypeNotify then
@@ -1695,10 +1707,13 @@ do
                         Ping = Ping_Threshold
                     })
 
+                    local char = Player.Character
+                    if not char or not char.PrimaryPart or not Closest_Entity or not Closest_Entity.PrimaryPart then return end
+
                     local Target_Position = Closest_Entity.PrimaryPart.Position
                     local Target_Distance = Player:DistanceFromCharacter(Target_Position)
 
-                    local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
+                    local Direction = (char.PrimaryPart.Position - Ball.Position).Unit
                     local Ball_Direction = Zoomies.VectorVelocity.Unit
 
                     local Dot = Direction:Dot(Ball_Direction)
@@ -1805,10 +1820,13 @@ do
                             Ping = Ping_Threshold
                         })
     
+                        local char = Player.Character
+                        if not char or not char.PrimaryPart or not Closest_Entity or not Closest_Entity.PrimaryPart then return end
+
                         local Target_Position = Closest_Entity.PrimaryPart.Position
                         local Target_Distance = Player:DistanceFromCharacter(Target_Position)
     
-                        local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
+                        local Direction = (char.PrimaryPart.Position - Ball.Position).Unit
                         local Ball_Direction = Zoomies.VectorVelocity.Unit
     
                         local Dot = Direction:Dot(Ball_Direction)
@@ -2930,7 +2948,9 @@ do
         local availablePlayers = getPlayerNames()
         if #availablePlayers > 0 then
             SelectedPlayerFollow = availablePlayers[1]
-            if followDropdown then
+            if followDropdown and followDropdown.SetValue then
+                followDropdown:SetValue(SelectedPlayerFollow)
+            elseif followDropdown and followDropdown.Set then
                 followDropdown:Set(SelectedPlayerFollow)
             end
         else
@@ -2990,7 +3010,11 @@ do
             end
         })
         SelectedPlayerFollow = initialOptions[1]
-        followDropdown:Set(SelectedPlayerFollow)
+        if followDropdown.SetValue then
+            followDropdown:SetValue(SelectedPlayerFollow)
+        elseif followDropdown.Set then
+            followDropdown:Set(SelectedPlayerFollow)
+        end
         getgenv().FollowDropdown = followDropdown
     else
         SelectedPlayerFollow = nil
@@ -3016,7 +3040,11 @@ do
 
                         if not table.find(newOptions, SelectedPlayerFollow) then
                             SelectedPlayerFollow = newOptions[1]
-                            followDropdown:Set(SelectedPlayerFollow)
+                            if followDropdown.SetValue then
+                                followDropdown:SetValue(SelectedPlayerFollow)
+                            elseif followDropdown.Set then
+                                followDropdown:Set(SelectedPlayerFollow)
+                            end
                         end
                     else
                         SelectedPlayerFollow = nil
@@ -4976,9 +5004,14 @@ ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(_, root
         return
     end
 
-    local Target_Distance = (Player.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Magnitude
-    local Distance = (Player.Character.PrimaryPart.Position - Ball.Position).Magnitude
-    local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
+    local char = Player.Character
+    if not char or not char.PrimaryPart or not Closest_Entity or not Closest_Entity.PrimaryPart then
+        return
+    end
+
+    local Target_Distance = (char.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Magnitude
+    local Distance = (char.PrimaryPart.Position - Ball.Position).Magnitude
+    local Direction = (char.PrimaryPart.Position - Ball.Position).Unit
     local Dot = Direction:Dot(Ball.AssemblyLinearVelocity.Unit)
 
     local Curve_Detected = Auto_Parry.Is_Curved()
