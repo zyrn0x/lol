@@ -97,8 +97,6 @@ local Parry_Key = nil
 local Speed_Divisor_Multiplier = 1.1
 local LobbyAP_Speed_Divisor_Multiplier = 1.1
 local firstParryFired = false
-local ParryThreshold = 2.5
-local firstParryType = 'F_Key'
 local Previous_Positions = {}
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local VirtualInputService = game:GetService("VirtualInputManager")
@@ -135,42 +133,192 @@ local PrivateKey = nil
 
 local PropertyChangeOrder = {}
 
-local HashOne
-local HashTwo
-local HashThree
+local revertedRemotes = {}
+local originalMetatables = {}
+local Parry_Key = nil
+local SC = nil
 
-LPH_NO_VIRTUALIZE(function()
-    for Index, Value in next, getgc() do
-        if rawequal(typeof(Value), "function") and islclosure(Value) and getrenv().debug.info(Value, "s"):find("SwordsController") then
-            if rawequal(getrenv().debug.info(Value, "l"), 263) then
-                HashOne = getconstant(Value, 62)
-                HashTwo = getconstant(Value, 64)
-                HashThree = getconstant(Value, 65)
-            end
-        end 
-    end
-end)()
-
-
-LPH_NO_VIRTUALIZE(function()
-    for Index, Object in next, game:GetDescendants() do
-        if Object:IsA("RemoteEvent") and string.find(Object.Name, "\n") then
-            Object.Changed:Once(function()
-                table.insert(PropertyChangeOrder, Object)
-            end)
+if ReplicatedStorage:FindFirstChild("Controllers") then
+    for _, child in ipairs(ReplicatedStorage.Controllers:GetChildren()) do
+        if child.Name:match("^SwordsController%s*$") then
+            SC = child
         end
     end
-end)()
+end
 
+-- Note: PF variable from user snippet seems to be local and not used elsewhere in their snippet, keeping internal for bypass logic.
+local PF = nil
+if Player.PlayerGui:FindFirstChild("Hotbar") and Player.PlayerGui.Hotbar:FindFirstChild("Block") then
+    for _, v in next, getconnections(Player.PlayerGui.Hotbar.Block.Activated) do
+        if SC and getfenv(v.Function).script == SC then
+            PF = v.Function
+            break
+        end
+    end
+end
 
-repeat
-    task.wait()
-until #PropertyChangeOrder == 3
+function isValidRemoteArgs(args)
+    return #args == 7 and
+        type(args[2]) == "string" and
+        type(args[3]) == "number" and
+        typeof(args[4]) == "CFrame" and
+        type(args[5]) == "table" and
+        type(args[6]) == "table" and
+        type(args[7]) == "boolean"
+end
 
+function hookRemote(remote)
+    if not revertedRemotes[remote] then
+        local mt = getrawmetatable(remote)
+        if mt and not originalMetatables[mt] then
+            originalMetatables[mt] = true
+            setreadonly(mt, false)
 
-local ShouldPlayerJump = PropertyChangeOrder[1]
-local MainRemote = PropertyChangeOrder[2]
-local GetOpponentPosition = PropertyChangeOrder[3]
+            local oldIndex = mt.__index
+            mt.__index = function(self, key)
+                if (key == "FireServer" and self:IsA("RemoteEvent")) or
+                   (key == "InvokeServer" and self:IsA("RemoteFunction")) then
+                    return function(_, ...)
+                        local args = {...}
+                        if isValidRemoteArgs(args) and not revertedRemotes[self] then
+                            revertedRemotes[self] = args
+                            Parry_Key = args[2]
+                        end
+                        return oldIndex(self, key)(self, unpack(args))
+                    end
+                end
+                return oldIndex(self, key)
+            end
+            setreadonly(mt, true)
+        end
+    end
+end
+
+for _, remote in pairs(ReplicatedStorage:GetChildren()) do
+    if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+        hookRemote(remote)
+    end
+end
+
+ReplicatedStorage.ChildAdded:Connect(function(child)
+    if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+        hookRemote(child)
+    end
+end)
+
+-- [ BEGIN NEW SKIN CHANGER LOGIC ]
+local LocalPlayer = Player
+local swordInstancesInstance = ReplicatedStorage:WaitForChild("Shared",9e9):WaitForChild("ReplicatedInstances",9e9):WaitForChild("Swords",9e9)
+local swordInstances = require(swordInstancesInstance)
+
+local swordsController
+
+task.spawn(function()
+    while task.wait() and (not swordsController) do
+        for i,v in getconnections(ReplicatedStorage.Remotes.FireSwordInfo.OnClientEvent) do
+            if v.Function and islclosure(v.Function) then
+                local upvalues = getupvalues(v.Function)
+                if #upvalues == 1 and type(upvalues[1]) == "table" then
+                    swordsController = upvalues[1]
+                    break
+                end
+            end
+        end
+    end
+end)
+
+function getSlashName(swordName)
+    local slashName = swordInstances:GetSword(swordName)
+    return (slashName and slashName.SlashName) or "SlashEffect"
+end
+
+function setSword()
+    if not getgenv().skinChangerEnabled then return end
+    
+    setupvalue(rawget(swordInstances,"EquipSwordTo"),3,false)
+    
+    if getgenv().changeSwordModel then
+        swordInstances:EquipSwordTo(LocalPlayer.Character, getgenv().swordModel)
+    end
+    
+    if getgenv().changeSwordAnimation then
+        swordsController:SetSword(getgenv().swordAnimations)
+    end
+end
+
+local playParryFunc
+local parrySuccessAllConnection
+
+task.spawn(function()
+    while task.wait() and not parrySuccessAllConnection do
+        for i,v in getconnections(ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent) do
+            if v.Function and getinfo(v.Function).name == "parrySuccessAll" then
+                parrySuccessAllConnection = v
+                playParryFunc = v.Function
+                v:Disable()
+            end
+        end
+    end
+end)
+
+local parrySuccessClientConnection
+task.spawn(function()
+    while task.wait() and not parrySuccessClientConnection do
+        for i,v in getconnections(ReplicatedStorage.Remotes.ParrySuccessClient.Event) do
+            if v.Function and getinfo(v.Function).name == "parrySuccessAll" then
+                parrySuccessClientConnection = v
+                v:Disable()
+            end
+        end
+    end
+end)
+
+getgenv().slashName = getSlashName(getgenv().swordFX or "")
+
+local lastOtherParryTimestamp = 0
+local clashConnections = {}
+
+ReplicatedStorage.Remotes.ParrySuccessAll.OnClientEvent:Connect(function(...)
+    setthreadidentity(2)
+    local args = {...}
+    if tostring(args[4]) ~= LocalPlayer.Name then
+        lastOtherParryTimestamp = tick()
+    elseif getgenv().skinChangerEnabled and getgenv().changeSwordFX then
+        args[1] = getgenv().slashName
+        args[3] = getgenv().swordFX
+    end
+    if playParryFunc then
+        return playParryFunc(unpack(args))
+    end
+end)
+
+getgenv().updateSword = function()
+    if getgenv().changeSwordFX then
+        getgenv().slashName = getSlashName(getgenv().swordFX)
+    end
+    setSword()
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if getgenv().skinChangerEnabled and getgenv().changeSwordModel then
+            local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+            if LocalPlayer:GetAttribute("CurrentlyEquippedSword") ~= getgenv().swordModel then
+                setSword()
+            end
+            if char and (not char:FindFirstChild(getgenv().swordModel)) then
+                setSword()
+            end
+            for _,v in (char and char:GetChildren()) or {} do
+                if v:IsA("Model") and v.Name ~= (getgenv().swordModel or "") and v.Name ~= "Default" then
+                    -- v:Destroy()
+                end
+                task.wait()
+            end
+        end
+    end
+end)
+-- [ END NEW SKIN CHANGER LOGIC ]
 
 --[[
 
@@ -190,22 +338,35 @@ local GetOpponentPosition = PropertyChangeOrder[3]
 
 ]]
 
-local Parry_Key
-
-for Index, Value in pairs(getconnections(game:GetService("Players").LocalPlayer.PlayerGui.Hotbar.Block.Activated)) do
-    if Value and Value.Function and not iscclosure(Value.Function)  then
-        for Index2,Value2 in pairs(getupvalues(Value.Function)) do
-            if type(Value2) == "function" then
-                Parry_Key = getupvalue(getupvalue(Value2, 2), 17);
-            end;
-        end;
-    end;
-end;
+-- capture successful parry connections and logic handled above in [ NEW SKIN CHANGER LOGIC ]
 
 local function Parry(...)
-    ShouldPlayerJump:FireServer(HashOne, Parry_Key, ...)
-    MainRemote:FireServer(HashTwo, Parry_Key, ...)
-    GetOpponentPosition:FireServer(HashThree, Parry_Key, ...)
+    if not Parry_Key then return end
+    
+    local pArgs = {...} -- Expecting {ParryType, CFrame, Events, MouseLocation}
+    for remote, capturedArgs in pairs(revertedRemotes) do
+        if remote:IsA("RemoteEvent") then
+            remote:FireServer(
+                capturedArgs[1], -- Hash
+                Parry_Key,       -- Key
+                pArgs[1],        -- Type
+                pArgs[2],        -- CFrame
+                pArgs[3],        -- Events
+                pArgs[4],        -- Mouse Pos
+                capturedArgs[7]  -- Boolean Flag
+            )
+        elseif remote:IsA("RemoteFunction") then
+            remote:InvokeServer(
+                capturedArgs[1],
+                Parry_Key,
+                pArgs[1],
+                pArgs[2],
+                pArgs[3],
+                pArgs[4],
+                capturedArgs[7]
+            )
+        end
+    end
 end
 
 --[[
@@ -704,7 +865,7 @@ function Auto_Parry.Parry(Parry_Type)
     local Parry_Data = Auto_Parry.Parry_Data(Parry_Type)
 
     if not firstParryFired then
-        performFirstPress(firstParryType)
+        performFirstPress(getgenv().firstParryType or 'F_Key')
         firstParryFired = true
     else
         Parry(Parry_Data[1], Parry_Data[2], Parry_Data[3], Parry_Data[4])
@@ -2417,66 +2578,6 @@ do
         end
     })
     
-    local Animations = player:Section({ Title = 'Emotes' })
-    
-    Animations:Toggle({
-        Title = 'Enabled',
-        Flag = 'Emotes',
-        Callback = function(value)
-            getgenv().Animations = value
-    
-            if value then
-                Connections_Manager['Animations'] = RunService.Heartbeat:Connect(function()
-                    if not Player.Character or not Player.Character.PrimaryPart then
-                        return
-                    end
-    
-                    local Speed = Player.Character.PrimaryPart.AssemblyLinearVelocity.Magnitude
-    
-                    if Speed > 30 then
-                        if Animation.track then
-                            Animation.track:Stop()
-                            Animation.track:Destroy()
-                            Animation.track = nil
-                        end
-                    else
-                        if not Animation.track and Animation.current then
-                            Auto_Parry.Play_Animation(Animation.current)
-                        end
-                    end
-                end)
-            else
-                if Animation.track then
-                    Animation.track:Stop()
-                    Animation.track:Destroy()
-                    Animation.track = nil
-                end
-    
-                if Connections_Manager['Animations'] then
-                    Connections_Manager['Animations']:Disconnect()
-                    Connections_Manager['Animations'] = nil
-                end
-            end
-        end
-    })
-   
-    local selected_animation = Emotes_Data[1]
-    
-    local AnimationChoice = Animations:Dropdown({
-        Title = 'Animation Type',
-        Flag = 'Selected_Animation',
-        Values = Emotes_Data,
-        Multi = false,
-        Callback = function(value)
-            selected_animation = value
-    
-            if getgenv().Animations then
-                Auto_Parry.Play_Animation(value)
-            end
-        end
-    })
-    
-    AnimationChoice:Set(selected_animation)
 
     _G.PlayerCosmeticsCleanup = {}
     
@@ -3772,30 +3873,83 @@ do
 
     SkinChanger:Toggle({
         Title = 'Enabled',
-        Flag = 'SkinChanger',
+        Flag = 'skinChangerEnabled',
         Default = false,
         Callback = function(value)
-            getgenv().skinChanger = value
+            getgenv().skinChangerEnabled = value
             if value then
                 getgenv().updateSword()
             end
         end
     })
 
-    SkinChanger:Paragraph({
-        Title = "⚠️EVERYONE CAN SEE ANIMATIONS",
-        Text = "IF YOU USE SKIN CHANGER BACKSWORD YOU MUST EQUIP AN ACTUAL BACKSWORD"
+    SkinChanger:Toggle({
+        Title = "Change Sword Model",
+        Flag = "ChangeSwordModel",
+        Default = true,
+        Callback = function(value)
+            getgenv().changeSwordModel = value
+            if getgenv().skinChangerEnabled then
+                getgenv().updateSword()
+            end
+        end
     })
 
     SkinChanger:Input({
-        Title = "￬ Skin Name (Case Sensitive) ￬",
-        Placeholder = "Enter Sword Skin Name... ",
-        Flag = "SkinChangerTextbox",
+        Title = "Sword Model Name",
+        Placeholder = "Enter Sword Model Name...",
+        Flag = "SwordModelTextbox",
         Callback = function(text)
             getgenv().swordModel = text
+            if getgenv().skinChangerEnabled and getgenv().changeSwordModel then
+                getgenv().updateSword()
+            end
+        end
+    })
+
+    SkinChanger:Toggle({
+        Title = "Change Sword Animation",
+        Flag = "ChangeSwordAnimation",
+        Default = true,
+        Callback = function(value)
+            getgenv().changeSwordAnimation = value
+            if getgenv().skinChangerEnabled then
+                getgenv().updateSword()
+            end
+        end
+    })
+
+    SkinChanger:Input({
+        Title = "Sword Animation Name",
+        Placeholder = "Enter Sword Animation Name...",
+        Flag = "SwordAnimationTextbox",
+        Callback = function(text)
             getgenv().swordAnimations = text
+            if getgenv().skinChangerEnabled and getgenv().changeSwordAnimation then
+                getgenv().updateSword()
+            end
+        end
+    })
+
+    SkinChanger:Toggle({
+        Title = "Change Sword FX",
+        Flag = "ChangeSwordFX",
+        Default = true,
+        Callback = function(value)
+            getgenv().changeSwordFX = value
+            if getgenv().skinChangerEnabled then
+                getgenv().updateSword()
+            end
+        end
+    })
+
+    SkinChanger:Input({
+        Title = "Sword FX Name",
+        Placeholder = "Enter Sword FX Name...",
+        Flag = "SwordFXTextbox",
+        Callback = function(text)
             getgenv().swordFX = text
-            if getgenv().skinChanger then
+            if getgenv().skinChangerEnabled and getgenv().changeSwordFX then
                 getgenv().updateSword()
             end
         end
