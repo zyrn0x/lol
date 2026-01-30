@@ -407,40 +407,6 @@ task.spawn(function()
 end)
 
 local Parries = 0
-
-function create_animation(object, info, value)
-    local animation = game:GetService('TweenService'):Create(object, info, value)
-
-    animation:Play()
-    task.wait(info.Time)
-
-    Debris:AddItem(animation, 0)
-
-    animation:Destroy()
-    animation = nil
-end
-
-local Animation = {}
-Animation.storage = {}
-
-Animation.current = nil
-Animation.track = nil
-
-for _, v in pairs(game:GetService("ReplicatedStorage").Misc.Emotes:GetChildren()) do
-    if v:IsA("Animation") and v:GetAttribute("EmoteName") then
-        local Emote_Name = v:GetAttribute("EmoteName")
-        Animation.storage[Emote_Name] = v
-    end
-end
-
-local Emotes_Data = {}
-
-for Object in pairs(Animation.storage) do
-    table.insert(Emotes_Data, Object)
-end
-
-table.sort(Emotes_Data)
-
 local Auto_Parry = {}
 
 function Auto_Parry.Parry_Animation()
@@ -2418,67 +2384,6 @@ do
             end
         end
     })
-    
-    local Animations = player:Section({ Title = 'Emotes' })
-    
-    Animations:Toggle({
-        Title = 'Enabled',
-        Flag = 'Emotes',
-        Callback = function(value)
-            getgenv().Animations = value
-    
-            if value then
-                Connections_Manager['Animations'] = RunService.Heartbeat:Connect(function()
-                    if not Player.Character or not Player.Character.PrimaryPart then
-                        return
-                    end
-    
-                    local Speed = Player.Character.PrimaryPart.AssemblyLinearVelocity.Magnitude
-    
-                    if Speed > 30 then
-                        if Animation.track then
-                            Animation.track:Stop()
-                            Animation.track:Destroy()
-                            Animation.track = nil
-                        end
-                    else
-                        if not Animation.track and Animation.current then
-                            Auto_Parry.Play_Animation(Animation.current)
-                        end
-                    end
-                end)
-            else
-                if Animation.track then
-                    Animation.track:Stop()
-                    Animation.track:Destroy()
-                    Animation.track = nil
-                end
-    
-                if Connections_Manager['Animations'] then
-                    Connections_Manager['Animations']:Disconnect()
-                    Connections_Manager['Animations'] = nil
-                end
-            end
-        end
-    })
-   
-    local selected_animation = Emotes_Data[1]
-    
-    local AnimationChoice = Animations:Dropdown({
-        Title = 'Animation Type',
-        Flag = 'Selected_Animation',
-        Values = Emotes_Data,
-        Multi = false,
-        Callback = function(value)
-            selected_animation = value
-    
-            if getgenv().Animations then
-                Auto_Parry.Play_Animation(value)
-            end
-        end
-    })
-    
-    AnimationChoice:Set(selected_animation)
 
     _G.PlayerCosmeticsCleanup = {}
     
