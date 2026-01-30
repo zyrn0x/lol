@@ -1333,9 +1333,13 @@ do
         if newType then
             Selected_Parry_Type = parryTypeMap[newType] or newType
             
-            -- WindUI support for Set not guaranteed, attempting Set() as best guess replacement for update()
-            if dropdown.Set then
-                dropdown:Set(newType) 
+            -- WindUI safety check
+            if dropdown then
+                if dropdown.Set then
+                    dropdown:Set(newType)
+                elseif dropdown.SetValue then
+                    dropdown:SetValue(newType)
+                end
             end
             
             if getgenv().HotkeyParryTypeNotify then
@@ -2776,31 +2780,42 @@ do
     })
 
     local initialOptions = getPlayerNames()
-    if #initialOptions > 0 then
-        followDropdown = PlayerFollow:Dropdown({
-            Title = "Follow Target",
-            Flag = "Follow_Target",
-            Values = initialOptions,
-            Multi = false,
-            Callback = function(value)
-                if value then
-                    SelectedPlayerFollow = value
-                    if getgenv().FollowNotifyEnabled then
-                        WindUI:Notify({
-                            Title = "Module Notification",
-                            Content = "Now following: " .. value,
-                            Duration = 3
-                        })
-                    end
+    if #initialOptions == 0 then
+        initialOptions = {"None"}
+    end
+
+    followDropdown = PlayerFollow:Dropdown({
+        Title = "Follow Target",
+        Flag = "Follow_Target",
+        Values = initialOptions,
+        Multi = false,
+        Callback = function(value)
+            if value and value ~= "None" then
+                SelectedPlayerFollow = value
+                if getgenv().FollowNotifyEnabled then
+                    WindUI:Notify({
+                        Title = "Module Notification",
+                        Content = "Now following: " .. value,
+                        Duration = 3
+                    })
                 end
             end
-        })
+        end
+    })
+    
+    if #initialOptions > 0 and initialOptions[1] ~= "None" then
         SelectedPlayerFollow = initialOptions[1]
-        followDropdown:Set(SelectedPlayerFollow)
+        
+        if followDropdown then
+            if followDropdown.Set then
+                followDropdown:Set(SelectedPlayerFollow)
+            elseif followDropdown.SetValue then
+                followDropdown:SetValue(SelectedPlayerFollow)
+            end
+        end
         getgenv().FollowDropdown = followDropdown
     else
         SelectedPlayerFollow = nil
-        -- Consider initializing an empty dropdown if no players
     end
     
     local lastOptionsString = table.concat(initialOptions, ",")
@@ -2822,7 +2837,13 @@ do
 
                         if not table.find(newOptions, SelectedPlayerFollow) then
                             SelectedPlayerFollow = newOptions[1]
-                            followDropdown:Set(SelectedPlayerFollow)
+                            if followDropdown then
+                                if followDropdown.Set then
+                                    followDropdown:Set(SelectedPlayerFollow)
+                                elseif followDropdown.SetValue then
+                                    followDropdown:SetValue(SelectedPlayerFollow)
+                                end
+                            end
                         end
                     else
                         SelectedPlayerFollow = nil
@@ -2925,6 +2946,7 @@ do
             hit_Sound:Play()
         end
     end)
+
 
     local soundOptions = {
         ["Eeyuh"] = "rbxassetid://16190782181",
