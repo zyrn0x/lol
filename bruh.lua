@@ -28,6 +28,8 @@ local RunService = cloneref(game:GetService('RunService'))
 local CoreGui = cloneref(game:GetService('CoreGui'))
 local Debris = cloneref(game:GetService('Debris'))
 local TweenService = cloneref(game:GetService('TweenService'))
+local VirtualInputService = cloneref(game:GetService('VirtualInputService'))
+local VirtualInputManager = cloneref(game:GetService('VirtualInputManager'))
 
 -- [[ SYSTEM & GLOBAL INITIALIZATION ]]
 getgenv().System = {
@@ -106,9 +108,25 @@ getgenv().System = {
 
 getgenv().Auto_Parry = {
     Play_Animation = function() end,
-    Parry = function() end,
-    Get_Balls = function() return {} end
+    Parry = function(type) System.parry.execute_action() end,
+    Get_Balls = function() 
+        local b = workspace:FindFirstChild("Balls")
+        return b and b:GetChildren() or {}
+    end,
+    Get_Ball = function()
+        local balls = workspace:FindFirstChild("Balls")
+        if not balls then return nil end
+        for _, b in pairs(balls:GetChildren()) do
+            if b:GetAttribute("target") == Player.Name then return b end
+        end
+        return balls:GetChildren()[1] -- Fallback to first ball
+    end,
+    Lobby_Balls = function()
+        local lb = workspace:FindFirstChild("TrainingBalls") or workspace:FindFirstChild("LobbyBalls")
+        return lb and lb:GetChildren()[1]
+    end
 }
+getgenv().Selected_Parry_Type = "Camera"
 getgenv().Emotes_Data = {}
 getgenv().Parried = false
 getgenv().Parries = 0
@@ -231,7 +249,7 @@ end
 
 local function performFirstPress(parryType)
     if parryType == 'F_Key' then
-        VirtualInputService:SendKeyEvent(true, Enum.KeyCode.F, false, nil)
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
     elseif parryType == 'Left_Click' then
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
     elseif parryType == 'Navigation' then
@@ -2263,7 +2281,7 @@ do
                             end
 
                             if getgenv().AutoParryKeypress then
-                                VirtualInputService:SendKeyEvent(true, Enum.KeyCode.F, false, nil)
+                                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
                             else
                                 Auto_Parry.Parry(Selected_Parry_Type)
                             end
