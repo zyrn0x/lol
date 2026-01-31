@@ -407,7 +407,112 @@ task.spawn(function()
 end)
 
 local Parries = 0
+
+function create_animation(object, info, value)
+    local animation = game:GetService('TweenService'):Create(object, info, value)
+
+    animation:Play()
+    task.wait(info.Time)
+
+    Debris:AddItem(animation, 0)
+
+    animation:Destroy()
+    animation = nil
+end
+
+local Animation = {}
+Animation.storage = {}
+
+Animation.current = nil
+Animation.track = nil
+
+for _, v in pairs(game:GetService("ReplicatedStorage").Misc.Emotes:GetChildren()) do
+    if v:IsA("Animation") and v:GetAttribute("EmoteName") then
+        local Emote_Name = v:GetAttribute("EmoteName")
+        Animation.storage[Emote_Name] = v
+    end
+end
+
+local Emotes_Data = {}
+
+for Object in pairs(Animation.storage) do
+    table.insert(Emotes_Data, Object)
+end
+
+table.sort(Emotes_Data)
+
 local Auto_Parry = {}
+
+-- [[ GOD-TIER METRIC TRACKING ]] --
+local System_Metrics = {
+    Ping_History = {},
+    Last_Tick = tick(),
+    Frame_Delta = 0,
+    Average_Ping = 0,
+    Jitter = 0,
+    Ball_Physics = {
+        Last_Velocity = Vector3.zero,
+        Acceleration = Vector3.zero,
+        Last_Update = 0
+    }
+}
+
+local Last_Parry = 0
+local Selected_Parry_Type = 'Camera'
+local Parried = false
+
+-- [[ GOD-TIER UNIVERSAL PARRY EXECUTION ]] --
+function Parry(id, cframe, events, mouse_loc)
+    -- Try using detected playParryFunc first (official method)
+    if typeof(playParryFunc) == "function" then
+        pcall(function()
+            playParryFunc(id, cframe, events, mouse_loc)
+        end)
+    end
+
+    -- Global fallback/bypass via captured remotes
+    for remote, original_args in pairs(revertedRemotes) do
+        local modified_args = {
+            original_args[1], -- Remote ID
+            original_args[2], -- Key (if exists)
+            os.clock(),
+            cframe or original_args[4],
+            events or original_args[5],
+            mouse_loc or original_args[6],
+            original_args[7]
+        }
+        
+        pcall(function()
+            if remote:IsA('RemoteEvent') then 
+                remote:FireServer(unpack(modified_args))
+            elseif remote:IsA('RemoteFunction') then 
+                remote:InvokeServer(unpack(modified_args)) 
+            end
+        end)
+    end
+end
+
+function Auto_Parry.Update_Metrics()
+    local Current_Tick = tick()
+    System_Metrics.Frame_Delta = Current_Tick - System_Metrics.Last_Tick
+    System_Metrics.Last_Tick = Current_Tick
+
+    local Raw_Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+    table.insert(System_Metrics.Ping_History, Raw_Ping)
+    if #System_Metrics.Ping_History > 20 then
+        table.remove(System_Metrics.Ping_History, 1)
+    end
+
+    local Sum = 0
+    for _, p in ipairs(System_Metrics.Ping_History) do Sum = Sum + p end
+    System_Metrics.Average_Ping = Sum / #System_Metrics.Ping_History
+
+    local Variance = 0
+    for _, p in ipairs(System_Metrics.Ping_History) do 
+        Variance = Variance + (p - System_Metrics.Average_Ping)^2 
+    end
+    System_Metrics.Jitter = math.sqrt(Variance / #System_Metrics.Ping_History)
+end
 
 function Auto_Parry.Parry_Animation()
     local Parry_Animation = game:GetService("ReplicatedStorage").Shared.SwordAPI.Collection.Default:FindFirstChild('GrabParry')
@@ -443,6 +548,77 @@ function Auto_Parry.Parry_Animation()
 
     Grab_Parry = Player.Character.Humanoid.Animator:LoadAnimation(Parry_Animation)
     Grab_Parry:Play()
+end
+
+function Auto_Parry.Get_Kinematics(Ball)
+    local Zoomies = Ball:FindFirstChild('zoomies')
+    if not Zoomies then return 0 end
+
+    local Velocity = Zoomies.VectorVelocity
+    local Current_Time = tick()
+    local dt = Current_Time - System_Metrics.Ball_Physics.Last_Update
+    
+    local Acceleration = 0
+    if dt > 0 and dt < 0.1 then -- Ensure update is within a reasonable frame
+        local Delta_V = (Velocity - System_Metrics.Ball_Physics.Last_Velocity).Magnitude
+        Acceleration = Delta_V / dt
+    end
+
+    System_Metrics.Ball_Physics.Last_Velocity = Velocity
+    System_Metrics.Ball_Physics.Last_Update = Current_Time
+    System_Metrics.Ball_Physics.Acceleration = Acceleration
+
+    return Acceleration
+end
+
+function Auto_Parry.Calculate_Adaptive_Threshold(Ball)
+    local Zoomies = Ball:FindFirstChild('zoomies')
+    if not Zoomies then return 0 end
+
+    local Speed = Zoomies.VectorVelocity.Magnitude
+    local Ping = System_Metrics.Average_Ping
+    local Jitter = System_Metrics.Jitter
+    local Delta = System_Metrics.Frame_Delta
+    local Accel = System_Metrics.Ball_Physics.Acceleration
+
+    -- Base Prediction (Speed * Time)
+    local Prediction_Studs = Speed * (Ping / 1000)
+
+    -- Kinematic Correction (1/2 * a * t^2)
+    local Kinematic_Offset = 0.5 * Accel * (Ping / 1000)^2
+
+    -- Jitter & Lag Compensation
+    local Jitter_Studs = Speed * (Jitter / 1000)
+    local Lag_Studs = Speed * (Delta * 1.5) -- 1.5x padding for FPS drops
+
+    -- User Accuracy Buffer
+    local Accuracy_Buffer = Speed_Divisor_Multiplier * 5 -- Base stud buffer
+
+    local Final_Threshold = Prediction_Studs + Kinematic_Offset + Jitter_Studs + Lag_Studs + Accuracy_Buffer
+
+    return math.max(Final_Threshold, 10) -- Min 10 studs safety
+end
+
+function Auto_Parry.Ability_Handler(Ball)
+    local Threshold_Offset = 0
+    
+    -- Telekinesis Detection (High acceleration spike towards player)
+    if System_Metrics.Ball_Physics.Acceleration > 500 then
+        Threshold_Offset = Threshold_Offset + 15
+    end
+
+    -- Infinity / Freeze Detection
+    local Is_Frozen = Player.Character:GetAttribute("Frozen") or Player.Character:FindFirstChild("IceEffect")
+    if Is_Frozen then
+        Threshold_Offset = Threshold_Offset + 20 -- Massive buffer for recovery
+    end
+
+    -- Pull Detection (Character moving away fast)
+    if Player.Character.PrimaryPart.Velocity.Magnitude > 60 then
+        Threshold_Offset = Threshold_Offset + 10
+    end
+
+    return Threshold_Offset
 end
 
 function Auto_Parry.Play_Animation(v)
@@ -870,48 +1046,41 @@ end
 
 function Auto_Parry.Spam_Service(self)
     local Ball = Auto_Parry.Get_Ball()
-
     local Entity = Auto_Parry.Closest_Player()
 
-    if not Ball then
-        return false
+    if not Ball or not Entity or not Entity.PrimaryPart then
+        return 0
     end
-
-    if not Entity or not Entity.PrimaryPart then
-        return false
-    end
-
-    local Spam_Accuracy = 0
 
     local Velocity = Ball.AssemblyLinearVelocity
     local Speed = Velocity.Magnitude
+    local Distance = (Player.Character.PrimaryPart.Position - Ball.Position).Magnitude
+    local Target_Distance = (Entity.PrimaryPart.Position - Ball.Position).Magnitude
 
-    local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
-    local Dot = Direction:Dot(Velocity.Unit)
-
-    local Target_Position = Entity.PrimaryPart.Position
-    local Target_Distance = Player:DistanceFromCharacter(Target_Position)
-
-    local Maximum_Spam_Distance = self.Ping + math.min(Speed / 6, 95)
-
-    if self.Entity_Properties.Distance > Maximum_Spam_Distance then
-        return Spam_Accuracy
+    -- [[ GOD-TIER CLASH LOGIC ]] --
+    -- If the ball is extremely close and fast, we enter "God-Spam" mode
+    local Is_Clashing = (Distance < 25 or Target_Distance < 25) and Speed > 85
+    
+    if Is_Clashing then
+        return 100 -- Force spam activation
     end
 
-    if self.Ball_Properties.Distance > Maximum_Spam_Distance then
-        return Spam_Accuracy
+    -- Adaptive Spam Threshold
+    local Base_Spam_Range = System_Metrics.Average_Ping * 0.2 + (Speed / 10)
+    local Multiplier = 1.0
+    
+    -- Increase range if ball is accelerating towards us
+    if System_Metrics.Ball_Physics.Acceleration > 100 then
+        Multiplier = 1.5
     end
 
-    if Target_Distance > Maximum_Spam_Distance then
-        return Spam_Accuracy
+    local Final_Spam_Accuracy = (Base_Spam_Range * Multiplier) + 10
+    
+    if Distance > Final_Spam_Accuracy and Target_Distance > Final_Spam_Accuracy then
+        return 0
     end
 
-    local Maximum_Speed = 5 - math.min(Speed / 5, 5)
-    local Maximum_Dot = math.clamp(Dot, -1, 0) * Maximum_Speed
-
-    Spam_Accuracy = Maximum_Spam_Distance - Maximum_Dot
-
-    return Spam_Accuracy
+    return Final_Spam_Accuracy
 end
 
 local Connections_Manager = {}
@@ -1131,6 +1300,8 @@ do
             end
             if value then
                 Connections_Manager['Auto Parry'] = RunService.PreSimulation:Connect(function()
+                    Auto_Parry.Update_Metrics()
+                    
                     local One_Ball = Auto_Parry.Get_Ball()
                     local Balls = Auto_Parry.Get_Balls()
 
@@ -1149,37 +1320,23 @@ do
                             Parried = false
                         end)
 
-                        if Parried then
-                            return
-                        end
+                        if Parried then continue end
 
                         local Ball_Target = Ball:GetAttribute('target')
-                        local One_Target = One_Ball:GetAttribute('target')
+                        if Ball_Target ~= tostring(Player) then continue end
+
+                        -- [[ GOD-TIER KINEMATIC UPDATE ]] --
+                        Auto_Parry.Get_Kinematics(Ball)
 
                         local Velocity = Zoomies.VectorVelocity
 
                         local Distance = (Player.Character.PrimaryPart.Position - Ball.Position).Magnitude
 
-                        local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue() / 10
-
-                        local Ping_Threshold = math.clamp(Ping / 10, 5, 17)
-
-                        local Speed = Velocity.Magnitude
-
-                        local cappedSpeedDiff = math.min(math.max(Speed - 9.5, 0), 650)
-                        local speed_divisor_base = 2.4 + cappedSpeedDiff * 0.002
-
-                        local effectiveMultiplier = Speed_Divisor_Multiplier
-                        if getgenv().RandomParryAccuracyEnabled then
-                            if Speed < 200 then
-                                effectiveMultiplier = 0.7 + (math.random(40, 100) - 1) * (0.35 / 99)
-                            else
-                                effectiveMultiplier = 0.7 + (math.random(1, 100) - 1) * (0.35 / 99)
-                            end
-                        end
-
-                        local speed_divisor = speed_divisor_base * effectiveMultiplier
-                        local Parry_Accuracy = Ping_Threshold + math.max(Speed / speed_divisor, 9.5)
+                        -- [[ GOD-TIER ADAPTIVE CALCULATION ]] --
+                        local Stud_Threshold = Auto_Parry.Calculate_Adaptive_Threshold(Ball)
+                        local Ability_Offset = Auto_Parry.Ability_Handler(Ball)
+                        
+                        local Parry_Accuracy = Stud_Threshold + Ability_Offset
 
                         local Curved = Auto_Parry.Is_Curved()
 
@@ -1194,8 +1351,8 @@ do
                             end
                         end
 
-                        if One_Target == tostring(Player) and Curved then
-                            return
+                        if Curved then
+                            continue
                         end
 
                         if Ball:FindFirstChild("ComboCounter") then
@@ -1219,15 +1376,13 @@ do
                             return
                         end
 
-                        if Ball_Target == tostring(Player) and Distance <= Parry_Accuracy then
+                        if Distance <= Parry_Accuracy then
                             if getgenv().AutoAbility and AutoAbility() then
-                                return
+                                continue
                             end
-                        end
 
-                        if Ball_Target == tostring(Player) and Distance <= Parry_Accuracy then
                             if getgenv().CooldownProtection and cooldownProtection() then
-                                return
+                                continue
                             end
 
                             local Parry_Time = os.clock()
@@ -1333,13 +1488,9 @@ do
         if newType then
             Selected_Parry_Type = parryTypeMap[newType] or newType
             
-            -- WindUI safety check
-            if dropdown then
-                if dropdown.Set then
-                    dropdown:Set(newType)
-                elseif dropdown.SetValue then
-                    dropdown:SetValue(newType)
-                end
+            -- WindUI support for Set not guaranteed, attempting Set() as best guess replacement for update()
+            if dropdown.Set then
+                dropdown:Set(newType) 
             end
             
             if getgenv().HotkeyParryTypeNotify then
@@ -1489,25 +1640,13 @@ do
                         return
                     end
 
-                    Auto_Parry.Closest_Player()
-
-                    local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
-
-                    local Ping_Threshold = math.clamp(Ping / 10, 1, 16)
-
+                    Auto_Parry.Update_Metrics()
                     local Ball_Target = Ball:GetAttribute('target')
 
-                    local Ball_Properties = Auto_Parry:Get_Ball_Properties()
-                    local Entity_Properties = Auto_Parry:Get_Entity_Properties()
+                    local Spam_Accuracy = Auto_Parry.Spam_Service()
 
-                    local Spam_Accuracy = Auto_Parry.Spam_Service({
-                        Ball_Properties = Ball_Properties,
-                        Entity_Properties = Entity_Properties,
-                        Ping = Ping_Threshold
-                    })
-
-                    local Target_Position = Closest_Entity.PrimaryPart.Position
-                    local Target_Distance = Player:DistanceFromCharacter(Target_Position)
+                    local Target_Distance = (Closest_Entity and Closest_Entity.PrimaryPart) and (Player.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Magnitude or 1000
+                    local Distance = (Player.Character.PrimaryPart.Position - Ball.Position).Magnitude
 
                     local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
                     local Ball_Direction = Zoomies.VectorVelocity.Unit
@@ -1530,9 +1669,7 @@ do
                         return
                     end
 
-                    if Ball_Target == tostring(Player) and Target_Distance > 30 and Distance > 30 then
-                        return
-                    end
+                    -- Cleaned up legacy distance checks to allow Adaptive God-Tier range
 
                     local threshold = ParryThreshold
 
@@ -2388,6 +2525,67 @@ do
             end
         end
     })
+    
+    local Animations = player:Section({ Title = 'Emotes' })
+    
+    Animations:Toggle({
+        Title = 'Enabled',
+        Flag = 'Emotes',
+        Callback = function(value)
+            getgenv().Animations = value
+    
+            if value then
+                Connections_Manager['Animations'] = RunService.Heartbeat:Connect(function()
+                    if not Player.Character or not Player.Character.PrimaryPart then
+                        return
+                    end
+    
+                    local Speed = Player.Character.PrimaryPart.AssemblyLinearVelocity.Magnitude
+    
+                    if Speed > 30 then
+                        if Animation.track then
+                            Animation.track:Stop()
+                            Animation.track:Destroy()
+                            Animation.track = nil
+                        end
+                    else
+                        if not Animation.track and Animation.current then
+                            Auto_Parry.Play_Animation(Animation.current)
+                        end
+                    end
+                end)
+            else
+                if Animation.track then
+                    Animation.track:Stop()
+                    Animation.track:Destroy()
+                    Animation.track = nil
+                end
+    
+                if Connections_Manager['Animations'] then
+                    Connections_Manager['Animations']:Disconnect()
+                    Connections_Manager['Animations'] = nil
+                end
+            end
+        end
+    })
+   
+    local selected_animation = Emotes_Data[1]
+    
+    local AnimationChoice = Animations:Dropdown({
+        Title = 'Animation Type',
+        Flag = 'Selected_Animation',
+        Values = Emotes_Data,
+        Multi = false,
+        Callback = function(value)
+            selected_animation = value
+    
+            if getgenv().Animations then
+                Auto_Parry.Play_Animation(value)
+            end
+        end
+    })
+    
+    AnimationChoice:Set(selected_animation)
 
     _G.PlayerCosmeticsCleanup = {}
     
@@ -2780,42 +2978,31 @@ do
     })
 
     local initialOptions = getPlayerNames()
-    if #initialOptions == 0 then
-        initialOptions = {"None"}
-    end
-
-    followDropdown = PlayerFollow:Dropdown({
-        Title = "Follow Target",
-        Flag = "Follow_Target",
-        Values = initialOptions,
-        Multi = false,
-        Callback = function(value)
-            if value and value ~= "None" then
-                SelectedPlayerFollow = value
-                if getgenv().FollowNotifyEnabled then
-                    WindUI:Notify({
-                        Title = "Module Notification",
-                        Content = "Now following: " .. value,
-                        Duration = 3
-                    })
+    if #initialOptions > 0 then
+        followDropdown = PlayerFollow:Dropdown({
+            Title = "Follow Target",
+            Flag = "Follow_Target",
+            Values = initialOptions,
+            Multi = false,
+            Callback = function(value)
+                if value then
+                    SelectedPlayerFollow = value
+                    if getgenv().FollowNotifyEnabled then
+                        WindUI:Notify({
+                            Title = "Module Notification",
+                            Content = "Now following: " .. value,
+                            Duration = 3
+                        })
+                    end
                 end
             end
-        end
-    })
-    
-    if #initialOptions > 0 and initialOptions[1] ~= "None" then
+        })
         SelectedPlayerFollow = initialOptions[1]
-        
-        if followDropdown then
-            if followDropdown.Set then
-                followDropdown:Set(SelectedPlayerFollow)
-            elseif followDropdown.SetValue then
-                followDropdown:SetValue(SelectedPlayerFollow)
-            end
-        end
+        followDropdown:Set(SelectedPlayerFollow)
         getgenv().FollowDropdown = followDropdown
     else
         SelectedPlayerFollow = nil
+        -- Consider initializing an empty dropdown if no players
     end
     
     local lastOptionsString = table.concat(initialOptions, ",")
@@ -2837,13 +3024,7 @@ do
 
                         if not table.find(newOptions, SelectedPlayerFollow) then
                             SelectedPlayerFollow = newOptions[1]
-                            if followDropdown then
-                                if followDropdown.Set then
-                                    followDropdown:Set(SelectedPlayerFollow)
-                                elseif followDropdown.SetValue then
-                                    followDropdown:SetValue(SelectedPlayerFollow)
-                                end
-                            end
+                            followDropdown:Set(SelectedPlayerFollow)
                         end
                     else
                         SelectedPlayerFollow = nil
@@ -2946,7 +3127,6 @@ do
             hit_Sound:Play()
         end
     end)
-
 
     local soundOptions = {
         ["Eeyuh"] = "rbxassetid://16190782181",
@@ -3840,7 +4020,7 @@ do
     function AutoPlayModule.isLimited()
         local passedTime = tick() - AutoPlayModule.LAST_GENERATION
         return passedTime < AutoPlayModule.CONFIG.GENERATION_THRESHOLD
-    end
+    }
     
     function AutoPlayModule.percentageCheck(limit)
         if AutoPlayModule.isLimited() then
