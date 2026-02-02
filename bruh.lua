@@ -2377,7 +2377,7 @@ end)
                     end
                 end
 
-                if #settings.options > 0 then
+                if settings.options and #settings.options > 0 then
                     DropdownManager._size = 3
 
                     for index, value in settings.options do
@@ -4383,6 +4383,153 @@ do
         flag = "Manual_Spam_Parry_Notify",
         callback = function(value: boolean)
             getgenv().ManualSpamNotify = value
+        end
+    })
+
+    local AutoSpam = rage:create_module({
+        title = 'Auto Spam',
+        flag = 'AutoSpam',
+        description = 'Automatically spam parries when ball is close',
+        section = 'left',
+        callback = function(value: boolean)
+            getgenv().AutoSpamEnabled = value
+            if value then
+                 if getgenv().AutoSpamNotify then
+                    Library.SendNotification({
+                        title = "Module Notification",
+                        text = "Auto Spam turned ON",
+                        duration = 2
+                    })
+                end
+                
+                if Connections_Manager['AutoSpam'] then
+                    Connections_Manager['AutoSpam']:Disconnect()
+                end
+
+                Connections_Manager['AutoSpam'] = RunService.PreSimulation:Connect(function()
+                    if not getgenv().AutoSpamEnabled then return end
+                    
+                    local Ball = Auto_Parry.Get_Ball()
+                    if not Ball then return end
+
+                    local zoomies = Ball:FindFirstChild('zoomies')
+                    if not zoomies then return end
+                    
+                    local Entity = Auto_Parry.Closest_Player()
+                    if not Entity or not Entity.PrimaryPart then return end
+                    
+                    local Player = game.Players.LocalPlayer
+                    if not Player.Character or not Player.Character.PrimaryPart then return end
+
+                    local Velocity = Ball.AssemblyLinearVelocity
+                    local Speed = Velocity.Magnitude
+                    local Distance = (Player.Character.PrimaryPart.Position - Ball.Position).Magnitude
+                    local Target_Position = Entity.PrimaryPart.Position
+                    local Target_Distance = Player:DistanceFromCharacter(Target_Position)
+                    local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
+                    local Dot = Direction:Dot(Velocity.Unit)
+                    
+                    -- Construct self table for Spam_Service
+                    local self_mock = {
+                        Ping = game:GetService("Stats").Network.ServerStatsItem['Data Ping']:GetValue() / 10,
+                        Entity_Properties = { Distance = Target_Distance },
+                        Ball_Properties = { Distance = Distance }
+                    }
+                    
+                    local valid_range = Auto_Parry.Spam_Service(self_mock)
+                    
+                    local ball_target = Ball:GetAttribute('target')
+                    
+                    -- Logic ported from Allusive for best spam
+                    if not ball_target then return end
+                    
+                    -- Check if ball is targeting us or close enough to be a threat
+                    local is_target = (ball_target == Player.Name)
+                    
+                    -- Dynamic threshold logic
+                    local spam_threshold = getgenv().AutoSpamThreshold or 1.5
+                    
+                    if Speed > 1000 then
+                        spam_threshold = spam_threshold * 0.7
+                    end
+                    
+                    if Distance < 30 then
+                        spam_threshold = spam_threshold * 0.5
+                    end
+                    
+                    -- Execution Condition
+                    if (Distance <= valid_range or (is_target and Distance < 50)) and Parries > spam_threshold then
+                         if getgenv().AutoSpamMode == "Keypress" then
+                            performFirstPress(getgenv().AutoSpamType or 'F_Key')
+                        else
+                             Auto_Parry.Parry(Selected_Parry_Type)
+                        end
+                    end
+                end)
+            else
+                 if getgenv().AutoSpamNotify then
+                    Library.SendNotification({
+                        title = "Module Notification",
+                        text = "Auto Spam turned OFF",
+                        duration = 2
+                    })
+                end
+                
+                if Connections_Manager['AutoSpam'] then
+                    Connections_Manager['AutoSpam']:Disconnect()
+                    Connections_Manager['AutoSpam'] = nil
+                end
+            end
+        end
+    })
+
+    AutoSpam:create_slider({
+        title = "Spam Distance",
+        flag = "AutoSpamDistance",
+        minimum_value = 10,
+        maximum_value = 500,
+        value = 150,
+        callback = function(value)
+            getgenv().AutoSpamDistance = value
+        end
+    })
+
+    AutoSpam:create_slider({
+        title = "Spam Threshold",
+        flag = "AutoSpamThreshold",
+        minimum_value = 0.1,
+        maximum_value = 10,
+        value = 1.5,
+        callback = function(value)
+            getgenv().AutoSpamThreshold = value
+        end
+    })
+
+    AutoSpam:create_dropdown({
+        title = "Spam Mode",
+        flag = "AutoSpamMode",
+        values = {"Remote", "Keypress"},
+        value = "Keypress",
+        callback = function(value)
+            getgenv().AutoSpamMode = value
+        end
+    })
+
+    AutoSpam:create_dropdown({
+        title = "Keypress Type",
+        flag = "AutoSpamType",
+        values = {"F_Key", "Left_Click"},
+        value = "F_Key",
+        callback = function(value)
+            getgenv().AutoSpamType = value
+        end
+    })
+    
+     AutoSpam:create_checkbox({
+        title = "Notify",
+        flag = "AutoSpamNotify",
+        callback = function(value: boolean)
+            getgenv().AutoSpamNotify = value
         end
     })
 
