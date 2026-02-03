@@ -1,3 +1,4 @@
+--XD
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2775,6 +2776,13 @@ local PostParryScheduled = {}
 local selectedTarget = nil
 local cameraLockConn = nil
 local displayToChar = {}
+local AutoSpamEnabled = false
+local SpamParryType = "Camera"
+local ParryThreshold = 2.5
+local SpamParryKeypress = false
+local AutoSpamNotify = false
+local PredictionModeEnabled = false
+local ClosestEntity = nil
 local soundOptions = {
     ["EEYUH!"] = "rbxassetid://16190782181",
     ["Skibidi Toilet"] = "rbxassetid://122353792844213",
@@ -4378,6 +4386,152 @@ local parriedBalls = {}
           ToggleViz(v)
       end
   })
+  
+  -- AUTO SPAM PARRY MODULE
+  local autoSpamModule = MainTab:create_module({
+      title = "Auto Spam Parry",
+      flag = "autoSpamParry",
+      description = "Automatically spam parries when ball is near opponents",
+      section = "right",
+      callback = function(v)
+          AutoSpamEnabled = v
+          if v then
+              if AutoSpamNotify then
+                  Library.SendNotification({
+                      title = "Auto Spam",
+                      text = "Auto Spam Parry turned ON",
+                      duration = 3
+                  })
+              end
+              Connections["autoSpam"] = RunService.PreSimulation:Connect(function()
+                  if not AutoSpamEnabled then return end
+                  
+                  local ball = AutoParry.GetBall()
+                  if not ball then return end
+                  
+                  local zoomies = ball:FindFirstChild('zoomies')
+                  if not zoomies then return end
+                  
+                  ClosestEntity = AutoParry.ClosestPlayer()
+                  if not ClosestEntity then return end
+                  
+                  local ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+                  local pingThreshold = math.clamp(ping / 10, 1, 16)
+                  
+                  local ballProps = AutoParry.GetBallProps()
+                  local entityProps = AutoParry.GetEntityProps()
+                  
+                  if not ballProps or not entityProps then return end
+                  
+                  local spamAccuracy = AutoParry.SpamService()
+                  
+                  local targetPosition = ClosestEntity.PrimaryPart.Position
+                  if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return end
+                  local targetDistance = LocalPlayer:DistanceFromCharacter(targetPosition)
+                  
+                  local direction = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Unit
+                  local ballDirection = zoomies.VectorVelocity.Unit
+                  local dot = direction:Dot(ballDirection)
+                  
+                  local distance = LocalPlayer:DistanceFromCharacter(ball.Position)
+                  local ballTarget = ball:GetAttribute('target')
+                  
+                  if not ballTarget then return end
+                  
+                  -- Distance validation
+                  if targetDistance > spamAccuracy or distance > spamAccuracy then return end
+                  
+                  -- Check for Pulsed attribute (prevents spam during pulse)
+                  local pulsed = LocalPlayer.Character:GetAttribute('Pulsed')
+                  if pulsed then return end
+                  
+                  -- Don't spam if ball is targeting player and distances are too far
+                  if ballTarget == tostring(LocalPlayer) and targetDistance > 30 and distance > 30 then
+                      return
+                  end
+                  
+                  -- Execute spam parry
+                  if distance <= spamAccuracy then
+                      if SpamParryKeypress then
+                          VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, nil)
+                      else
+                          if AutoParryType == "Remote" then
+                              if Is_Supported_Test and next(ParryRemotes) then
+                                  AutoParry.Parry(SpamParryType)
+                              else
+                                  SimulateParry()
+                              end
+                          else
+                              SimulateParry()
+                          end
+                      end
+                  end
+              end)
+          else
+              if AutoSpamNotify then
+                  Library.SendNotification({
+                      title = "Auto Spam",
+                      text = "Auto Spam Parry turned OFF",
+                      duration = 3
+                  })
+              end
+              if Connections["autoSpam"] then
+                  Connections["autoSpam"]:Disconnect()
+                  Connections["autoSpam"] = nil
+              end
+          end
+      end
+  })
+  
+  autoSpamModule:create_dropdown({
+      title = "Spam Parry Type",
+      flag = "SpamParryType",
+      options = {"Backwards", "Camera", "High", "Left", "Random", "Right", "Straight"},
+      multi_dropdown = false,
+      maximum_options = 999,
+      callback = function(v)
+          SpamParryType = v
+      end
+  })
+  
+  autoSpamModule:create_slider({
+      title = "Parry Threshold",
+      flag = "ParryThreshold",
+      maximum_value = 3,
+      minimum_value = 1,
+      value = 2.5,
+      round_number = false,
+      callback = function(v)
+          ParryThreshold = v
+      end
+  })
+  
+  autoSpamModule:create_divider({})
+  
+  autoSpamModule:create_checkbox({
+      title = "Spam Parry Keypress",
+      flag = "SpamParryKeypress",
+      callback = function(v)
+          SpamParryKeypress = v
+      end
+  })
+  
+  autoSpamModule:create_checkbox({
+      title = "Spam Notifications",
+      flag = "AutoSpamNotify",
+      callback = function(v)
+          AutoSpamNotify = v
+      end
+  })
+  
+  autoSpamModule:create_checkbox({
+      title = "Prediction Mode",
+      flag = "PredictionMode",
+      callback = function(v)
+          PredictionModeEnabled = v
+      end
+  })
+  
   local antiLagModule = MiscTab:create_module({
       title = "Anti-Lag",
       flag = "LagReducer",
