@@ -1,4 +1,3 @@
---FIX
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3135,14 +3134,15 @@ AutoParry.IsCurved = function(ball)
         end
     end
     
-    -- Combine curve conditions
+    -- Combine curve conditions (stricter: require 4+ or backwards with 2+)
     local curveConditions = 0
     if Dot < Dot_Threshold then curveConditions = curveConditions + 1 end
     if backwardsCurveDetected then curveConditions = curveConditions + 3 end
     if directionChanged then curveConditions = curveConditions + 1 end
     if significantVariance then curveConditions = curveConditions + 1 end
     
-    local curved = curveConditions >= 3 or backwardsCurveDetected
+    -- Stricter requirement: need 4+ conditions OR backwards with at least 2 conditions
+    local curved = curveConditions >= 4 or (backwardsCurveDetected and curveConditions >= 2)
     return curved, backwardsCurveDetected
 end
 AutoParry.Closest_Player = function()
@@ -3384,10 +3384,11 @@ AutoParry.SpamService = function()
         PingAdjustment = PingAdjustment * 1.5
     end
     local compensation = 0
-    if AutoParryType == "Keypress" and AutoSpamType == "Keypress" then
+    if AutoParryType == "Keypress" and SpamParryKeypress then
         compensation = 15
     end
-    local Maximum_Spam_Distance = PingAdjustment + math.min(speed / 4, 200) + compensation
+    -- Fixed: More conservative distance (speed/6 instead of speed/4, max 95 instead of 200)
+    local Maximum_Spam_Distance = PingAdjustment + math.min(speed / 6, 95) + compensation
     local entityProps = AutoParry.GetEntityProps()
     local ballProps = AutoParry.GetBallProps()
     if not entityProps or not ballProps then return 0 end
@@ -4586,8 +4587,24 @@ local parriedBalls = {}
                   
                   if not ballTarget then return end
                   
-                  -- Distance validation
-                  if targetDistance > spamAccuracy or distance > spamAccuracy then return end
+                  -- Don't spam if ball is too close (let Auto Parry handle it)
+                  if distance < 15 then
+                      return
+                  end
+                  
+                  -- Check if ball is actually moving toward target
+                  local ballToTarget = (targetPosition - ball.Position).Unit
+                  local ballMovingToTarget = ballDirection:Dot(ballToTarget)
+                  
+                  -- Only spam if ball is moving toward target (dot > 0.3)
+                  if ballMovingToTarget < 0.3 then
+                      return
+                  end
+                  
+                  -- Distance validation (more conservative: 85% of max)
+                  if targetDistance > spamAccuracy * 0.85 or distance > spamAccuracy * 0.85 then
+                      return
+                  end
                   
                   -- Check for Pulsed attribute (prevents spam during pulse)
                   local pulsed = LocalPlayer.Character:GetAttribute('Pulsed')
