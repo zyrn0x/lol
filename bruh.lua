@@ -1,4 +1,3 @@
---XD
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2783,6 +2782,13 @@ local SpamParryKeypress = false
 local AutoSpamNotify = false
 local PredictionModeEnabled = false
 local ClosestEntity = nil
+local SpamCurveDetection = false
+local SpamSingularityDetection = false
+local SpamInfinityDetection = false
+local SpamTimeHoleDetection = false
+local SpamDeathSlashDetection = false
+local SpamSlashOfFuryDetection = false
+local SpamHighPingCompensation = false
 local soundOptions = {
     ["EEYUH!"] = "rbxassetid://16190782181",
     ["Skibidi Toilet"] = "rbxassetid://122353792844213",
@@ -4425,6 +4431,57 @@ local parriedBalls = {}
                   
                   local spamAccuracy = AutoParry.SpamService()
                   
+                  -- High Ping Compensation for Auto Spam
+                  if SpamHighPingCompensation then
+                      local averagePing = GetAveragePing()
+                      if averagePing > 150 then
+                          spamAccuracy = spamAccuracy * 1.3
+                      elseif averagePing > 100 then
+                          spamAccuracy = spamAccuracy * 1.15
+                      end
+                  end
+                  
+                  -- Curve Detection
+                  local curved, backwardsDetected = AutoParry.IsCurved(ball)
+                  if SpamCurveDetection and curved then
+                      return
+                  end
+                  
+                  -- Singularity Cape Detection
+                  local singularityCape = LocalPlayer.Character.PrimaryPart:FindFirstChild('SingularityCape')
+                  if SpamSingularityDetection and singularityCape then
+                      return
+                  end
+                  
+                  -- Infinity Detection
+                  local hotbar = LocalPlayer:FindFirstChild('PlayerGui') and LocalPlayer.PlayerGui:FindFirstChild('Hotbar')
+                  local character = LocalPlayer.Character
+                  local abilities = character and character:FindFirstChild('Abilities')
+                  local durationUI = hotbar and hotbar:FindFirstChild('Ability') and hotbar.Ability:FindFirstChild('Duration') and hotbar.Ability.Duration.Visible
+                  local infinityAbility = abilities and abilities:FindFirstChild('Infinity')
+                  local infinity = infinityAbility and infinityAbility.Enabled
+                  local usingInfinity = durationUI and infinity and Infinity_Ball
+                  if SpamInfinityDetection and usingInfinity then
+                      return
+                  end
+                  
+                  -- Time Hole Detection
+                  local timeholeAbility = abilities and abilities:FindFirstChild('Time Hole')
+                  local timehole = timeholeAbility and timeholeAbility.Enabled
+                  if SpamTimeHoleDetection and durationUI and timehole then
+                      return
+                  end
+                  
+                  -- Death Slash Detection
+                  if SpamDeathSlashDetection and DeathSlashDetection then
+                      return
+                  end
+                  
+                  -- Slash of Fury Detection
+                  if SpamSlashOfFuryDetection and ball:FindFirstChild("ComboCounter") then
+                      return
+                  end
+                  
                   local targetPosition = ClosestEntity.PrimaryPart.Position
                   if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return end
                   local targetDistance = LocalPlayer:DistanceFromCharacter(targetPosition)
@@ -4529,6 +4586,64 @@ local parriedBalls = {}
       flag = "PredictionMode",
       callback = function(v)
           PredictionModeEnabled = v
+      end
+  })
+  
+  autoSpamModule:create_divider({})
+  
+  autoSpamModule:create_checkbox({
+      title = "Spam Curve Detection",
+      flag = "SpamCurveDetection",
+      callback = function(v)
+          SpamCurveDetection = v
+      end
+  })
+  
+  autoSpamModule:create_checkbox({
+      title = "Spam Singularity Detection",
+      flag = "SpamSingularityDetection",
+      callback = function(v)
+          SpamSingularityDetection = v
+      end
+  })
+  
+  autoSpamModule:create_checkbox({
+      title = "Spam Infinity Detection",
+      flag = "SpamInfinityDetection",
+      callback = function(v)
+          SpamInfinityDetection = v
+      end
+  })
+  
+  autoSpamModule:create_checkbox({
+      title = "Spam Time Hole Detection",
+      flag = "SpamTimeHoleDetection",
+      callback = function(v)
+          SpamTimeHoleDetection = v
+      end
+  })
+  
+  autoSpamModule:create_checkbox({
+      title = "Spam Death Slash Detection",
+      flag = "SpamDeathSlashDetection",
+      callback = function(v)
+          SpamDeathSlashDetection = v
+      end
+  })
+  
+  autoSpamModule:create_checkbox({
+      title = "Spam Slash of Fury Detection",
+      flag = "SpamSlashOfFuryDetection",
+      callback = function(v)
+          SpamSlashOfFuryDetection = v
+      end
+  })
+  
+  autoSpamModule:create_checkbox({
+      title = "Spam High Ping Compensation",
+      flag = "SpamHighPingCompensation",
+      callback = function(v)
+          SpamHighPingCompensation = v
       end
   })
   
