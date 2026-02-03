@@ -1,4 +1,3 @@
---best ever
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3404,6 +3403,8 @@ AutoParry.SpamService = function()
     if AutoParryType == "Keypress" and SpamParryKeypress then
         compensation = 15
     end
+    local Maximum_Spam_Distance = PingAdjustment + math.min(speed / 6, 95) + compensation
+    
     -- Lead Factor for better prediction at high speeds
     if PredictionModeEnabled then
         local Lead_Factor = math.clamp(speed / 100, 0.5, 2.5)
@@ -4588,7 +4589,7 @@ local parriedBalls = {}
                   
                   if not ballProps or not entityProps then return end
                   
-                  local spamAccuracy = AutoParry.SpamService()
+                  local spamAccuracy = AutoParry.SpamService() or 0
                   
                   -- High Ping Compensation for Auto Spam
                   if SpamHighPingCompensation then
