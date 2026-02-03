@@ -1,3 +1,4 @@
+--best ever
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2707,7 +2708,20 @@ local DeathSlashDetection = false
 local Infinity_Ball = false
 local TimeHoleDetection = false
 local SlashOfFuryDetection = false
-local ParryCD = LocalPlayer.PlayerGui.Hotbar.Block.UIGradient
+local function GetParryCD()
+    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+    local hb = pg and pg:FindFirstChild("Hotbar")
+    local bl = hb and hb:FindFirstChild("Block")
+    return bl and bl:FindFirstChild("UIGradient")
+end
+local ParryCD = GetParryCD()
+local function GetAbilityCD()
+    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+    local hb = pg and pg:FindFirstChild("Hotbar")
+    local ab = hb and hb:FindFirstChild("Ability")
+    return ab and ab:FindFirstChild("UIGradient")
+end
+local AbilityCD = GetAbilityCD()
 local LobbyParryType = "Keypress"
 local AutoParryType = "Keypress"
 local TriggerbotType = "Keypress"
@@ -3152,7 +3166,10 @@ AutoParry.Closest_Player = function()
     local Max_Distance = math.huge
     local Found_Entity = nil
    
-    for _, Entity in pairs(workspace.Alive:GetChildren()) do
+    local Alive = workspace:FindFirstChild("Alive")
+    if not Alive then return nil end
+    
+    for _, Entity in pairs(Alive:GetChildren()) do
         if tostring(Entity) ~= tostring(LocalPlayer) then
             if Entity.PrimaryPart then
                 local Distance = LocalPlayer:DistanceFromCharacter(Entity.PrimaryPart.Position)
@@ -3167,24 +3184,26 @@ AutoParry.Closest_Player = function()
     Closest_Entity = Found_Entity
     return Found_Entity
 end
-AutoParry.Get_Entity_Properties = function()
-    AutoParry.Closest_Player()
+
+AutoParry.GetEntityProps = function()
+    local closest = AutoParry.Closest_Player()
     
     -- Nil safety checks
-    if not Closest_Entity or not Closest_Entity.PrimaryPart then
+    if not closest or not closest.PrimaryPart then
         return false
     end
     if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then
         return false
     end
     
-    local Entity_Velocity = Closest_Entity.PrimaryPart.Velocity
-    local Entity_Direction = (LocalPlayer.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Unit
-    local Entity_Distance = (LocalPlayer.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Magnitude
+    local Entity_Velocity = closest.PrimaryPart.Velocity
+    local Entity_Direction = (LocalPlayer.Character.PrimaryPart.Position - closest.PrimaryPart.Position).Unit
+    local Entity_Distance = (LocalPlayer.Character.PrimaryPart.Position - closest.PrimaryPart.Position).Magnitude
     return {
         Velocity = Entity_Velocity,
         Direction = Entity_Direction,
-        Distance = Entity_Distance
+        Distance = Entity_Distance,
+        Position = closest.PrimaryPart.Position
     }
 end
 local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
@@ -3206,16 +3225,19 @@ AutoParry.Parry_Data = function(Parry_Type)
     end
    
     local Players_Screen_Positions = {}
-    for _, v in pairs(workspace.Alive:GetChildren()) do
-        if v ~= LocalPlayer.Character then
-            local worldPos = v.PrimaryPart.Position
-            local screenPos, isOnScreen = Camera:WorldToScreenPoint(worldPos)
-           
-            if isOnScreen then
-                Players_Screen_Positions[v] = Vector2.new(screenPos.X, screenPos.Y)
+    local Alive = workspace:FindFirstChild("Alive")
+    if Alive then
+        for _, v in pairs(Alive:GetChildren()) do
+            if v ~= LocalPlayer.Character and v:IsA("Model") and v.PrimaryPart then
+                local worldPos = v.PrimaryPart.Position
+                local screenPos, isOnScreen = Camera:WorldToScreenPoint(worldPos)
+               
+                if isOnScreen then
+                    Players_Screen_Positions[v] = Vector2.new(screenPos.X, screenPos.Y)
+                end
+               
+                Events[tostring(v)] = screenPos
             end
-           
-            Events[tostring(v)] = screenPos
         end
     end
    
@@ -3326,38 +3348,22 @@ AutoParry.Lerp = function(a, b, t)
     return a + (b - a) * t
 end
 AutoParry.ClosestPlayer = function()
-    local maxDist = math.huge
-    local closest = nil
-    for _, entity in pairs(Alive:GetChildren()) do
-        if tostring(entity) ~= tostring(LocalPlayer) then
-            local dist = LocalPlayer:DistanceFromCharacter(entity.PrimaryPart.Position)
-            if dist < maxDist then
-                maxDist = dist
-                closest = entity
-            end
-        end
-    end
-    return closest
+    return AutoParry.Closest_Player()
 end
 local function GetNumNearby()
     local count = 0
-    for _, p in pairs(Alive:GetChildren()) do
-        if p.Name ~= LocalPlayer.Name and (p.PrimaryPart.Position - LocalPlayer.Character.PrimaryPart.Position).Magnitude < 50 then
-            count = count + 1
+    local Alive = workspace:FindFirstChild("Alive")
+    if Alive and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
+        for _, p in pairs(Alive:GetChildren()) do
+            if p.Name ~= LocalPlayer.Name and p.PrimaryPart and (p.PrimaryPart.Position - LocalPlayer.Character.PrimaryPart.Position).Magnitude < 50 then
+                count = count + 1
+            end
         end
     end
     return count
 end
-AutoParry.GetEntityProps = function()
-    local closest = AutoParry.ClosestPlayer()
-    if not closest or not closest.PrimaryPart then return false end
-    if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return false end
-    
-    local vel = closest.PrimaryPart.Velocity
-    local dir = (LocalPlayer.Character.PrimaryPart.Position - closest.PrimaryPart.Position).Unit
-    local dist = (LocalPlayer.Character.PrimaryPart.Position - closest.PrimaryPart.Position).Magnitude
-    return {Velocity = vel, Direction = dir, Distance = dist, Position = closest.PrimaryPart.Position}
-end
+-- Obsolete: integrated into GetEntityProps above
+-- AutoParry.GetEntityProps = function() ... end
 AutoParry.GetBallProps = function()
     local ball = AutoParry.GetBall()
     if not ball then return false end
@@ -3398,8 +3404,13 @@ AutoParry.SpamService = function()
     if AutoParryType == "Keypress" and SpamParryKeypress then
         compensation = 15
     end
-    -- Fixed: More conservative distance (speed/6 instead of speed/4, max 95 instead of 200)
-    local Maximum_Spam_Distance = PingAdjustment + math.min(speed / 6, 95) + compensation
+    -- Lead Factor for better prediction at high speeds
+    if PredictionModeEnabled then
+        local Lead_Factor = math.clamp(speed / 100, 0.5, 2.5)
+        local pingCompensation = (averagePing * 0.05) * Lead_Factor
+        Maximum_Spam_Distance = Maximum_Spam_Distance + pingCompensation
+    end
+
     local entityProps = AutoParry.GetEntityProps()
     if not entityProps or not ballProps then return 0 end
     if entityProps.Distance > Maximum_Spam_Distance or ballProps.Distance > Maximum_Spam_Distance or LocalPlayer:DistanceFromCharacter(closest.PrimaryPart.Position) > Maximum_Spam_Distance then return 0 end
@@ -3412,8 +3423,9 @@ AutoParry.IsCooldownActive = function(uigradient)
     return uigradient.Offset.Y <= 0.27
 end
 AutoParry.TryParryOrCooldown = function()
-    if AutoParry.IsCooldownActive(ParryCD) then
-        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("PlrInput"):FireServer("UseAbility")
+    local pcd = GetParryCD()
+    if pcd and AutoParry.IsCooldownActive(pcd) then
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("AbilityButtonPress"):Fire()
         return true
     end
     return false
@@ -3515,6 +3527,33 @@ ReplicatedStorage.Remotes.TimeHoleHoldBall.OnClientEvent:Connect(function(e, f)
         TimeHoleDetection = false
     end
 end)
+
+-- Slash of Fury Detection Listener
+local function SetupSoF(ball)
+    if not ball then return end
+    ball.ChildAdded:Connect(function(child)
+        if SpamSlashOfFuryDetection and child.Name == 'ComboCounter' then
+            local label = child:FindFirstChildOfClass('TextLabel')
+            if label then
+                repeat
+                    local count = tonumber(label.Text)
+                    if count and count < 32 then
+                        AutoParry.Parry(SelectedParryType or "Camera")
+                    end
+                    task.wait()
+                until not label.Parent or not child.Parent or not ball.Parent
+            end
+        end
+    end)
+end
+
+local BallsFolder = workspace:FindFirstChild("Balls")
+if BallsFolder then
+    for _, ball in pairs(BallsFolder:GetChildren()) do
+        SetupSoF(ball)
+    end
+    Connections["sof_added"] = BallsFolder.ChildAdded:Connect(SetupSoF)
+end
 ReplicatedStorage.Remotes.Phantom.OnClientEvent:Connect(function(a, b)
     if b.Name == tostring(LocalPlayer) then
         Phantom = true
@@ -3684,7 +3723,6 @@ local parriedBalls = {}
                       ball:GetAttributeChangedSignal('target'):Once(function() Parried = false end)
                       if Parried then continue end
                       local ballTarget = ball:GetAttribute('target')
-                      local oneTarget = oneBall:GetAttribute('target')
                       local velocity = zoomies.VectorVelocity
                       local distance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
                       local speed = velocity.Magnitude
@@ -3698,11 +3736,24 @@ local parriedBalls = {}
                       end
                       local speedDivisor = speedDivisorBase * Speed_Divisor_Multiplier
                       local parryAccuracy = adjustedPing + math.max(speed / speedDivisor, 9.5)
+                      
+                      if PredictionModeEnabled then
+                          local leadFactor = math.clamp(speed / 100, 0.5, 2.5)
+                          parryAccuracy = parryAccuracy + (adjustedPing * 0.1) * leadFactor
+                      end
                       if ballTarget == tostring(LocalPlayer) then
                           local minParryDelay = 0.15 + (averagePing / 1000)
                           local Elapsed_Parry_Time = os.clock()
                           local timeView = (Elapsed_Parry_Time - LastLobbyParry)
                           if timeView < minParryDelay then continue end
+                          
+                          if LobbyParryType == "Remote" and CooldownProtection then
+                              if AutoParry.TryParryOrCooldown() then
+                                  LastLobbyParry = Elapsed_Parry_Time
+                                  continue
+                              end
+                          end
+
                           if distance <= parryAccuracy then
                               if LobbyParryType == "Remote" then
                                   if Is_Supported_Test and next(ParryRemotes) then
@@ -3945,9 +3996,18 @@ local parriedBalls = {}
                       end
                       if ballTarget == tostring(LocalPlayer) and distance <= parryAccuracy and not Phantom then
                           if Death_Slash_Detection and DeathSlashDetection then continue end
+                          
                           local parryTime = os.clock()
                           local timeView = (parryTime - LastParry)
                           if timeView > 0.5 then AutoParry.ParryAnim(false) end
+                          
+                          if CooldownProtection and AutoParry.TryParryOrCooldown() then
+                              LastParry = parryTime
+                              Parried = true
+                              task.delay(0.5, function() Parried = false end)
+                              continue
+                          end
+
                           local averagePing = GetAveragePing()
                           local useAbility = false
                           if HighPingProtection and averagePing > 130 then
