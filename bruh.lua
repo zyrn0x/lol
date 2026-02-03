@@ -1,4 +1,3 @@
---good?
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3351,7 +3350,9 @@ local function GetNumNearby()
 end
 AutoParry.GetEntityProps = function()
     local closest = AutoParry.ClosestPlayer()
-    if not closest then return false end
+    if not closest or not closest.PrimaryPart then return false end
+    if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return false end
+    
     local vel = closest.PrimaryPart.Velocity
     local dir = (LocalPlayer.Character.PrimaryPart.Position - closest.PrimaryPart.Position).Unit
     local dist = (LocalPlayer.Character.PrimaryPart.Position - closest.PrimaryPart.Position).Magnitude
@@ -3360,6 +3361,8 @@ end
 AutoParry.GetBallProps = function()
     local ball = AutoParry.GetBall()
     if not ball then return false end
+    if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return false end
+    
     local zoomies = ball:FindFirstChild('zoomies')
     if not zoomies then return false end
     local vel = zoomies.VectorVelocity
