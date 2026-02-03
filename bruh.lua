@@ -1,3 +1,4 @@
+--good?
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3372,12 +3373,19 @@ AutoParry.SpamService = function()
     local ball = AutoParry.GetBall()
     if not ball then return 0 end
     local closest = AutoParry.ClosestPlayer()
-    if not closest then return 0 end
+    if not closest or not closest.PrimaryPart then return 0 end
+    if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return 0 end
+    
     local zoomies = ball:FindFirstChild('zoomies')
     if not zoomies then return 0 end
     local vel = zoomies.VectorVelocity
     local speed = vel.Magnitude
-    local dot = AutoParry.GetBallProps().Dot
+    
+    -- Safe access to ball properties
+    local ballProps = AutoParry.GetBallProps()
+    if not ballProps then return 0 end
+    local dot = ballProps.Dot
+    
     local averagePing = GetAveragePing()
     local PingAdjustment = averagePing / 10
     if HighPingCompensation and averagePing > 150 then
@@ -3390,7 +3398,6 @@ AutoParry.SpamService = function()
     -- Fixed: More conservative distance (speed/6 instead of speed/4, max 95 instead of 200)
     local Maximum_Spam_Distance = PingAdjustment + math.min(speed / 6, 95) + compensation
     local entityProps = AutoParry.GetEntityProps()
-    local ballProps = AutoParry.GetBallProps()
     if not entityProps or not ballProps then return 0 end
     if entityProps.Distance > Maximum_Spam_Distance or ballProps.Distance > Maximum_Spam_Distance or LocalPlayer:DistanceFromCharacter(closest.PrimaryPart.Position) > Maximum_Spam_Distance then return 0 end
     local Maximum_Speed = 5 - math.min(speed / 5, 5)
@@ -4508,7 +4515,7 @@ local parriedBalls = {}
                   if not zoomies then return end
                   
                   ClosestEntity = AutoParry.ClosestPlayer()
-                  if not ClosestEntity then return end
+                  if not ClosestEntity or not ClosestEntity.PrimaryPart then return end
                   
                   local ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
                   local pingThreshold = math.clamp(ping / 10, 1, 16)
@@ -4571,6 +4578,11 @@ local parriedBalls = {}
                   
                   -- Slash of Fury Detection
                   if SpamSlashOfFuryDetection and ball:FindFirstChild("ComboCounter") then
+                      return
+                  end
+                  
+                  -- Nil safety check for ClosestEntity
+                  if not ClosestEntity or not ClosestEntity.PrimaryPart then
                       return
                   end
                   
