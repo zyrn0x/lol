@@ -1,3 +1,4 @@
+--FIX
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2951,24 +2952,86 @@ AutoParry.Linear_Interpolation = function(a, b, time_volume)
     return a + (b - a) * time_volume
 end
 AutoParry.IsCurved = function(ball)
+    -- Nil safety checks
     if not ball then return false, false end
+    if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then
+        return false, false
+    end
+    
     local Zoomies = ball:FindFirstChild('zoomies')
     if not Zoomies then return false, false end
+    
     local Velocity = Zoomies.VectorVelocity
     local Speed = Velocity.Magnitude
+    
     if Speed < 60 then return false, false end
-    if not AutoParry.Velocity_History[ball] or #AutoParry.Velocity_History[ball] < 2 then
+    
+    -- Initialize velocity history if needed
+    if not AutoParry.Velocity_History[ball] then
+        AutoParry.Velocity_History[ball] = {}
+    end
+    if not AutoParry.Dot_Histories[ball] then
+        AutoParry.Dot_Histories[ball] = {}
+    end
+    
+    if #AutoParry.Velocity_History[ball] < 2 then
         return false, false
     end
-    if not AutoParry.Dot_Histories[ball] or #AutoParry.Dot_Histories[ball] < 2 then
+    if #AutoParry.Dot_Histories[ball] < 2 then
         return false, false
     end
+    
     local Ball_Direction = Velocity.Unit
-    local Direction = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Unit
+    local playerPos = LocalPlayer.Character.PrimaryPart.Position
+    local ballPos = ball.Position
+    local Direction = (playerPos - ballPos).Unit
     local Dot = Direction:Dot(Ball_Direction)
+    local Distance = (playerPos - ballPos).Magnitude
+    
+    -- Get ping
+    local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+    
+    -- Calculate thresholds
     local Speed_Threshold = math.min(Speed / 100, 40)
     local Angle_Threshold = 40 * math.max(Dot, 0)
-    local Distance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
+    local Reach_Time = Distance / Speed - (Ping / 1000)
+    local Ball_Distance_Threshold = 15 - math.min(Distance / 1000, 15) + Speed_Threshold
+    
+    -- Tornado/AeroDynamicSlashVFX detection
+    if ball:FindFirstChild('AeroDynamicSlashVFX') then
+        Debris:AddItem(ball.AeroDynamicSlashVFX, 0)
+        Tornado_Time = tick()
+    end
+    
+    local Runtime = workspace:FindFirstChild('Runtime')
+    if Runtime and Runtime:FindFirstChild('Tornado') then
+        if (tick() - Tornado_Time) < ((Runtime.Tornado:GetAttribute("TornadoTime") or 1) + 0.314159) then
+            return true, false
+        end
+    end
+    
+    -- Speed-based threshold adjustments
+    local Enough_Speed = Speed > 160
+    if Enough_Speed and Reach_Time > Ping / 10 then
+        if Speed < 300 then
+            Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 15, 15)
+        elseif Speed >= 300 and Speed < 600 then
+            Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 16, 16)
+        elseif Speed >= 600 and Speed < 1000 then
+            Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 17, 17)
+        elseif Speed >= 1000 and Speed < 1500 then
+            Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 19, 19)
+        elseif Speed >= 1500 then
+            Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 20, 20)
+        end
+    end
+    
+    -- Distance check
+    if Distance < Ball_Distance_Threshold then
+        return false, false
+    end
+    
+    -- Improved dot threshold
     local baseDotThreshold = 0.15
     if Speed > 600 then
         baseDotThreshold = -0.1
@@ -2977,24 +3040,26 @@ AutoParry.IsCurved = function(ball)
     elseif Speed > 200 then
         baseDotThreshold = 0.1
     end
-    local Dot_Threshold = baseDotThreshold - (GetAveragePing() / 2000) - math.min(Speed / 4000, 0.1)
-    local Reach_Time = Distance / Speed - (GetAveragePing() / 1000)
-    local Ball_Distance_Threshold = 15 - math.min(Distance / 1000, 15) + Speed_Threshold
+    local Dot_Threshold = baseDotThreshold - (Ping / 2000) - math.min(Speed / 4000, 0.1)
+    
+    -- Lerp radians calculation
     local Clamped_Dot = math.clamp(Dot, -1, 1)
     local Radians = math.asin(math.abs(Clamped_Dot))
     Lerp_Radians = AutoParry.Linear_Interpolation(Lerp_Radians, Radians, 0.8)
-    if Speed > 100 and Reach_Time > GetAveragePing() / 10 then
-        Ball_Distance_Threshold = math.max(Ball_Distance_Threshold - 15, 15)
-    end
+    
     if Lerp_Radians < 0.018 then
         Last_Warp_Time = tick()
     end
+    
+    -- Time-based curve detection
     if (tick() - Last_Warp_Time) < (Reach_Time / 1.5) then
         return true, false
     end
     if (tick() - Curve_Time) < (Reach_Time / 1.5) then
         return true, false
     end
+    
+    -- Backwards curve detection
     local backwardsCurveDetected = false
     local backwardsAngleThreshold = 60
     if Speed > 600 then
@@ -3004,21 +3069,22 @@ AutoParry.IsCurved = function(ball)
     else
         backwardsAngleThreshold = 65
     end
-    local playerPos = LocalPlayer.Character.PrimaryPart.Position
-    local ballPos = ball.Position
+    
     local horizDirection = Vector3.new(playerPos.X - ballPos.X, 0, playerPos.Z - ballPos.Z)
     if horizDirection.Magnitude > 0 then
         horizDirection = horizDirection.Unit
-    end
-    local awayFromPlayer = -horizDirection
-    local horizBallDir = Vector3.new(Ball_Direction.X, 0, Ball_Direction.Z)
-    if horizBallDir.Magnitude > 0 then
-        horizBallDir = horizBallDir.Unit
-        local backwardsAngle = math.deg(math.acos(math.clamp(awayFromPlayer:Dot(horizBallDir), -1, 1)))
-        if backwardsAngle < backwardsAngleThreshold and Distance > 30 then
-            backwardsCurveDetected = true
+        local awayFromPlayer = -horizDirection
+        local horizBallDir = Vector3.new(Ball_Direction.X, 0, Ball_Direction.Z)
+        if horizBallDir.Magnitude > 0 then
+            horizBallDir = horizBallDir.Unit
+            local backwardsAngle = math.deg(math.acos(math.clamp(awayFromPlayer:Dot(horizBallDir), -1, 1)))
+            if backwardsAngle < backwardsAngleThreshold and Distance > 30 then
+                backwardsCurveDetected = true
+            end
         end
     end
+    
+    -- Direction change detection
     local directionChanged = false
     local changeThreshold = 0.80
     if Speed > 600 then
@@ -3026,9 +3092,10 @@ AutoParry.IsCurved = function(ball)
     elseif Speed > 400 then
         changeThreshold = 0.78
     end
-    if AutoParry.Velocity_History[ball] and #AutoParry.Velocity_History[ball] >= 4 then
+    
+    if #AutoParry.Velocity_History[ball] >= 4 then
         local prevVel = AutoParry.Velocity_History[ball][#AutoParry.Velocity_History[ball] - 1]
-        if prevVel.Magnitude > 100 and Speed > 100 then
+        if prevVel and prevVel.Magnitude > 100 and Speed > 100 then
             local prevDir = prevVel.Unit
             local currDir = Ball_Direction
             local dotChange = prevDir:Dot(currDir)
@@ -3037,9 +3104,11 @@ AutoParry.IsCurved = function(ball)
             end
         end
     end
+    
+    -- Dot variance detection
     local dotVariance = 0
     local significantVariance = false
-    if AutoParry.Dot_Histories[ball] and #AutoParry.Dot_Histories[ball] >= 5 then
+    if #AutoParry.Dot_Histories[ball] >= 5 then
         local hist = AutoParry.Dot_Histories[ball]
         for i = 2, #hist do
             dotVariance = dotVariance + math.abs(hist[i] - hist[i-1])
@@ -3055,11 +3124,24 @@ AutoParry.IsCurved = function(ball)
             significantVariance = true
         end
     end
+    
+    -- Direction difference check (from nigga script)
+    local Direction_Difference = (Ball_Direction - Velocity.Unit)
+    if Direction_Difference.Magnitude > 0 then
+        local Direction_Similarity = Direction:Dot(Direction_Difference.Unit)
+        local Dot_Difference = Dot - Direction_Similarity
+        if Dot_Difference < (0.5 - Ping / 1000) then
+            return true, backwardsCurveDetected
+        end
+    end
+    
+    -- Combine curve conditions
     local curveConditions = 0
     if Dot < Dot_Threshold then curveConditions = curveConditions + 1 end
     if backwardsCurveDetected then curveConditions = curveConditions + 3 end
     if directionChanged then curveConditions = curveConditions + 1 end
     if significantVariance then curveConditions = curveConditions + 1 end
+    
     local curved = curveConditions >= 3 or backwardsCurveDetected
     return curved, backwardsCurveDetected
 end
@@ -3087,9 +3169,15 @@ AutoParry.Closest_Player = function()
 end
 AutoParry.Get_Entity_Properties = function()
     AutoParry.Closest_Player()
-    if not Closest_Entity then
+    
+    -- Nil safety checks
+    if not Closest_Entity or not Closest_Entity.PrimaryPart then
         return false
     end
+    if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then
+        return false
+    end
+    
     local Entity_Velocity = Closest_Entity.PrimaryPart.Velocity
     local Entity_Direction = (LocalPlayer.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Unit
     local Entity_Distance = (LocalPlayer.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Magnitude
@@ -4447,8 +4535,11 @@ local parriedBalls = {}
                       return
                   end
                   
-                  -- Singularity Cape Detection
-                  local singularityCape = LocalPlayer.Character.PrimaryPart:FindFirstChild('SingularityCape')
+                  -- Singularity Cape Detection (with nil safety)
+                  local singularityCape = nil
+                  if LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
+                      singularityCape = LocalPlayer.Character.PrimaryPart:FindFirstChild('SingularityCape')
+                  end
                   if SpamSingularityDetection and singularityCape then
                       return
                   end
