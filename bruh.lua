@@ -1,4 +1,3 @@
---ok
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3073,15 +3072,26 @@ AutoParry.IsCurved = function(ball)
         return true, false
     end
     
-    -- Backwards curve detection
+    -- IMPROVED: Backwards curve detection (better for close-range)
     local backwardsCurveDetected = false
     local backwardsAngleThreshold = 60
+    local minDistanceForBackwards = 30
+    
+    -- Adjust thresholds based on speed AND distance
     if Speed > 600 then
         backwardsAngleThreshold = 50
+        minDistanceForBackwards = 25 -- Closer detection for high speed
     elseif Speed > 400 then
         backwardsAngleThreshold = 55
+        minDistanceForBackwards = 28
     else
         backwardsAngleThreshold = 65
+        minDistanceForBackwards = 30
+    end
+    
+    -- IMPROVED: Better close-range detection
+    if Distance < 20 then
+        backwardsAngleThreshold = backwardsAngleThreshold + 15 -- More lenient when close
     end
     
     local horizDirection = Vector3.new(playerPos.X - ballPos.X, 0, playerPos.Z - ballPos.Z)
@@ -3092,7 +3102,7 @@ AutoParry.IsCurved = function(ball)
         if horizBallDir.Magnitude > 0 then
             horizBallDir = horizBallDir.Unit
             local backwardsAngle = math.deg(math.acos(math.clamp(awayFromPlayer:Dot(horizBallDir), -1, 1)))
-            if backwardsAngle < backwardsAngleThreshold and Distance > 30 then
+            if backwardsAngle < backwardsAngleThreshold and Distance > minDistanceForBackwards then
                 backwardsCurveDetected = true
             end
         end
@@ -3411,21 +3421,37 @@ AutoParry.SpamService = function()
     -- Time-to-impact calculation
     local tti = (speed > 0 and dot < 0) and (ballDistance / speed) or 999
     
-    -- Base spam distance calculation
-    local baseDistance = 12 + math.min(speed / 5, 80)
-    local pingComp = math.min(pingSec * speed * 1.2, 25)
+    -- AGGRESSIVE & DYNAMIC BASE SPAM DISTANCE
+    local baseDistance = 18 + math.min(speed / 4, 100) -- More aggressive base
+    
+    -- Dynamic speed scaling (more aggressive at high speeds)
+    local speedMultiplier = 1.0
+    if speed > 700 then
+        speedMultiplier = 1.6 -- Ultra aggressive
+    elseif speed > 500 then
+        speedMultiplier = 1.4
+    elseif speed > 300 then
+        speedMultiplier = 1.25
+    elseif speed > 150 then
+        speedMultiplier = 1.15
+    end
+    
+    baseDistance = baseDistance * speedMultiplier
+    
+    -- More aggressive ping compensation
+    local pingComp = math.min(pingSec * speed * 1.5, 35)
     local maximum_spam_distance = baseDistance + pingComp
     
     -- Early exit if distances are too far
     if targetDistance > maximum_spam_distance then return 0 end
     if ballDistance > maximum_spam_distance then return 0 end
     
-    -- Dot bonus: ball coming straight at us (Dot near -1) = parry earlier
-    local dotBonus = math.clamp(dot, -1, 0) * (4 + math.min(speed / 25, 8))
+    -- More aggressive dot bonus
+    local dotBonus = math.clamp(dot, -1, 0) * (6 + math.min(speed / 20, 12))
     local spam_accuracy = maximum_spam_distance + dotBonus
     
-    -- Cap the spam accuracy
-    spam_accuracy = math.clamp(spam_accuracy, 10, 120)
+    -- Higher cap for aggressive spamming
+    spam_accuracy = math.clamp(spam_accuracy, 15, 150)
     
     return spam_accuracy
 end
@@ -3879,7 +3905,10 @@ local parriedBalls = {}
                       local Ball_Position = ball.Position
                       local Ball_Future_Position = Ball_Position + velocity * time
                       local Player_Future_Position = LocalPlayer.Character.PrimaryPart.Position + playerVel * time
-                      local distance = (Player_Future_Position - Ball_Future_Position).Magnitude
+                      
+                      -- USE ACTUAL DISTANCE, NOT PREDICTED (fixes over-prediction)
+                      local distance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
+                      
                       local speed = velocity.Magnitude
                       if AutoPostParry then
                           if not PostParryVelocityHistory[ball] then PostParryVelocityHistory[ball] = {} end
@@ -3923,7 +3952,8 @@ local parriedBalls = {}
                       end
                       local Predicted_Direction = (Player_Future_Position - Ball_Future_Position).Unit
                       local Predicted_Dot = Predicted_Direction:Dot(velocity.Unit)
-                      if oneTarget == tostring(LocalPlayer) and Predicted_Dot < -0.3 then continue end
+                      -- Relaxed threshold to reduce over-prediction (was -0.3)
+                      if oneTarget == tostring(LocalPlayer) and Predicted_Dot < -0.5 then continue end
                       local hotbar = LocalPlayer:FindFirstChild('PlayerGui') and LocalPlayer.PlayerGui:FindFirstChild('Hotbar')
                       local character = LocalPlayer.Character
                       local abilities = character and character:FindFirstChild('Abilities')
@@ -4585,6 +4615,11 @@ local parriedBalls = {}
                       duration = 3
                   })
               end
+              -- OPTIMIZED: Cache ability references to reduce lag
+              local cachedHotbar = nil
+              local cachedAbilities = nil
+              local lastAbilityCheck = 0
+              
               Connections["autoSpam"] = RunService.PreSimulation:Connect(function()
                   if not AutoSpamEnabled then return end
                   
@@ -4625,54 +4660,56 @@ local parriedBalls = {}
                   local distance = ballProps.Distance
                   local ballVelocity = ballProps.Velocity
                   
-                  -- === ABILITY DETECTIONS ===
-                  -- Curve Detection
-                  local curved, backwardsDetected = AutoParry.IsCurved(ball)
-                  if SpamCurveDetection and curved then
-                      return
+                  -- === OPTIMIZED ABILITY DETECTIONS (REDUCED LAG) ===
+                  -- Only check curve if enabled
+                  if SpamCurveDetection then
+                      local curved, backwardsDetected = AutoParry.IsCurved(ball)
+                      if curved then return end
                   end
                   
-                  -- Singularity Cape Detection
-                  local singularityCape = nil
-                  if LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
-                      singularityCape = LocalPlayer.Character.PrimaryPart:FindFirstChild('SingularityCape')
-                  end
-                  if SpamSingularityDetection and singularityCape then
-                      return
-                  end
-                  
-                  -- Infinity Detection
-                  local hotbar = LocalPlayer:FindFirstChild('PlayerGui') and LocalPlayer.PlayerGui:FindFirstChild('Hotbar')
-                  local character = LocalPlayer.Character
-                  local abilities = character and character:FindFirstChild('Abilities')
-                  local durationUI = hotbar and hotbar:FindFirstChild('Ability') and hotbar.Ability:FindFirstChild('Duration') and hotbar.Ability.Duration.Visible
-                  local infinityAbility = abilities and abilities:FindFirstChild('Infinity')
-                  local infinity = infinityAbility and infinityAbility.Enabled
-                  local usingInfinity = durationUI and infinity and Infinity_Ball
-                  if SpamInfinityDetection and usingInfinity then
-                      return
-                  end
-                  
-                  -- Time Hole Detection
-                  local timeholeAbility = abilities and abilities:FindFirstChild('Time Hole')
-                  local timehole = timeholeAbility and timeholeAbility.Enabled
-                  if SpamTimeHoleDetection and durationUI and timehole then
-                      return
-                  end
-                  
-                  -- Death Slash Detection
-                  if SpamDeathSlashDetection and DeathSlashDetection then
-                      return
-                  end
-                  
-                  -- Slash of Fury Detection
+                  -- Quick checks first (least expensive)
                   if SpamSlashOfFuryDetection and ball:FindFirstChild("ComboCounter") then
                       return
                   end
                   
-                  -- Pulsed attribute check
-                  local pulsed = LocalPlayer.Character:GetAttribute('Pulsed')
-                  if pulsed then return end
+                  if SpamDeathSlashDetection and DeathSlashDetection then
+                      return
+                  end
+                  
+                  if LocalPlayer.Character:GetAttribute('Pulsed') then return end
+                  
+                  -- Singularity (cached)
+                  if SpamSingularityDetection then
+                      if LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
+                          local singularityCape = LocalPlayer.Character.PrimaryPart:FindFirstChild('SingularityCape')
+                          if singularityCape then return end
+                      end
+                  end
+                  
+                  -- Cache ability checks (update every 0.1s to reduce lag)
+                  if (currentTime - lastAbilityCheck) > 0.1 then
+                      cachedHotbar = LocalPlayer:FindFirstChild('PlayerGui') and LocalPlayer.PlayerGui:FindFirstChild('Hotbar')
+                      cachedAbilities = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild('Abilities')
+                      lastAbilityCheck = currentTime
+                  end
+                  
+                  -- Infinity Detection (using cache)
+                  if SpamInfinityDetection and cachedHotbar and cachedAbilities then
+                      local durationUI = cachedHotbar:FindFirstChild('Ability') and cachedHotbar.Ability:FindFirstChild('Duration') and cachedHotbar.Ability.Duration.Visible
+                      local infinityAbility = cachedAbilities:FindFirstChild('Infinity')
+                      if durationUI and infinityAbility and infinityAbility.Enabled and Infinity_Ball then
+                          return
+                      end
+                  end
+                  
+                  -- Time Hole Detection (using cache)
+                  if SpamTimeHoleDetection and cachedHotbar and cachedAbilities then
+                      local durationUI = cachedHotbar:FindFirstChild('Ability') and cachedHotbar.Ability:FindFirstChild('Duration') and cachedHotbar.Ability.Duration.Visible
+                      local timeholeAbility = cachedAbilities:FindFirstChild('Time Hole')
+                      if durationUI and timeholeAbility and timeholeAbility.Enabled then
+                          return
+                      end
+                  end
                   
                   -- === TARGET VERIFICATION ===
                   if not ClosestEntity or not ClosestEntity.PrimaryPart then return end
