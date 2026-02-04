@@ -1,4 +1,3 @@
---hello
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3393,72 +3392,10 @@ AutoParry.GetBallProps = function()
     local speed = vel.Magnitude
     return {Speed = speed, Velocity = vel, Direction = dir, Distance = dist, Dot = dot}
 end
-AutoParry.SpamService = function(target)
-    local ball = AutoParry.GetBall()
-    if not ball then return 0 end
+-- Old SpamService removed. Reference new Advanced Ping Engine version (~line 5700)
+-- AutoParry.SpamService = function(target) ... end 
     
-    -- If no target provided, try to find one (fallback)
-    if not target then
-        target = AutoParry.ClosestPlayer()
-    end
-    
-    if not target or not target.PrimaryPart then return 0 end
-    if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return 0 end
-    
-    local zoomies = ball:FindFirstChild('zoomies')
-    if not zoomies then return 0 end
-    
-    local velocity = zoomies.VectorVelocity
-    local speed = velocity.Magnitude
-    
-    -- Ignore idle/slow balls - STRICTER
-    if speed < 15 then return 0 end
-    
-    -- Distances
-    local ballToTarget = (target.PrimaryPart.Position - ball.Position).Magnitude
-    local myDistToTarget = (LocalPlayer.Character.PrimaryPart.Position - target.PrimaryPart.Position).Magnitude
-    
-    -- Check if we are close enough to the clash to even consider spamming
-    if myDistToTarget > 60 then return 0 end
-    
-    -- Ping compensation (Effective Ping: smooth + lag aware)
-    local effectivePing, fps = GetEffectivePing(speed)
-    local pingSec = effectivePing / 1000
-    
-    -- DYNAMIC BASE SPAM DISTANCE
-    -- Much smaller base for low speeds to prevent pre-click
-    local baseDistance = 12 
-    
-    local speedMultiplier = 1.0
-    if speed > 800 then
-        speedMultiplier = 2.0 -- God mode clash
-        baseDistance = 25
-    elseif speed > 600 then
-        speedMultiplier = 1.8 
-        baseDistance = 22
-    elseif speed > 400 then
-        speedMultiplier = 1.5
-        baseDistance = 20
-    elseif speed > 250 then
-        speedMultiplier = 1.2
-        baseDistance = 18
-    elseif speed < 100 then
-        speedMultiplier = 0.8 -- Reduce for slow balls
-        baseDistance = 10
-    end
-    
-    -- Calculate max distance
-    -- Formula: Base + (Speed/Factor) + PingCompensation
-    local speedFactor = math.max(speed / 12, 0)
-    local pingComp = math.min(pingSec * speed, 50) -- Cap ping comp
-    
-    local maximum_spam_distance = (baseDistance + speedFactor) * speedMultiplier + pingComp
-    
-    -- Clamp max distance to avoid cross-map spam
-    maximum_spam_distance = math.clamp(maximum_spam_distance, 10, 100)
-    
-    return maximum_spam_distance
-end
+-- (Remainder of old SpamService removed)
 AutoParry.IsCooldownActive = function(uigradient)
     return uigradient.Offset.Y <= 0.27
 end
@@ -3994,19 +3931,30 @@ local parriedBalls = {}
                       local entityProps = AutoParry.GetEntityProps()
                       local distance_to_opponent = entityProps and entityProps.Distance or 50
                       
-                      -- Effective Ping (replaces manual ping value)
                       local effectivePing, fps = GetEffectivePing(speed)
                       local adjustedPing = effectivePing / 10
                       
-                      local cappedSpeedDifference = math.min(math.max(speed - 9.5, 0), 820)
-                      local speedDivisorBase = 2.4 + cappedSpeedDifference * 0.002
-                      local speedDivisor = speedDivisorBase * Speed_Divisor_Multiplier
+                      -- === INFINITE PARRY SCALING ===
+                      -- Base distance: 10
+                      -- Speed Factor: roughly Speed / 2.25
+                      -- God Mode: If speed > 2000, we add extra buffer
                       
-                      -- Base Parry Accuracy (Distance Threshold)
-                      -- We add a "God Mode" bonus for extreme speeds to parry MUCH earlier
-                      local godModeBonus = (speed > 1600) and (speed / 100) or 0
+                      local dynamicDivisor = 2.25
+                      local godModeBonus = 0
                       
-                      local parryAccuracy = adjustedPing + math.max(speed / speedDivisor, 9.5) + godModeBonus
+                      if speed > 100000 then
+                          dynamicDivisor = 0.5 -- Teleport catch mode
+                          godModeBonus = 50
+                      elseif speed > 10000 then
+                          dynamicDivisor = 1.0 -- Hyper speed catch
+                          godModeBonus = 30
+                      elseif speed > 2000 then
+                          dynamicDivisor = 1.8 -- High speed
+                          godModeBonus = speed / 100
+                      end
+                      
+                      -- No clamp, no Max. Scale to infinity.
+                      local parryAccuracy = adjustedPing + (speed / dynamicDivisor) + 9.5 + godModeBonus
                       if curved and backwardsDetected then
                           local distanceReduction = 55
                           if speed > 700 then
@@ -4349,21 +4297,41 @@ local parriedBalls = {}
                   if not zoomies then return end
                   local velocity = zoomies.VectorVelocity
                   local speed = velocity.Magnitude
-                  local pingedValued = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+                  local pingedValued, fps = GetEffectivePing(speed)
                   local time = pingedValued / 2000
                   local playerVel = character.PrimaryPart.Velocity
                   local Ball_Position = ball.Position
                   local Ball_Future_Position = Ball_Position + velocity * time
                   local Player_Future_Position = character.PrimaryPart.Position + playerVel * time
                   local distance = (Player_Future_Position - Ball_Future_Position).Magnitude
-                  local cappedSpeedDifference = math.min(math.max(speed - 9.5, 0), 820)
-                  local speedDivisorBase = 2.4 + cappedSpeedDifference * 0.002
+                  
                   local adjustedPing = pingedValued / 10
-                  if HighPingCompensation and pingedValued > 150 then
-                      adjustedPing = adjustedPing * 1.5
+                  
+                  -- === INTELLIGENT TRIGGERBOT LOGIC ===
+                  -- 1. Curve Analysis
+                  local curved, backwardsDetected = AutoParry.IsCurved(ball)
+                  
+                  -- 2. Infinite Speed Scaling
+                  local dynamicDivisor = 2.25
+                  local godModeBonus = 0
+                  
+                  if speed > 100000 then
+                      dynamicDivisor = 0.5 
+                      godModeBonus = 50
+                  elseif speed > 10000 then
+                      dynamicDivisor = 1.0 
+                      godModeBonus = 30
+                  elseif speed > 2000 then
+                      dynamicDivisor = 1.8 
+                      godModeBonus = speed / 100
                   end
-                  local speedDivisor = speedDivisorBase * Speed_Divisor_Multiplier
-                  local parryAccuracy = adjustedPing + math.max(speed / speedDivisor, 9.5)
+                  
+                  local parryAccuracy = adjustedPing + (speed / dynamicDivisor) + 9.5 + godModeBonus
+                  
+                  -- 3. Curve Protection (Reduce range if curved to avoid bait)
+                  if curved then
+                      parryAccuracy = parryAccuracy * 0.4 -- Significant reduction to wait for ball to get close
+                  end
                   if distance > parryAccuracy then return end
                   AutoParry.ParryAnim(false)
                   local averagePing = GetAveragePing()
@@ -5637,16 +5605,16 @@ function LoadJumpAnimation(character)
     AIJumpAnimation = humanoid.Animator:LoadAnimation(animAsset)
 end
 
--- === ADVANCED PING & LAG ENGINE ===
+-- === ADVANCED PING & LAG ENGINE (V2: JITTER PROOF) ===
 local PingSamples = {}
 local PingSampleIndex = 1
-local MaxPingSamples = 10
+local MaxPingSamples = 20 -- Increased sample size for better jitter detection
 local LastFrameTime = tick()
 local FrameDeltas = {}
 local DeltaIndex = 1
 local MaxDeltaSamples = 20
 
--- Optimized Ping Getter with Moving Average
+-- Optimized Ping Getter with SDev (Jitter)
 function GetPing()
     local success, ping = pcall(function()
         return game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
@@ -5658,7 +5626,7 @@ function GetPing()
     PingSamples[PingSampleIndex] = finalPing
     PingSampleIndex = (PingSampleIndex % MaxPingSamples) + 1
     
-    -- Calculate Average
+    -- Calculate Average & Jitter
     local total = 0
     local count = 0
     for _, p in pairs(PingSamples) do
@@ -5666,7 +5634,20 @@ function GetPing()
         count = count + 1
     end
     
-    return count > 0 and (total / count) or finalPing
+    local avgPing = count > 0 and (total / count) or finalPing
+    
+    -- Jitter Calculation (Standard Deviation)
+    local varianceSum = 0
+    if count > 1 then
+        for _, p in pairs(PingSamples) do
+            varianceSum = varianceSum + (p - avgPing)^2
+        end
+        local jitter = math.sqrt(varianceSum / count)
+        -- Add jitter to the "Average" to keep it safe (Average + Jitter = Safe Ping)
+        avgPing = avgPing + (jitter * 0.8) 
+    end
+    
+    return avgPing
 end
 
 -- FPS / Frame Time Tracker
@@ -5691,8 +5672,6 @@ function GetFPSLag()
     local fps = 1 / avgFrameTime
     
     -- Calculate "Lag Penalty" in ms
-    -- If FPS is low (e.g. 30fps), frame time is 33ms. Normal is 16ms (60fps).
-    -- Lag penalty = difference.
     local penalty = math.max(0, (avgFrameTime * 1000) - 16)
     return penalty, fps
 end
@@ -5704,15 +5683,68 @@ function GetEffectivePing(speed)
     -- Base effective ping
     local effective = netPing + lagPenalty
     
-    -- === HIGH SPEED SCALING ===
-    -- When ball is super fast, we need to artificially INCREASE perceived ping 
-    -- to force the parry calculator to predict FURTHER ahead.
+    -- === INFINITE HIGH SPEED SCALING ===
+    -- No caps. As speed approaches infinity, ping compensation scales linearly.
     if speed and speed > 1000 then
-        local stressFactor = math.min(speed / 1000, 3) -- Max 3x ping multiplier at very high speeds
-        effective = effective + (netPing * 0.2 * stressFactor) 
+        -- Dynamic stress factor: 10k speed = 10x factor
+        local stressFactor = speed / 1000 
+        effective = effective + (netPing * 0.05 * stressFactor) 
     end
     
     return effective, fps
+end
+
+-- Compatibility Alias
+function GetAveragePing()
+    return GetPing()
+end
+-- ... existing code ...
+
+AutoParry.SpamService = function(target)
+    local ball = AutoParry.GetBall()
+    if not ball then return 0 end
+    
+    if not target then target = AutoParry.ClosestPlayer() end
+    if not target or not target.PrimaryPart then return 0 end
+    if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return 0 end
+    
+    local zoomies = ball:FindFirstChild('zoomies')
+    if not zoomies then return 0 end
+    
+    local velocity = zoomies.VectorVelocity
+    local speed = velocity.Magnitude
+    
+    -- Ignore idle/slow balls
+    if speed < 15 then return 0 end
+    
+    local myDistToTarget = (LocalPlayer.Character.PrimaryPart.Position - target.PrimaryPart.Position).Magnitude
+    if myDistToTarget > 80 and speed < 1000 then return 0 end -- Only ignore far players if speed is manageable
+    
+    -- Effective Ping
+    local effectivePing, fps = GetEffectivePing(speed)
+    local pingSec = effectivePing / 1000
+    
+    -- === INFINITE DYNAMIC VELOCITY FORMULA ===
+    -- Distance = (Speed * Lookahead) + PingComp
+    -- We removed ALL math.clamp for upper limits.
+    
+    local lookaheadTime = 0.12 -- Base lookahead
+    
+    -- If speed is insane (10k+), lookahead increases to catch it cross-map
+    if speed > 2000 then
+        lookaheadTime = 0.15 + (speed / 50000) -- Scales slightly with speed
+    end
+    
+    local speedDistance = speed * lookaheadTime
+    local pingDistance = speed * pingSec
+    
+    -- Total Auto Spam Distance
+    local maxSpamDistance = speedDistance + pingDistance
+    
+    -- Minimum safety distance for low speeds
+    maxSpamDistance = math.max(maxSpamDistance, 15)
+    
+    return maxSpamDistance
 end
 
 function GetClosestPlayerDistance(rootPart)
