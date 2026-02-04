@@ -1,3 +1,4 @@
+--ok
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -4638,119 +4639,109 @@ local parriedBalls = {}
                   local zoomies = ball:FindFirstChild('zoomies')
                   if not zoomies then return end
                   
-                  ClosestEntity = AutoParry.ClosestPlayer()
-                  if not ClosestEntity or not ClosestEntity.PrimaryPart then return end
-                  
-                  local ballTarget = ball:GetAttribute('target')
-                  if not ballTarget then return end
-                  
+                  local ballTargetName = ball:GetAttribute('target')
+                  if not ballTargetName then return end
+
                   -- === CRITICAL: DON'T SPAM IF BALL IS TARGETING US ===
-                  -- Let Auto Parry handle it to avoid double parrying
-                  if ballTarget == tostring(LocalPlayer) then 
+                  if ballTargetName == tostring(LocalPlayer) then 
                       IsAutoSpamming = false
                       return 
                   end
                   
-                  local ballProps = AutoParry.GetBallProps()
-                  local entityProps = AutoParry.GetEntityProps()
+                  -- === AI TARGET ACQUISITION ===
+                  local targetPlayer = Workspace.Alive:FindFirstChild(ballTargetName)
+                  if not targetPlayer or not targetPlayer.PrimaryPart then return end
                   
-                  if not ballProps or not entityProps then return end
+                  if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return end
+                  
+                  -- Get ball properties
+                  local ballProps = AutoParry.GetBallProps()
+                  if not ballProps then return end
                   
                   local speed = ballProps.Speed
-                  local distance = ballProps.Distance
-                  local ballVelocity = ballProps.Velocity
+                  local velocity = ballProps.Velocity
                   
-                  -- === OPTIMIZED ABILITY DETECTIONS (REDUCED LAG) ===
-                  -- Only check curve if enabled
+                  -- === OPTIMIZED ABILITY DETECTIONS ===
                   if SpamCurveDetection then
                       local curved, backwardsDetected = AutoParry.IsCurved(ball)
                       if curved then return end
                   end
                   
-                  -- Quick checks first (least expensive)
-                  if SpamSlashOfFuryDetection and ball:FindFirstChild("ComboCounter") then
-                      return
-                  end
-                  
-                  if SpamDeathSlashDetection and DeathSlashDetection then
-                      return
-                  end
-                  
+                  if SpamSlashOfFuryDetection and ball:FindFirstChild("ComboCounter") then return end
+                  if SpamDeathSlashDetection and DeathSlashDetection then return end
                   if LocalPlayer.Character:GetAttribute('Pulsed') then return end
                   
-                  -- Singularity (cached)
                   if SpamSingularityDetection then
-                      if LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
-                          local singularityCape = LocalPlayer.Character.PrimaryPart:FindFirstChild('SingularityCape')
-                          if singularityCape then return end
-                      end
+                      local singularityCape = LocalPlayer.Character.PrimaryPart:FindFirstChild('SingularityCape')
+                      if singularityCape then return end
                   end
                   
-                  -- Cache ability checks (update every 0.1s to reduce lag)
                   if (currentTime - lastAbilityCheck) > 0.1 then
                       cachedHotbar = LocalPlayer:FindFirstChild('PlayerGui') and LocalPlayer.PlayerGui:FindFirstChild('Hotbar')
                       cachedAbilities = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild('Abilities')
                       lastAbilityCheck = currentTime
                   end
                   
-                  -- Infinity Detection (using cache)
                   if SpamInfinityDetection and cachedHotbar and cachedAbilities then
                       local durationUI = cachedHotbar:FindFirstChild('Ability') and cachedHotbar.Ability:FindFirstChild('Duration') and cachedHotbar.Ability.Duration.Visible
                       local infinityAbility = cachedAbilities:FindFirstChild('Infinity')
-                      if durationUI and infinityAbility and infinityAbility.Enabled and Infinity_Ball then
-                          return
-                      end
+                      if durationUI and infinityAbility and infinityAbility.Enabled and Infinity_Ball then return end
                   end
                   
-                  -- Time Hole Detection (using cache)
                   if SpamTimeHoleDetection and cachedHotbar and cachedAbilities then
                       local durationUI = cachedHotbar:FindFirstChild('Ability') and cachedHotbar.Ability:FindFirstChild('Duration') and cachedHotbar.Ability.Duration.Visible
                       local timeholeAbility = cachedAbilities:FindFirstChild('Time Hole')
-                      if durationUI and timeholeAbility and timeholeAbility.Enabled then
-                          return
+                      if durationUI and timeholeAbility and timeholeAbility.Enabled then return end
+                  end
+                  
+                  -- === AI PREDICTION LOGIC (Argon Hub Style) ===
+                  local targetPos = targetPlayer.PrimaryPart.Position
+                  local myPos = LocalPlayer.Character.PrimaryPart.Position
+                  local distBallToTarget = (targetPos - ball.Position).Magnitude
+                  
+                  -- Check 1: Is the enemy facing us?
+                  local enemyLook = targetPlayer.PrimaryPart.CFrame.LookVector
+                  local dirToMe = (myPos - targetPos).Unit
+                  local isFacingMe = enemyLook:Dot(dirToMe) > 0.4
+                  
+                  -- Check 2: Are we the closest player to the enemy?
+                  local amIClosest = true
+                  local distEnemyToMe = (myPos - targetPos).Magnitude
+                  
+                  if speed > 500 and distEnemyToMe < 40 then
+                      isFacingMe = true 
+                  else
+                      if not isFacingMe then
+                          for _, other in pairs(Workspace.Alive:GetChildren()) do
+                              if other ~= LocalPlayer.Character and other ~= targetPlayer and other.PrimaryPart then
+                                  local d = (other.PrimaryPart.Position - targetPos).Magnitude
+                                  if d < distEnemyToMe then
+                                      amIClosest = false
+                                      break
+                                  end
+                              end
+                          end
                       end
                   end
                   
-                  -- === TARGET VERIFICATION ===
-                  if not ClosestEntity or not ClosestEntity.PrimaryPart then return end
-                  if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return end
+                  if not isFacingMe and not amIClosest then return end
                   
-                  local targetPosition = ClosestEntity.PrimaryPart.Position
-                  local distToEnemy = (targetPosition - ball.Position).Magnitude
-                  local distToPlayer = distance
+                  -- === SPAM VALIDATION ===
+                  -- Ensure ball is actually moving towards the target
+                  local ballDir = velocity.Unit
+                  local dirToTarget = (targetPos - ball.Position).Unit
+                  if ballDir:Dot(dirToTarget) < 0.3 then return end
                   
-                  -- Verify ball is actually moving toward target
-                  local ballDirection = ballVelocity.Unit
-                  local ballToTarget = (targetPosition - ball.Position).Unit
-                  local ballMovingToTarget = ballDirection:Dot(ballToTarget)
-                  
-                  -- Only spam if ball is clearly moving toward target
-                  if ballMovingToTarget < 0.25 then
-                      return
-                  end
-                  
-                  -- === CRITICAL: ONLY SPAM IF BALL IS CLOSER TO ENEMY ===
-                  -- This prevents spamming when ball is coming to us
-                  if distToPlayer < distToEnemy * 0.7 then
-                      return
-                  end
-                  
-                  -- === GET SPAM ACCURACY FROM SERVICE ===
                   local spamAccuracy = AutoParry.SpamService() or 0
+                  if distBallToTarget > spamAccuracy then return end
                   
-                  -- === DISTANCE VALIDATION ===
-                  if distToEnemy > spamAccuracy then
-                      return
-                  end
+                  -- Prevent pre-click when not in clash (unless very close)
+                  if speed < 150 and distEnemyToMe > 25 then return end
                   
-                  -- === EXECUTE SPAM PARRY ===
+                  -- === EXECUTE SPAM ===
                   IsAutoSpamming = true
-                  
-                  -- Determine spam count based on speed and proximity
                   local spamCount = 1
-                  if speed > 700 and distToEnemy < 25 then
-                      spamCount = 2 -- Burst mode for high-speed clashes
-                  end
+                  if speed > 700 and distBallToTarget < 20 then spamCount = 2 end
                   
                   for i = 1, spamCount do
                       if SpamParryKeypress then
@@ -4758,28 +4749,17 @@ local parriedBalls = {}
                           task.wait(0.02)
                           VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, nil)
                       else
-                          if AutoParryType == "Remote" then
-                              if Is_Supported_Test and next(ParryRemotes) then
-                                  AutoParry.Parry(SpamParryType)
-                              else
-                                  SimulateParry()
-                              end
+                          if AutoParryType == "Remote" and Is_Supported_Test and next(ParryRemotes) then
+                              AutoParry.Parry(SpamParryType)
                           else
                               SimulateParry()
                           end
                       end
-                      
-                      if spamCount > 1 and i < spamCount then
-                          task.wait(0.03) -- Small delay between burst parries
-                      end
+                      if spamCount > 1 and i < spamCount then task.wait(0.03) end
                   end
                   
                   LastSpamTime = currentTime
-                  
-                  -- Reset spam flag after short delay
-                  task.delay(0.5, function()
-                      IsAutoSpamming = false
-                  end)
+                  task.delay(0.5, function() IsAutoSpamming = false end)
               end)
           else
               if AutoSpamNotify then
