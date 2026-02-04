@@ -1,3 +1,4 @@
+--ok cool ta vie
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3980,10 +3981,7 @@ local parriedBalls = {}
                           end
                           parryAccuracy = parryAccuracy - distanceReduction
                       end
-                      local speedFactor = 0.8 + math.min(speed / 2000, 1.0)
-                      local distFactor = 1 + (30 - math.min(distance_to_opponent, 30)) / 30 * 0.8
-                      local factor = speedFactor * distFactor
-                      parryAccuracy = adjustedPing + math.max((speed / speedDivisor) * factor, 9.5)
+                      -- Factor-based logic removed in favor of Infinite Scaling V2
                       local parryCD = LocalPlayer.PlayerGui:FindFirstChild('Hotbar'):FindFirstChild('Block').UIGradient
                       local abilityCD = LocalPlayer.PlayerGui:FindFirstChild('Hotbar'):FindFirstChild('Ability').UIGradient
                       if ballTarget == tostring(LocalPlayer) and distance <= parryAccuracy and Phantom then
