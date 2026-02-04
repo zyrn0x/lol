@@ -4740,28 +4740,53 @@ local parriedBalls = {}
                   -- Prevent pre-click when not in clash (unless very close)
                   if speed < 150 and distEnemyToMe > 25 then return end
                   
-                  -- === EXECUTE SPAM ===
+                  -- === EXECUTE SPAM (OPTIMIZED FOR POWER & NO LAG) ===
                   IsAutoSpamming = true
-                  local spamCount = 1
-                  if speed > 700 and distBallToTarget < 20 then spamCount = 2 end
                   
-                  for i = 1, spamCount do
-                      if SpamParryKeypress then
-                          VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, nil)
-                          task.wait(0.02)
-                          VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, nil)
-                      else
-                          if AutoParryType == "Remote" and Is_Supported_Test and next(ParryRemotes) then
-                              AutoParry.Parry(SpamParryType)
-                          else
-                              SimulateParry()
-                          end
-                      end
-                      if spamCount > 1 and i < spamCount then task.wait(0.03) end
+                  -- Dynamic Burst Count based on speed
+                  local spamCount = 1
+                  if speed > 1000 then
+                      spamCount = 3 -- God mode burst
+                  elseif speed > 600 then
+                      spamCount = 2 -- Fast clash burst
                   end
                   
+                  -- Use a tight loop for the burst to minimize thread yielding lag
+                  task.spawn(function()
+                      for i = 1, spamCount do
+                          if SpamParryKeypress then
+                              -- Optimized VirtualInputManager calls
+                              VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, nil)
+                              if i < spamCount then 
+                                  RunService.PreRender:Wait() -- Extremely short wait, faster than task.wait()
+                                  VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, nil)
+                              else
+                                  VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, nil)
+                              end
+                          else
+                              if AutoParryType == "Remote" and Is_Supported_Test and next(ParryRemotes) then
+                                  AutoParry.Parry(SpamParryType)
+                              else
+                                  SimulateParry()
+                              end
+                          end
+                          
+                          -- Minimal delay between burst clicks
+                          if spamCount > 1 and i < spamCount then 
+                              if speed > 1200 then
+                                  RunService.PreRender:Wait() 
+                              else
+                                  task.wait() -- Standard frame wait for stability
+                              end
+                          end
+                      end
+                      
+                      -- Reset spam flag faster if speed is high to allow rapid re-trigger
+                      local resetDelay = (speed > 800) and 0.15 or 0.35
+                      task.delay(resetDelay, function() IsAutoSpamming = false end)
+                  end)
+                  
                   LastSpamTime = currentTime
-                  task.delay(0.5, function() IsAutoSpamming = false end)
               end)
           else
               if AutoSpamNotify then
