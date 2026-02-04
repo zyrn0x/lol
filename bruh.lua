@@ -1,4 +1,3 @@
---ok cool ta vie
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3172,7 +3171,12 @@ AutoParry.IsCurved = function(ball)
     
     local curved = (strongIndicators >= 2) or (backwardsCurveDetected and Speed > 400) or (directionChanged and significantVariance)
     
-    return curved, backwardsDetected
+    -- Severity calculation (0 to 1)
+    local severity = math.clamp(strongIndicators / 3, 0, 1)
+    if backwardsCurveDetected then severity = math.max(severity, 0.7) end
+    if directionChanged and significantVariance then severity = math.max(severity, 0.9) end
+    
+    return curved, backwardsCurveDetected, severity
 end
 AutoParry.Closest_Player = function()
     if selectedTarget then
@@ -3813,9 +3817,11 @@ local parriedBalls = {}
                       PostParryVelocityHistory = {}
                   end)
               end
+              -- Priority Auto Parry Loop
               Connections["autoParry"] = RunService.PreSimulation:Connect(function()
                   local oneBall = AutoParry.GetBall()
                   local balls = AutoParry.GetBalls()
+                  if AutoSpamEnabled and oneBall and oneBall:GetAttribute('target') ~= tostring(LocalPlayer) then return end
                   for _, ball in pairs(balls) do
                       if not ball then
                           ContextActionService:UnbindAction('BlockPlayerMovement')
@@ -4636,10 +4642,11 @@ local parriedBalls = {}
                   local speed = ballProps.Speed
                   local velocity = ballProps.Velocity
                   
-                  -- === OPTIMIZED ABILITY DETECTIONS ===
+                  -- === BUG-PROOF CURVE DETECTION ===
                   if SpamCurveDetection then
-                      local curved, backwardsDetected = AutoParry.IsCurved(ball)
-                      if curved then return end
+                      local curved, backwards, severity = AutoParry.IsCurved(ball)
+                      -- Ignore micro-curves/glitches (severity < 0.6)
+                      if curved and severity > 0.6 then return end
                   end
                   
                   if SpamSlashOfFuryDetection and ball:FindFirstChild("ComboCounter") then return end
@@ -4713,29 +4720,28 @@ local parriedBalls = {}
                   -- Prevent pre-click when not in clash (unless very close)
                   if speed < 150 and distEnemyToMe > 25 then return end
                   
-                  -- === EXECUTE SPAM (OPTIMIZED FOR POWER & NO LAG) ===
+                  -- === GOD-TIER SPAM EXECUTION ===
                   IsAutoSpamming = true
                   
-                  -- Dynamic Burst Count based on speed
                   local spamCount = 1
-                  if speed > 1000 then
-                      spamCount = 3 -- God mode burst
+                  if speed > 1800 then
+                      spamCount = 4 -- Legendary Burst
+                  elseif speed > 1000 then
+                      spamCount = 3
                   elseif speed > 600 then
-                      spamCount = 2 -- Fast clash burst
+                      spamCount = 2
                   end
                   
-                  -- Use a tight loop for the burst to minimize thread yielding lag
                   task.spawn(function()
                       for i = 1, spamCount do
                           if SpamParryKeypress then
-                              -- Optimized VirtualInputManager calls
                               VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, nil)
-                              if i < spamCount then 
-                                  RunService.PreRender:Wait() -- Extremely short wait, faster than task.wait()
-                                  VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, nil)
+                              if speed > 1200 then
+                                  RunService.PreRender:Wait()
                               else
-                                  VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, nil)
+                                  task.wait()
                               end
+                              VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, nil)
                           else
                               if AutoParryType == "Remote" and Is_Supported_Test and next(ParryRemotes) then
                                   AutoParry.Parry(SpamParryType)
@@ -4744,18 +4750,13 @@ local parriedBalls = {}
                               end
                           end
                           
-                          -- Minimal delay between burst clicks
-                          if spamCount > 1 and i < spamCount then 
-                              if speed > 1200 then
-                                  RunService.PreRender:Wait() 
-                              else
-                                  task.wait() -- Standard frame wait for stability
-                              end
+                          if i < spamCount then
+                              RunService.PreRender:Wait()
                           end
                       end
                       
-                      -- Reset spam flag faster if speed is high to allow rapid re-trigger
-                      local resetDelay = (speed > 800) and 0.15 or 0.35
+                      -- Ultra-fast reset to catch the next ball instantly
+                      local resetDelay = (speed > 1000) and 0.05 or 0.15
                       task.delay(resetDelay, function() IsAutoSpamming = false end)
                   end)
                   
@@ -5726,11 +5727,11 @@ AutoParry.SpamService = function(target)
     -- Distance = (Speed * Lookahead) + PingComp
     -- We removed ALL math.clamp for upper limits.
     
-    local lookaheadTime = 0.12 -- Base lookahead
+    local lookaheadTime = 0.15 -- Increased base lookahead for Priority
     
     -- If speed is insane (10k+), lookahead increases to catch it cross-map
     if speed > 2000 then
-        lookaheadTime = 0.15 + (speed / 50000) -- Scales slightly with speed
+        lookaheadTime = 0.18 + (speed / 40000) -- More aggressive scaling
     end
     
     local speedDistance = speed * lookaheadTime
