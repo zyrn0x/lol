@@ -1,4 +1,3 @@
---ok
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3150,26 +3149,29 @@ AutoParry.IsCurved = function(ball)
         end
     end
     
-    -- Direction difference check (from nigga script)
+    -- Direction difference check (improved)
     local Direction_Difference = (Ball_Direction - Velocity.Unit)
-    if Direction_Difference.Magnitude > 0 then
+    if Direction_Difference.Magnitude > 0.1 then
         local Direction_Similarity = Direction:Dot(Direction_Difference.Unit)
         local Dot_Difference = Dot - Direction_Similarity
-        if Dot_Difference < (0.5 - Ping / 1000) then
+        
+        -- Stricter check for "sudden" curve
+        if Dot_Difference < 0.45 and Speed > 300 then
             return true, backwardsCurveDetected
         end
     end
     
-    -- Combine curve conditions (stricter: require 4+ or backwards with 2+)
-    local curveConditions = 0
-    if Dot < Dot_Threshold then curveConditions = curveConditions + 1 end
-    if backwardsCurveDetected then curveConditions = curveConditions + 3 end
-    if directionChanged then curveConditions = curveConditions + 1 end
-    if significantVariance then curveConditions = curveConditions + 1 end
+    -- Combine curve conditions
+    -- Must have at least 2 strong indicators or 1 very strong + 2 weak
     
-    -- Stricter requirement: need 4+ conditions OR backwards with at least 2 conditions
-    local curved = curveConditions >= 4 or (backwardsCurveDetected and curveConditions >= 2)
-    return curved, backwardsCurveDetected
+    local strongIndicators = 0
+    if backwardsCurveDetected then strongIndicators = strongIndicators + 1 end
+    if directionChanged then strongIndicators = strongIndicators + 1 end
+    if significantVariance then strongIndicators = strongIndicators + 1 end
+    
+    local curved = (strongIndicators >= 2) or (backwardsCurveDetected and Speed > 400) or (directionChanged and significantVariance)
+    
+    return curved, backwardsDetected
 end
 AutoParry.Closest_Player = function()
     if selectedTarget then
@@ -3390,12 +3392,16 @@ AutoParry.GetBallProps = function()
     local speed = vel.Magnitude
     return {Speed = speed, Velocity = vel, Direction = dir, Distance = dist, Dot = dot}
 end
-AutoParry.SpamService = function()
+AutoParry.SpamService = function(target)
     local ball = AutoParry.GetBall()
     if not ball then return 0 end
     
-    local closest = AutoParry.ClosestPlayer()
-    if not closest or not closest.PrimaryPart then return 0 end
+    -- If no target provided, try to find one (fallback)
+    if not target then
+        target = AutoParry.ClosestPlayer()
+    end
+    
+    if not target or not target.PrimaryPart then return 0 end
     if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return 0 end
     
     local zoomies = ball:FindFirstChild('zoomies')
@@ -3404,57 +3410,53 @@ AutoParry.SpamService = function()
     local velocity = zoomies.VectorVelocity
     local speed = velocity.Magnitude
     
-    -- Ignore idle/slow balls
-    if speed < 8 then return 0 end
+    -- Ignore idle/slow balls - STRICTER
+    if speed < 15 then return 0 end
     
-    -- Get distances
-    local ballDistance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
-    local targetDistance = LocalPlayer:DistanceFromCharacter(closest.PrimaryPart.Position)
+    -- Distances
+    local ballToTarget = (target.PrimaryPart.Position - ball.Position).Magnitude
+    local myDistToTarget = (LocalPlayer.Character.PrimaryPart.Position - target.PrimaryPart.Position).Magnitude
     
-    -- Direction and dot product
-    local direction = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Unit
-    local dot = direction:Dot(velocity.Unit)
+    -- Check if we are close enough to the clash to even consider spamming
+    if myDistToTarget > 60 then return 0 end
     
     -- Ping compensation
     local ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
     local pingSec = ping / 1000
     
-    -- Time-to-impact calculation
-    local tti = (speed > 0 and dot < 0) and (ballDistance / speed) or 999
+    -- DYNAMIC BASE SPAM DISTANCE
+    -- Much smaller base for low speeds to prevent pre-click
+    local baseDistance = 12 
     
-    -- AGGRESSIVE & DYNAMIC BASE SPAM DISTANCE
-    local baseDistance = 18 + math.min(speed / 4, 100) -- More aggressive base
-    
-    -- Dynamic speed scaling (more aggressive at high speeds)
     local speedMultiplier = 1.0
-    if speed > 700 then
-        speedMultiplier = 1.6 -- Ultra aggressive
-    elseif speed > 500 then
-        speedMultiplier = 1.4
-    elseif speed > 300 then
-        speedMultiplier = 1.25
-    elseif speed > 150 then
-        speedMultiplier = 1.15
+    if speed > 800 then
+        speedMultiplier = 2.0 -- God mode clash
+        baseDistance = 25
+    elseif speed > 600 then
+        speedMultiplier = 1.8 
+        baseDistance = 22
+    elseif speed > 400 then
+        speedMultiplier = 1.5
+        baseDistance = 20
+    elseif speed > 250 then
+        speedMultiplier = 1.2
+        baseDistance = 18
+    elseif speed < 100 then
+        speedMultiplier = 0.8 -- Reduce for slow balls
+        baseDistance = 10
     end
     
-    baseDistance = baseDistance * speedMultiplier
+    -- Calculate max distance
+    -- Formula: Base + (Speed/Factor) + PingCompensation
+    local speedFactor = math.max(speed / 12, 0)
+    local pingComp = math.min(pingSec * speed, 50) -- Cap ping comp
     
-    -- More aggressive ping compensation
-    local pingComp = math.min(pingSec * speed * 1.5, 35)
-    local maximum_spam_distance = baseDistance + pingComp
+    local maximum_spam_distance = (baseDistance + speedFactor) * speedMultiplier + pingComp
     
-    -- Early exit if distances are too far
-    if targetDistance > maximum_spam_distance then return 0 end
-    if ballDistance > maximum_spam_distance then return 0 end
+    -- Clamp max distance to avoid cross-map spam
+    maximum_spam_distance = math.clamp(maximum_spam_distance, 10, 100)
     
-    -- More aggressive dot bonus
-    local dotBonus = math.clamp(dot, -1, 0) * (6 + math.min(speed / 20, 12))
-    local spam_accuracy = maximum_spam_distance + dotBonus
-    
-    -- Higher cap for aggressive spamming
-    spam_accuracy = math.clamp(spam_accuracy, 15, 150)
-    
-    return spam_accuracy
+    return maximum_spam_distance
 end
 AutoParry.IsCooldownActive = function(uigradient)
     return uigradient.Offset.Y <= 0.27
@@ -4732,7 +4734,7 @@ local parriedBalls = {}
                   local dirToTarget = (targetPos - ball.Position).Unit
                   if ballDir:Dot(dirToTarget) < 0.3 then return end
                   
-                  local spamAccuracy = AutoParry.SpamService() or 0
+                  local spamAccuracy = AutoParry.SpamService(targetPlayer) or 0
                   if distBallToTarget > spamAccuracy then return end
                   
                   -- Prevent pre-click when not in clash (unless very close)
