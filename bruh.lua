@@ -1,3 +1,4 @@
+--hello
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3001,8 +3002,8 @@ AutoParry.IsCurved = function(ball)
     local Dot = Direction:Dot(Ball_Direction)
     local Distance = (playerPos - ballPos).Magnitude
     
-    -- Get ping
-    local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+    -- Get ping (Effective Ping)
+    local Ping, fps = GetEffectivePing(Speed)
     
     -- Calculate thresholds
     local Speed_Threshold = math.min(Speed / 100, 40)
@@ -3420,9 +3421,9 @@ AutoParry.SpamService = function(target)
     -- Check if we are close enough to the clash to even consider spamming
     if myDistToTarget > 60 then return 0 end
     
-    -- Ping compensation
-    local ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
-    local pingSec = ping / 1000
+    -- Ping compensation (Effective Ping: smooth + lag aware)
+    local effectivePing, fps = GetEffectivePing(speed)
+    local pingSec = effectivePing / 1000
     
     -- DYNAMIC BASE SPAM DISTANCE
     -- Much smaller base for low speeds to prevent pre-click
@@ -3992,14 +3993,20 @@ local parriedBalls = {}
                       end
                       local entityProps = AutoParry.GetEntityProps()
                       local distance_to_opponent = entityProps and entityProps.Distance or 50
+                      
+                      -- Effective Ping (replaces manual ping value)
+                      local effectivePing, fps = GetEffectivePing(speed)
+                      local adjustedPing = effectivePing / 10
+                      
                       local cappedSpeedDifference = math.min(math.max(speed - 9.5, 0), 820)
                       local speedDivisorBase = 2.4 + cappedSpeedDifference * 0.002
-                      local adjustedPing = pingedValued / 10
-                      if HighPingCompensation and pingedValued > 150 then
-                          adjustedPing = adjustedPing * 1.5
-                      end
                       local speedDivisor = speedDivisorBase * Speed_Divisor_Multiplier
-                      local parryAccuracy = adjustedPing + math.max(speed / speedDivisor, 9.5)
+                      
+                      -- Base Parry Accuracy (Distance Threshold)
+                      -- We add a "God Mode" bonus for extreme speeds to parry MUCH earlier
+                      local godModeBonus = (speed > 1600) and (speed / 100) or 0
+                      
+                      local parryAccuracy = adjustedPing + math.max(speed / speedDivisor, 9.5) + godModeBonus
                       if curved and backwardsDetected then
                           local distanceReduction = 55
                           if speed > 700 then
@@ -5630,11 +5637,82 @@ function LoadJumpAnimation(character)
     AIJumpAnimation = humanoid.Animator:LoadAnimation(animAsset)
 end
 
+-- === ADVANCED PING & LAG ENGINE ===
+local PingSamples = {}
+local PingSampleIndex = 1
+local MaxPingSamples = 10
+local LastFrameTime = tick()
+local FrameDeltas = {}
+local DeltaIndex = 1
+local MaxDeltaSamples = 20
+
+-- Optimized Ping Getter with Moving Average
 function GetPing()
     local success, ping = pcall(function()
         return game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
     end)
-    return success and ping or 50
+    
+    local finalPing = success and ping or 50
+    
+    -- Add to samples
+    PingSamples[PingSampleIndex] = finalPing
+    PingSampleIndex = (PingSampleIndex % MaxPingSamples) + 1
+    
+    -- Calculate Average
+    local total = 0
+    local count = 0
+    for _, p in pairs(PingSamples) do
+        total = total + p
+        count = count + 1
+    end
+    
+    return count > 0 and (total / count) or finalPing
+end
+
+-- FPS / Frame Time Tracker
+RunService.PreRender:Connect(function()
+    local now = tick()
+    local delta = now - LastFrameTime
+    LastFrameTime = now
+    
+    FrameDeltas[DeltaIndex] = delta
+    DeltaIndex = (DeltaIndex % MaxDeltaSamples) + 1
+end)
+
+function GetFPSLag()
+    local total = 0
+    local count = 0
+    for _, d in pairs(FrameDeltas) do
+        total = total + d
+        count = count + 1
+    end
+    
+    local avgFrameTime = count > 0 and (total / count) or 0.016
+    local fps = 1 / avgFrameTime
+    
+    -- Calculate "Lag Penalty" in ms
+    -- If FPS is low (e.g. 30fps), frame time is 33ms. Normal is 16ms (60fps).
+    -- Lag penalty = difference.
+    local penalty = math.max(0, (avgFrameTime * 1000) - 16)
+    return penalty, fps
+end
+
+function GetEffectivePing(speed)
+    local netPing = GetPing()
+    local lagPenalty, fps = GetFPSLag()
+    
+    -- Base effective ping
+    local effective = netPing + lagPenalty
+    
+    -- === HIGH SPEED SCALING ===
+    -- When ball is super fast, we need to artificially INCREASE perceived ping 
+    -- to force the parry calculator to predict FURTHER ahead.
+    if speed and speed > 1000 then
+        local stressFactor = math.min(speed / 1000, 3) -- Max 3x ping multiplier at very high speeds
+        effective = effective + (netPing * 0.2 * stressFactor) 
+    end
+    
+    return effective, fps
 end
 
 function GetClosestPlayerDistance(rootPart)
