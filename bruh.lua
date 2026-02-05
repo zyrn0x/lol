@@ -1,4 +1,3 @@
---singe
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -35,6 +34,9 @@ function convertTableToString(inputTable)
     return table.concat(inputTable, ", ")
 end
 
+-- === EXECUTOR COMPATIBILITY LAYER ===
+local cloneref = (typeof(cloneref) == "function") and cloneref or function(obj) return obj end
+
 local UserInputService = cloneref(game:GetService('UserInputService'))
 local ContentProvider = cloneref(game:GetService('ContentProvider'))
 local TweenService = cloneref(game:GetService('TweenService'))
@@ -45,6 +47,7 @@ local Lighting = cloneref(game:GetService('Lighting'))
 local Players = cloneref(game:GetService('Players'))
 local CoreGui = cloneref(game:GetService('CoreGui'))
 local Debris = cloneref(game:GetService('Debris'))
+local ReplicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
 
 local mouse = Players.LocalPlayer:GetMouse()
 local old_Silly = CoreGui:FindFirstChild('Silly')
@@ -2822,19 +2825,17 @@ local soundOptions = {
     ["Tears in the Rain"] = "rbxassetid://129710845038263"
 }
 local function Update_Ping()
-    local currentPing = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
-    table.insert(PingHistory, 1, currentPing)
-    if #PingHistory > MaxPingHistory then
-        table.remove(PingHistory, #PingHistory)
+    -- Redirect to the Omni-Sync V7 engine
+    if typeof(GetPing) == "function" then
+        GetPing()
     end
 end
+
 local function GetAveragePing()
-    if #PingHistory == 0 then return 0 end
-    local sum = 0
-    for _, ping in ipairs(PingHistory) do
-        sum = sum + ping
+    if typeof(GetPing) == "function" then
+        return GetPing()
     end
-    return sum / #PingHistory
+    return 50
 end
 local function IsValidRemoteArgs(args)
     return #args == 7 and
@@ -3714,6 +3715,9 @@ local parriedBalls = {}
                       
                       -- === OMNI-SYNC V7 DDS LOGIC ===
                       local effectivePing, fps = GetEffectivePing(speed)
+                      
+                      local Alive = workspace:FindFirstChild("Alive")
+                      if not Alive then return end
                       
                       -- Vector Projection: Where the ball will be in 1 ping-step
                       local pingSec = effectivePing / 1000
@@ -5404,7 +5408,7 @@ AutoParry.SpamService = function(target)
     local ball = AutoParry.GetBall()
     if not ball then return 0 end
     
-    if not target then target = AutoParry.ClosestPlayer() end
+    if not target then target = AutoParry.Closest_Player() end
     if not target or not target.PrimaryPart then return 0 end
     if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return 0 end
     
