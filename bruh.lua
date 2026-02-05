@@ -1,3 +1,4 @@
+--fix
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2861,7 +2862,9 @@ function hookRemote(remote)
                         return oldIndex(self, key)(_, unpack(args))
                     end
                 end
-                return oldIndex(self, key)
+                
+                local success, result = pcall(function() return oldIndex(self, key) end)
+                return success and result or nil
             end
             setreadonly(meta, true)
         end
@@ -8042,8 +8045,13 @@ local function performDesync()
     
     RunService.RenderStepped:Wait()
     
-    hrp.CFrame = desyncData.originalCFrame
-    hrp.AssemblyLinearVelocity = desyncData.originalVelocity
+    if desyncData.originalCFrame then
+        hrp.CFrame = desyncData.originalCFrame
+    end
+    
+    if desyncData.originalVelocity then
+        hrp.AssemblyLinearVelocity = desyncData.originalVelocity
+    end
 end
 
 local function sendNotification(text)
@@ -8099,7 +8107,8 @@ end)
 
 hooks.oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
     if not state.enabled or checkcaller() or key ~= "CFrame" or not cache.hrp or not isInAliveFolder() then
-        return hooks.oldIndex(self, key)
+        local success, result = pcall(function() return hooks.oldIndex(self, key) end)
+        return success and result or nil
     end
     
     if self == cache.hrp then
@@ -8108,7 +8117,8 @@ hooks.oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
         return desyncData.originalCFrame + cache.headOffset
     end
     
-    return hooks.oldIndex(self, key)
+    local success, result = pcall(function() return hooks.oldIndex(self, key) end)
+    return success and result or nil
 end))
 
 local module = devJV:create_module({
