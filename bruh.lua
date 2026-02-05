@@ -3796,7 +3796,7 @@ function System.autoparry.start()
                     local parry_cd = block and block:FindFirstChild("UIGradient")
                     
                     if parry_cd and parry_cd.Offset.Y < 0.4 then
-                        ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
+                        ReplicatedStorage.Remotes.AbilityButtonPress:FireServer()
                         continue
                     end
                 end
@@ -3825,15 +3825,16 @@ function System.autoparry.start()
                                (death and death.Enabled) then
                                 
                                 System.__properties.__parried = true
-                                ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
+                                ReplicatedStorage.Remotes.AbilityButtonPress:FireServer()
                                 
-                                task.wait(2.432)
-                                
-                                local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-                                local shoot = remotes and remotes:FindFirstChild("DeathSlashShootActivation")
-                                if shoot then
-                                    shoot:FireServer(true)
-                                end
+                                task.spawn(function()
+                                    task.wait(2.432)
+                                    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+                                    local shoot = remotes and remotes:FindFirstChild("DeathSlashShootActivation")
+                                    if shoot then
+                                        shoot:FireServer(true)
+                                    end
+                                end)
                                 continue
                             end
                         end
