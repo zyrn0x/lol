@@ -49,6 +49,63 @@ local CoreGui = cloneref(game:GetService('CoreGui'))
 local Debris = cloneref(game:GetService('Debris'))
 local ReplicatedStorage = cloneref(game:GetService('ReplicatedStorage'))
 
+-- === OMNI-SYNC V7 MASTER ENGINE ===
+local V7 = {
+    PingHistory = {},
+    DeltaHistory = {},
+    LastFrame = tick(),
+    JitterBuffer = 1.2
+}
+_G.V7_Engine = V7
+getgenv().V7_Engine = V7
+
+function V7:GetPing()
+    local success, ping = pcall(function()
+        return game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+    end)
+    local finalPing = success and ping or 50
+    table.insert(self.PingHistory, 1, finalPing)
+    if #self.PingHistory > 30 then table.remove(self.PingHistory) end
+    
+    local total = 0
+    for _, p in ipairs(self.PingHistory) do total = total + p end
+    local avg = total / #self.PingHistory
+    
+    if #self.PingHistory > 1 then
+        local var = 0
+        for _, p in ipairs(self.PingHistory) do var = var + (p - avg)^2 end
+        local jitter = math.sqrt(var / #self.PingHistory)
+        avg = avg + (jitter * self.JitterBuffer)
+    end
+    return avg
+end
+
+function V7:GetFPSLag()
+    local total = 0
+    for _, d in ipairs(self.DeltaHistory) do total = total + d end
+    local avg = #self.DeltaHistory > 0 and (total / #self.DeltaHistory) or 0.00833
+    local penalty = math.max(0, (avg * 1000) - 5.5)
+    return penalty, 1/avg
+end
+
+function V7:GetEffectivePing(speed)
+    local net = self:GetPing()
+    local lag = self:GetFPSLag()
+    local effective = net + (lag * 1.5)
+    if speed and speed > 10 then
+        local factor = math.pow(speed / 900, 1.15)
+        effective = effective + (net * 0.002 * factor)
+    end
+    return effective
+end
+
+RunService.Heartbeat:Connect(function()
+    local now = tick()
+    table.insert(V7.DeltaHistory, 1, now - V7.LastFrame)
+    V7.LastFrame = now
+    if #V7.DeltaHistory > 30 then table.remove(V7.DeltaHistory) end
+end)
+
 local mouse = Players.LocalPlayer:GetMouse()
 local old_Silly = CoreGui:FindFirstChild('Silly')
 
@@ -2825,17 +2882,11 @@ local soundOptions = {
     ["Tears in the Rain"] = "rbxassetid://129710845038263"
 }
 local function Update_Ping()
-    -- Redirect to the Omni-Sync V7 engine
-    if typeof(GetPing) == "function" then
-        GetPing()
-    end
+    if _G.V7_Engine then _G.V7_Engine:GetPing() end
 end
 
 local function GetAveragePing()
-    if typeof(GetPing) == "function" then
-        return GetPing()
-    end
-    return 50
+    return _G.V7_Engine and _G.V7_Engine:GetPing() or 50
 end
 local function IsValidRemoteArgs(args)
     return #args == 7 and
@@ -3695,36 +3746,20 @@ local parriedBalls = {}
                       ball:GetAttributeChangedSignal('target'):Once(function() Parried = false end)
                       if Parried then continue end
                       local ballTarget = ball:GetAttribute('target')
-                      local oneTarget = oneBall:GetAttribute('target')
                       local velocity = zoomies.VectorVelocity
-                      if not AutoParry.Velocity_History[ball] then AutoParry.Velocity_History[ball] = {} end
-                      table.insert(AutoParry.Velocity_History[ball], velocity)
-                      if #AutoParry.Velocity_History[ball] > 5 then table.remove(AutoParry.Velocity_History[ball], 1) end
-                      local Direction = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Unit
-                      local Ball_Direction = velocity.Unit
-                      local Dot = Direction:Dot(Ball_Direction)
-                      if not AutoParry.Dot_Histories[ball] then AutoParry.Dot_Histories[ball] = {} end
-                      table.insert(AutoParry.Dot_Histories[ball], Dot)
-                      if #AutoParry.Dot_Histories[ball] > 5 then table.remove(AutoParry.Dot_Histories[ball], 1) end
-                      local pingedValued = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
-                      local time = pingedValued / 2000
-                      local playerVel = LocalPlayer.Character.PrimaryPart.Velocity
-                      local Ball_Position = ball.Position
-                      local Ball_Future_Position = Ball_Position + velocity * time
-                      local Player_Future_Position = LocalPlayer.Character.PrimaryPart.Position + playerVel * time
+                      local speed = velocity.Magnitude
                       
                       -- === OMNI-SYNC V7 DDS LOGIC ===
-                      local effectivePing, fps = GetEffectivePing(speed)
+                      local effectivePing = _G.V7_Engine:GetEffectivePing(speed)
                       
                       local Alive = workspace:FindFirstChild("Alive")
-                      if not Alive then return end
+                      if not Alive then continue end
                       
                       -- Vector Projection: Where the ball will be in 1 ping-step
                       local pingSec = effectivePing / 1000
                       local ballFuturePos = ball.Position + (velocity * pingSec)
                       local playerFuturePos = LocalPlayer.Character.PrimaryPart.Position + (LocalPlayer.Character.PrimaryPart.Velocity * pingSec)
                       local projectedDistance = (playerFuturePos - ballFuturePos).Magnitude
-                      local currentDistance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
                       
                       -- Heuristic Curve Scaling
                       local isCurved, isBackwards, curveWeight = AutoParry.IsCurved(ball)
@@ -3737,8 +3772,6 @@ local parriedBalls = {}
                       end
                       
                       -- DDS God-Mode Formula
-                      -- Base distance: 10 units
-                      -- Velocity scaling: exponential for high speeds
                       local dynamicDivisor = math.max(1.8, 2.35 - (speed / 12000))
                       local parryThreshold = (speed / dynamicDivisor) + 11.5 + (effectivePing / 8.5)
                       
@@ -3746,12 +3779,10 @@ local parriedBalls = {}
                       parryThreshold = math.max(12, parryThreshold - curveBuffer)
                       
                       -- Execution Logic
-                      local isTargetingMe = (ball:GetAttribute("target") == tostring(LocalPlayer))
+                      local isTargetingMe = (ballTarget == tostring(LocalPlayer))
                       
                       if isTargetingMe and projectedDistance <= parryThreshold then
                           if IsAutoSpamming then continue end
-                          
-                          -- Secondary Verification (Force Field / Ability checks)
                           if Death_Slash_Detection and DeathSlashDetection then continue end
                           
                           local currentTime = os.clock()
@@ -3779,7 +3810,7 @@ local parriedBalls = {}
                           Parried = true
                           task.delay(0.5, function() Parried = false end)
                           
-                          -- Clash Lockout (Wait for server confirmation before next check)
+                          -- Clash Lockout
                           local waitTime = math.clamp(0.8 - (speed / 5000), 0.1, 0.8)
                           task.wait(waitTime)
                       end
@@ -4031,7 +4062,7 @@ local parriedBalls = {}
                   if not zoomies then return end
                   local velocity = zoomies.VectorVelocity
                   local speed = velocity.Magnitude
-                  local pingedValued, fps = GetEffectivePing(speed)
+                  local pingedValued = _G.V7_Engine:GetEffectivePing(speed)
                   local time = pingedValued / 2000
                   local playerVel = character.PrimaryPart.Velocity
                   local Ball_Position = ball.Position
@@ -5313,95 +5344,11 @@ function LoadJumpAnimation(character)
     AIJumpAnimation = humanoid.Animator:LoadAnimation(animAsset)
 end
 
--- === OMNI-SYNC V7 PING & JITTER ENGINE ===
-local PingSamples = {}
-local PingSampleIndex = 1
-local MaxPingSamples = 30 -- Larger window for high-fidelity variance detection
-local LastFrameTime = tick()
-local FrameDeltas = {}
-local DeltaIndex = 1
-local MaxDeltaSamples = 30
-
-function GetPing()
-    local success, ping = pcall(function()
-        return game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
-    end)
-    
-    local finalPing = success and ping or 50
-    
-    PingSamples[PingSampleIndex] = finalPing
-    PingSampleIndex = (PingSampleIndex % MaxPingSamples) + 1
-    
-    local total = 0
-    local count = 0
-    for _, p in pairs(PingSamples) do
-        total = total + p
-        count = count + 1
-    end
-    
-    local avgPing = count > 0 and (total / count) or finalPing
-    
-    -- Recursive Jitter Normalization (Standard Deviation)
-    local varianceSum = 0
-    if count > 1 then
-        for _, p in pairs(PingSamples) do
-            varianceSum = varianceSum + (p - avgPing)^2
-        end
-        local jitter = math.sqrt(varianceSum / count)
-        -- Add 1.2x Jitter as a safety buffer for spikes
-        avgPing = avgPing + (jitter * 1.2) 
-    end
-    
-    return avgPing
-end
-
--- Advanced Frame-Time Tracker
-RunService.PreSimulation:Connect(function() -- Synced with physics steps
-    local now = tick()
-    local delta = now - LastFrameTime
-    LastFrameTime = now
-    
-    FrameDeltas[DeltaIndex] = delta
-    DeltaIndex = (DeltaIndex % MaxDeltaSamples) + 1
-end)
-
-function GetFPSLag()
-    local total = 0
-    local count = 0
-    for _, d in pairs(FrameDeltas) do
-        total = total + d
-        count = count + 1
-    end
-    
-    local avgFrameTime = count > 0 and (total / count) or 0.00833 -- Default 120fps floor
-    local fps = 1 / avgFrameTime
-    
-    -- Penalty maps strictly to frame-delay beyond 180 FPS reference
-    local penalty = math.max(0, (avgFrameTime * 1000) - 5.5)
-    return penalty, fps
-end
-
-function GetEffectivePing(speed)
-    local netPing = GetPing()
-    local lagPenalty, fps = GetFPSLag()
-    
-    -- Omni-Sync V7 Base Formula
-    local effective = netPing + (lagPenalty * 1.5)
-    
-    -- Recursive Velocity Scaling (No Caps)
-    if speed and speed > 0 then
-        -- Scaling factor increases as ball approaches relativistic speeds
-        local velocityFactor = math.pow(speed / 900, 1.15)
-        effective = effective + (netPing * 0.002 * velocityFactor)
-    end
-    
-    return effective, fps
-end
-
--- Compatibility Alias
-function GetAveragePing()
-    return GetPing()
-end
+-- Legacy Aliases for Omni-Sync V7 Master Engine
+function GetPing() return _G.V7_Engine and _G.V7_Engine:GetPing() or 50 end
+function GetFPSLag() return _G.V7_Engine and _G.V7_Engine:GetFPSLag() or 0 end
+function GetEffectivePing(speed) return _G.V7_Engine and _G.V7_Engine:GetEffectivePing(speed) or 50 end
+function GetAveragePing() return GetPing() end
 -- ... existing code ...
 
 AutoParry.SpamService = function(target)
@@ -5420,7 +5367,7 @@ AutoParry.SpamService = function(target)
     if speed < 20 then return 0 end
     
     -- Omni-Sync V7 Spam DDS
-    local effectivePing, fps = GetEffectivePing(speed)
+    local effectivePing = _G.V7_Engine:GetEffectivePing(speed)
     local pingSec = effectivePing / 1000
     
     -- Vortex Proximity Scaling
@@ -5558,7 +5505,7 @@ function ExecuteDoubleJump(character)
     
     AILastDoubleJumpTime = currentTime
     
-    local ping = GetPing()
+    local ping = _G.V7_Engine:GetPing()
     local animDelay = math.clamp(ping / 1000 * 0.5, 0.02, 0.08)
     
     local force = math.huge
