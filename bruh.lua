@@ -1,3 +1,4 @@
+--hi
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
