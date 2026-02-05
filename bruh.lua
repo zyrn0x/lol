@@ -1,4 +1,3 @@
---SALUT
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2963,22 +2962,26 @@ end
 
 System.player = {}
 
-local Closest_Entity = nil
-
+local last_closest_check = 0
 function System.player.get_closest()
+    if tick() - last_closest_check < 0.1 and Closest_Entity then
+        return Closest_Entity
+    end
+    last_closest_check = tick()
+    
     local max_distance = math.huge
     local closest_entity = nil
     
     if not Alive then return nil end
-    
+    local char_pos = LocalPlayer.Character and LocalPlayer.Character.PrimaryPart and LocalPlayer.Character.PrimaryPart.Position
+    if not char_pos then return nil end
+
     for _, entity in pairs(Alive:GetChildren()) do
-        if entity ~= LocalPlayer.Character then
-            if entity.PrimaryPart then
-                local distance = LocalPlayer:DistanceFromCharacter(entity.PrimaryPart.Position)
-                if distance < max_distance then
-                    max_distance = distance
-                    closest_entity = entity
-                end
+        if entity ~= LocalPlayer.Character and entity.PrimaryPart then
+            local distance = (entity.PrimaryPart.Position - char_pos).Magnitude
+            if distance < max_distance then
+                max_distance = distance
+                closest_entity = entity
             end
         end
     end
@@ -3226,7 +3229,7 @@ function System.detection.is_curved()
     local dot_difference = dot - direction_similarity
     local distance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
     
-    local ping = Stats.Network.ServerStatsItem['Data Ping']:GetValue()
+    local ping = V7:GetPing()
     
     local dot_threshold = 0.5 - (ping / 1000)
     local reach_time = distance / speed - (ping / 1000)
@@ -3655,8 +3658,8 @@ function System.auto_spam.start()
         
         System.player.get_closest()
         
-        local ping = Stats.Network.ServerStatsItem['Data Ping']:GetValue()
-        local ping_threshold = math.clamp(ping / 10, 1, 16)
+        local current_v7_ping = V7:GetPing()
+        local ping_threshold = math.clamp(current_v7_ping / 10, 1, 16)
         
         local ball_target = ball:GetAttribute('target')
         
@@ -3715,25 +3718,32 @@ function System.autoparry.start()
     if System.__properties.__connections.__autoparry then
         System.__properties.__connections.__autoparry:Disconnect()
     end
-    
     System.__properties.__connections.__autoparry = RunService.PreSimulation:Connect(function()
-        if not System.__properties.__autoparry_enabled or not LocalPlayer.Character or 
-           not LocalPlayer.Character.PrimaryPart then
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("PrimaryPart")
+        if not System.__properties.__autoparry_enabled or not hrp then
             return
         end
         
-        local balls = System.ball.get_all()
+        local balls_folder = workspace:FindFirstChild('Balls')
+        local balls = balls_folder and balls_folder:GetChildren() or {}
         local one_ball = System.ball.get()
         
         local training_ball = nil
-        if workspace:FindFirstChild("TrainingBalls") then
-            for _, Instance in pairs(workspace.TrainingBalls:GetChildren()) do
+        local tb_folder = workspace:FindFirstChild("TrainingBalls")
+        if tb_folder then
+            for _, Instance in pairs(tb_folder:GetChildren()) do
                 if Instance:GetAttribute("realBall") then
                     training_ball = Instance
                     break
                 end
             end
         end
+
+        local current_v7_ping = V7:GetPing()
+        local ping_threshold = math.clamp(current_v7_ping / 10, 5, 17)
+        local abilities = char:FindFirstChild("Abilities")
+        local hotbar = LocalPlayer.PlayerGui:FindFirstChild("Hotbar")
 
         for _, ball in pairs(balls) do
             if System.__triggerbot.__enabled then return end
@@ -3751,10 +3761,7 @@ function System.autoparry.start()
             
             local ball_target = ball:GetAttribute('target')
             local velocity = zoomies.VectorVelocity
-            local distance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
-            
-            local ping = Stats.Network.ServerStatsItem['Data Ping']:GetValue() / 10
-            local ping_threshold = math.clamp(ping / 10, 5, 17)
+            local distance = (hrp.Position - ball.Position).Magnitude
             local speed = velocity.Magnitude
             
             local capped_speed_diff = math.min(math.max(speed - 9.5, 0), 650)
@@ -3789,28 +3796,45 @@ function System.autoparry.start()
             if System.__config.__detections.__slashesoffury and System.__properties.__slashesoffury_active then continue end
             
             if ball_target == LocalPlayer.Name and distance <= parry_accuracy then
-                if getgenv().CooldownProtection then
-                    local ParryCD = LocalPlayer.PlayerGui.Hotbar.Block.UIGradient
-                    if ParryCD.Offset.Y < 0.4 then
+                if getgenv().CooldownProtection and hotbar then
+                    local block = hotbar:FindFirstChild("Block")
+                    local ParryCD = block and block:FindFirstChild("UIGradient")
+                    if ParryCD and ParryCD.Offset.Y < 0.45 then
                         ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
                         continue
                     end
                 end
                 
-                if getgenv().AutoAbility then
-                    local AbilityCD = LocalPlayer.PlayerGui.Hotbar.Ability.UIGradient
-                    if AbilityCD.Offset.Y == 0.5 then
-                        if LocalPlayer.Character.Abilities:FindFirstChild("Raging Deflection") and LocalPlayer.Character.Abilities["Raging Deflection"].Enabled or
-                           LocalPlayer.Character.Abilities:FindFirstChild("Rapture") and LocalPlayer.Character.Abilities["Rapture"].Enabled or
-                           LocalPlayer.Character.Abilities:FindFirstChild("Calming Deflection") and LocalPlayer.Character.Abilities["Calming Deflection"].Enabled or
-                           LocalPlayer.Character.Abilities:FindFirstChild("Aerodynamic Slash") and LocalPlayer.Character.Abilities["Aerodynamic Slash"].Enabled or
-                           LocalPlayer.Character.Abilities:FindFirstChild("Fracture") and LocalPlayer.Character.Abilities["Fracture"].Enabled or
-                           LocalPlayer.Character.Abilities:FindFirstChild("Death Slash") and LocalPlayer.Character.Abilities["Death Slash"].Enabled then
-                            System.__properties.__parried = true
-                            ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
-                            task.wait(2.432)
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DeathSlashShootActivation"):FireServer(true)
-                            continue
+                if getgenv().AutoAbility and hotbar then
+                    local ability_btn = hotbar:FindFirstChild("Ability")
+                    local AbilityCD = ability_btn and ability_btn:FindFirstChild("UIGradient")
+                    -- Using comparison instead of exact equality for better reliability on all devices
+                    if AbilityCD and AbilityCD.Offset.Y >= 0.49 then
+                        if abilities then
+                            local raging = abilities:FindFirstChild("Raging Deflection")
+                            local rapture = abilities:FindFirstChild("Rapture")
+                            local calming = abilities:FindFirstChild("Calming Deflection")
+                            local aero = abilities:FindFirstChild("Aerodynamic Slash")
+                            local fracture = abilities:FindFirstChild("Fracture")
+                            local death = abilities:FindFirstChild("Death Slash")
+
+                            if (raging and raging.Enabled) or
+                               (rapture and rapture.Enabled) or
+                               (calming and calming.Enabled) or
+                               (aero and aero.Enabled) or
+                               (fracture and fracture.Enabled) or
+                               (death and death.Enabled) then
+                                System.__properties.__parried = true
+                                ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
+                                task.wait(0.05)
+                                if death and death.Enabled then
+                                    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+                                    if remotes and remotes:FindFirstChild("DeathSlashShootActivation") then
+                                        remotes.DeathSlashShootActivation:FireServer(true)
+                                    end
+                                end
+                                continue
+                            end
                         end
                     end
                 end
@@ -3844,9 +3868,6 @@ function System.autoparry.start()
                     local velocity = zoomies.VectorVelocity
                     local distance = LocalPlayer:DistanceFromCharacter(training_ball.Position)
                     local speed = velocity.Magnitude
-                    
-                    local ping = Stats.Network.ServerStatsItem['Data Ping']:GetValue() / 10
-                    local ping_threshold = math.clamp(ping / 10, 5, 17)
                     
                     local capped_speed_diff = math.min(math.max(speed - 9.5, 0), 650)
                     local speed_divisor = (2.4 + capped_speed_diff * 0.002) * System.__properties.__divisor_multiplier
