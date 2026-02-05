@@ -1,3 +1,4 @@
+--SALUT
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2865,8 +2866,7 @@ function hookRemote(remote)
                     end
                 end
                 
-                local success, result = pcall(function() return oldIndex(self, key) end)
-                return success and result or nil
+                return oldIndex(self, key)
             end
             setreadonly(meta, true)
         end
@@ -3129,22 +3129,28 @@ function System.parry.execute()
         final_aim_target = vec2_mouse
     end
     
+    local last_remote, last_args = nil, nil
     for remote, original_args in pairs(revertedRemotes) do
+        last_remote = remote
+        last_args = original_args
+    end
+
+    if last_remote and last_args then
         local modified_args = {
-            original_args[1],
-            original_args[2],
-            original_args[3],
+            last_args[1],
+            last_args[2],
+            last_args[3],
             curve_cframe,
             event_data,
             final_aim_target,
-            original_args[7]
+            last_args[7]
         }
         
         pcall(function()
-            if remote:IsA('RemoteEvent') then
-                remote:FireServer(unpack(modified_args))
-            elseif remote:IsA('RemoteFunction') then
-                remote:InvokeServer(unpack(modified_args))
+            if last_remote:IsA('RemoteEvent') then
+                last_remote:FireServer(unpack(modified_args))
+            elseif last_remote:IsA('RemoteFunction') then
+                last_remote:InvokeServer(unpack(modified_args))
             end
         end)
     end
@@ -8123,8 +8129,7 @@ hooks.oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
         return desyncData.originalCFrame + cache.headOffset
     end
     
-    local success, result = pcall(function() return hooks.oldIndex(self, key) end)
-    return success and result or nil
+    return hooks.oldIndex(self, key)
 end))
 
 local module = devJV:create_module({
