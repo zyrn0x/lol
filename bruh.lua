@@ -1,4 +1,3 @@
---fix
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2859,7 +2858,10 @@ function hookRemote(remote)
                             revertedRemotes[self] = args
                             Parry_Key = args[2]
                         end
-                        return oldIndex(self, key)(_, unpack(args))
+                        local func = oldIndex(self, key)
+                        if typeof(func) == "function" then
+                            return func(self, unpack(args))
+                        end
                     end
                 end
                 
@@ -3554,6 +3556,8 @@ function System.auto_spam:get_entity_properties()
     
     if not Closest_Entity then return false end
     
+    if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart or not Closest_Entity.PrimaryPart then return false end
+    
     local entity_velocity = Closest_Entity.PrimaryPart.Velocity
     local entity_direction = (LocalPlayer.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Unit
     local entity_distance = (LocalPlayer.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Magnitude
@@ -3571,6 +3575,8 @@ function System.auto_spam:get_ball_properties()
     
     local ball_velocity = Vector3.zero
     local ball_origin = ball
+    
+    if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return false end
     
     local ball_direction = (LocalPlayer.Character.PrimaryPart.Position - ball_origin.Position).Unit
     local ball_distance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
