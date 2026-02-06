@@ -1,4 +1,3 @@
---SALUT
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
