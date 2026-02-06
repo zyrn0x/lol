@@ -1,3 +1,4 @@
+--SALUT
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2858,9 +2859,13 @@ function hookRemote(remote)
                             revertedRemotes[self] = args
                             Parry_Key = args[2]
                         end
-                        return oldIndex(self, key)(_, unpack(args))
+                        local func = oldIndex(self, key)
+                        if typeof(func) == "function" then
+                            return func(self, unpack(args))
+                        end
                     end
                 end
+                
                 return oldIndex(self, key)
             end
             setreadonly(meta, true)
@@ -3124,22 +3129,28 @@ function System.parry.execute()
         final_aim_target = vec2_mouse
     end
     
+    local last_remote, last_args = nil, nil
     for remote, original_args in pairs(revertedRemotes) do
+        last_remote = remote
+        last_args = original_args
+    end
+
+    if last_remote and last_args then
         local modified_args = {
-            original_args[1],
-            original_args[2],
-            original_args[3],
+            last_args[1],
+            last_args[2],
+            last_args[3],
             curve_cframe,
             event_data,
             final_aim_target,
-            original_args[7]
+            last_args[7]
         }
         
         pcall(function()
-            if remote:IsA('RemoteEvent') then
-                remote:FireServer(unpack(modified_args))
-            elseif remote:IsA('RemoteFunction') then
-                remote:InvokeServer(unpack(modified_args))
+            if last_remote:IsA('RemoteEvent') then
+                last_remote:FireServer(unpack(modified_args))
+            elseif last_remote:IsA('RemoteFunction') then
+                last_remote:InvokeServer(unpack(modified_args))
             end
         end)
     end
@@ -3551,6 +3562,8 @@ function System.auto_spam:get_entity_properties()
     
     if not Closest_Entity then return false end
     
+    if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart or not Closest_Entity.PrimaryPart then return false end
+    
     local entity_velocity = Closest_Entity.PrimaryPart.Velocity
     local entity_direction = (LocalPlayer.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Unit
     local entity_distance = (LocalPlayer.Character.PrimaryPart.Position - Closest_Entity.PrimaryPart.Position).Magnitude
@@ -3568,6 +3581,8 @@ function System.auto_spam:get_ball_properties()
     
     local ball_velocity = Vector3.zero
     local ball_origin = ball
+    
+    if not LocalPlayer.Character or not LocalPlayer.Character.PrimaryPart then return false end
     
     local ball_direction = (LocalPlayer.Character.PrimaryPart.Position - ball_origin.Position).Unit
     local ball_distance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
@@ -3774,47 +3789,116 @@ function System.autoparry.start()
             if System.__config.__detections.__slashesoffury and System.__properties.__slashesoffury_active then continue end
             
             if ball_target == LocalPlayer.Name and distance <= parry_accuracy then
+                -- Allusive Cooldown Protection
                 if getgenv().CooldownProtection then
-                    local ParryCD = LocalPlayer.PlayerGui.Hotbar.Block.UIGradient
-                    if ParryCD.Offset.Y < 0.4 then
-                        ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
+                    local success, result = pcall(function()
+                        local hotbar = LocalPlayer.PlayerGui:FindFirstChild("Hotbar")
+                        local block = hotbar and hotbar:FindFirstChild("Block")
+                        local parry_cd = block and block:FindFirstChild("UIGradient")
+                        
+                        if parry_cd and parry_cd.Offset.Y < 0.4 then
+                            -- Try to use ability instead of parry when parry is on cooldown
+                            local ability_remote = ReplicatedStorage:FindFirstChild("Remotes")
+                            if ability_remote then
+                                ability_remote = ability_remote:FindFirstChild("AbilityButtonPress")
+                                if ability_remote then
+                                    ability_remote:Fire()
+                                    return true
+                                end
+                            end
+                            -- Fallback: try clicking the ability button directly
+                            local ability_btn = hotbar and hotbar:FindFirstChild("Ability")
+                            if ability_btn then
+                                for _, connection in pairs(getconnections(ability_btn.Activated)) do
+                                    connection:Fire()
+                                end
+                                return true
+                            end
+                        end
+                        return false
+                    end)
+                    
+                    if success and result then
                         continue
                     end
                 end
                 
+                -- Allusive Auto Ability
                 if getgenv().AutoAbility then
-                    local AbilityCD = LocalPlayer.PlayerGui.Hotbar.Ability.UIGradient
-                    if AbilityCD.Offset.Y == 0.5 then
-                        if LocalPlayer.Character.Abilities:FindFirstChild("Raging Deflection") and LocalPlayer.Character.Abilities["Raging Deflection"].Enabled or
-                           LocalPlayer.Character.Abilities:FindFirstChild("Rapture") and LocalPlayer.Character.Abilities["Rapture"].Enabled or
-                           LocalPlayer.Character.Abilities:FindFirstChild("Calming Deflection") and LocalPlayer.Character.Abilities["Calming Deflection"].Enabled or
-                           LocalPlayer.Character.Abilities:FindFirstChild("Aerodynamic Slash") and LocalPlayer.Character.Abilities["Aerodynamic Slash"].Enabled or
-                           LocalPlayer.Character.Abilities:FindFirstChild("Fracture") and LocalPlayer.Character.Abilities["Fracture"].Enabled or
-                           LocalPlayer.Character.Abilities:FindFirstChild("Death Slash") and LocalPlayer.Character.Abilities["Death Slash"].Enabled then
-                            System.__properties.__parried = true
-                            ReplicatedStorage.Remotes.AbilityButtonPress:Fire()
-                            task.wait(2.432)
-                            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DeathSlashShootActivation"):FireServer(true)
-                            continue
+                    local success, result = pcall(function()
+                        local hotbar = LocalPlayer.PlayerGui:FindFirstChild("Hotbar")
+                        local ability_btn = hotbar and hotbar:FindFirstChild("Ability")
+                        local ability_cd = ability_btn and ability_btn:FindFirstChild("UIGradient")
+                        
+                        if ability_cd and ability_cd.Offset.Y == 0.5 then
+                            local abilities = LocalPlayer.Character:FindFirstChild("Abilities")
+                            if abilities then
+                                local raging = abilities:FindFirstChild("Raging Deflection")
+                                local rapture = abilities:FindFirstChild("Rapture")
+                                local calming = abilities:FindFirstChild("Calming Deflection")
+                                local aero = abilities:FindFirstChild("Aerodynamic Slash")
+                                local fracture = abilities:FindFirstChild("Fracture")
+                                local death = abilities:FindFirstChild("Death Slash")
+
+                                if (raging and raging.Enabled) or
+                                   (rapture and rapture.Enabled) or
+                                   (calming and calming.Enabled) or
+                                   (aero and aero.Enabled) or
+                                   (fracture and fracture.Enabled) or
+                                   (death and death.Enabled) then
+                                    
+                                    System.__properties.__parried = true
+                                    
+                                    -- Try remote first
+                                    local ability_remote = ReplicatedStorage:FindFirstChild("Remotes")
+                                    if ability_remote then
+                                        ability_remote = ability_remote:FindFirstChild("AbilityButtonPress")
+                                        if ability_remote then
+                                            ability_remote:Fire()
+                                        end
+                                    end
+                                    
+                                    -- Fallback: click the button directly
+                                    if ability_btn then
+                                        for _, connection in pairs(getconnections(ability_btn.Activated)) do
+                                            connection:Fire()
+                                        end
+                                    end
+                                    
+                                    -- Handle Death Slash special activation
+                                    task.spawn(function()
+                                        task.wait(2.432)
+                                        pcall(function()
+                                            local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+                                            local shoot = remotes and remotes:FindFirstChild("DeathSlashShootActivation")
+                                            if shoot then
+                                                shoot:FireServer(true)
+                                            end
+                                        end)
+                                    end)
+                                    return true
+                                end
+                            end
                         end
+                        return false
+                    end)
+                    
+                    if success and result then
+                        continue
                     end
                 end
-            end
-            
-            if ball_target == LocalPlayer.Name and distance <= parry_accuracy then
+
                 if getgenv().AutoParryMode == "Keypress" then
                     System.parry.keypress()
                 else
                     System.parry.execute_action()
                 end
                 System.__properties.__parried = true
+                
+                task.delay(0.5, function()
+                    System.__properties.__parried = false
+                end)
             end
-            
-            local last_parrys = tick()
-            repeat
-                RunService.Stepped:Wait()
-            until (tick() - last_parrys) >= 1 or not System.__properties.__parried
-            System.__properties.__parried = false
         end
 
         if training_ball then
@@ -8042,8 +8126,13 @@ local function performDesync()
     
     RunService.RenderStepped:Wait()
     
-    hrp.CFrame = desyncData.originalCFrame
-    hrp.AssemblyLinearVelocity = desyncData.originalVelocity
+    if desyncData.originalCFrame then
+        hrp.CFrame = desyncData.originalCFrame
+    end
+    
+    if desyncData.originalVelocity then
+        hrp.AssemblyLinearVelocity = desyncData.originalVelocity
+    end
 end
 
 local function sendNotification(text)
@@ -8099,7 +8188,8 @@ end)
 
 hooks.oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
     if not state.enabled or checkcaller() or key ~= "CFrame" or not cache.hrp or not isInAliveFolder() then
-        return hooks.oldIndex(self, key)
+        local success, result = pcall(function() return hooks.oldIndex(self, key) end)
+        return success and result or nil
     end
     
     if self == cache.hrp then
