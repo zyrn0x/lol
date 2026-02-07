@@ -1,4 +1,4 @@
---new
+--SALUT
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -8354,7 +8354,7 @@ hooks.oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
     return hooks.oldIndex(self, key)
 end))
 
-local module = devuwu:create_module({
+local module = devJV:create_module({
     title = "Dupe Ball[BLATANT!]",
     description = "",
     flag = "IDK_Toggle",
