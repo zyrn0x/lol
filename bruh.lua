@@ -1,4 +1,4 @@
---official
+--fix UI
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -501,8 +501,8 @@ function Library.SendNotification(settings)
     
     local Body = Instance.new("TextLabel")
     Body.Text = settings.text or "This is the body of the notification."
-    Body.TextColor3 = _G.Theme.Text
-    Body.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    Body.TextColor3 = Color3.new(1, 1, 1) -- Pure White for maximum visibility
+    Body.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Bold, Enum.FontStyle.Normal) -- Bold for better visibility
     Body.TextSize = 12
     Body.Size = UDim2.new(1, -10, 0, 30) 
     Body.Position = UDim2.new(0, 5, 0, 25)
@@ -3901,7 +3901,7 @@ local function create_mobile_button(name, position_y, color)
     
     local bg = Instance.new('Frame')
     bg.Size = UDim2.new(1, 0, 1, 0)
-    bg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    bg.BackgroundColor3 = Theme.Container
     bg.Parent = button
     
     local corner = Instance.new('UICorner')
@@ -3909,7 +3909,7 @@ local function create_mobile_button(name, position_y, color)
     corner.Parent = bg
     
     local stroke = Instance.new('UIStroke')
-    stroke.Color = color
+    stroke.Color = Theme.Accent
     stroke.Thickness = 1
     stroke.Transparency = 0.3
     stroke.Parent = bg
@@ -3918,9 +3918,9 @@ local function create_mobile_button(name, position_y, color)
     text.Size = UDim2.new(1, 0, 1, 0)
     text.BackgroundTransparency = 1
     text.Text = name
-    text.Font = Enum.Font.GothamBold
-    text.TextSize = 16
-    text.TextColor3 = Color3.fromRGB(255, 255, 255)
+    text.FontFace = Font.new('rbxasset://fonts/families/Michroma.json', Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    text.TextSize = 14
+    text.TextColor3 = Theme.Text
     text.ZIndex = 3
     text.Parent = button
     
@@ -3930,52 +3930,7 @@ local function create_mobile_button(name, position_y, color)
     return {gui = gui, button = button, text = text, bg = bg}
 end
 
-local function create_mobile_button(name, position_y, color)
-    local gui = Instance.new('ScreenGui')
-    gui.Name = 'Sigma' .. name .. 'Mobile'
-    gui.ResetOnSpawn = false
-    gui.IgnoreGuiInset = true
-    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    
-    local button = Instance.new('TextButton')
-    button.Size = UDim2.new(0, 140, 0, 50)
-    button.Position = UDim2.new(0.5, -70, position_y, 0)
-    button.BackgroundTransparency = 1
-    button.AnchorPoint = Vector2.new(0.5, 0)
-    button.Draggable = true
-    button.AutoButtonColor = false
-    button.ZIndex = 2
-    
-    local bg = Instance.new('Frame')
-    bg.Size = UDim2.new(1, 0, 1, 0)
-    bg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    bg.Parent = button
-    
-    local corner = Instance.new('UICorner')
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = bg
-    
-    local stroke = Instance.new('UIStroke')
-    stroke.Color = color
-    stroke.Thickness = 1
-    stroke.Transparency = 0.3
-    stroke.Parent = bg
-    
-    local text = Instance.new('TextLabel')
-    text.Size = UDim2.new(1, 0, 1, 0)
-    text.BackgroundTransparency = 1
-    text.Text = name
-    text.Font = Enum.Font.GothamBold
-    text.TextSize = 16
-    text.TextColor3 = Color3.fromRGB(255, 255, 255)
-    text.ZIndex = 3
-    text.Parent = button
-    
-    button.Parent = gui
-    gui.Parent = CoreGui
-    
-    return {gui = gui, button = button, text = text, bg = bg}
-end
+
 
 local function destroy_mobile_gui(gui_data)
     if gui_data and gui_data.gui then
@@ -4124,10 +4079,10 @@ local triggerbot_module = rage:create_module({
                             
                             if System.__properties.__triggerbot_enabled then
                                 triggerbot_mobile.text.Text = "ON"
-                                triggerbot_mobile.text.TextColor3 = Color3.fromRGB(255, 100, 0)
+                                triggerbot_mobile.text.TextColor3 = Theme.Accent -- Cosmos Purple
                             else
                                 triggerbot_mobile.text.Text = "Trigger"
-                                triggerbot_mobile.text.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                triggerbot_mobile.text.TextColor3 = Theme.Text -- Starlight
                             end
                             
                             if getgenv().TriggerbotNotify then
@@ -4179,18 +4134,18 @@ local function create_curve_selector_mobile()
     local main_frame = Instance.new('Frame')
     main_frame.Size = UDim2.new(0, 140, 0, 40)
     main_frame.Position = UDim2.new(0.5, -70, 0.12, 0)
-    main_frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    main_frame.BackgroundColor3 = Theme.Background
     main_frame.BorderSizePixel = 0
     main_frame.AnchorPoint = Vector2.new(0.5, 0)
     main_frame.ZIndex = 5
     main_frame.Parent = gui
     
     local main_corner = Instance.new('UICorner')
-    main_corner.CornerRadius = UDim.new(0, 8)
+    main_corner.CornerRadius = UDim.new(0, 10)
     main_corner.Parent = main_frame
     
     local main_stroke = Instance.new('UIStroke')
-    main_stroke.Color = Color3.fromRGB(60, 60, 60)
+    main_stroke.Color = Theme.Border
     main_stroke.Thickness = 1
     main_stroke.Parent = main_frame
 
@@ -4205,9 +4160,9 @@ local function create_curve_selector_mobile()
     header_text.Position = UDim2.new(0, 12, 0, 0)
     header_text.BackgroundTransparency = 1
     header_text.Text = "CURVE"
-    header_text.Font = Enum.Font.Gotham
-    header_text.TextSize = 11
-    header_text.TextColor3 = Color3.fromRGB(180, 180, 180)
+    header_text.FontFace = Font.new('rbxasset://fonts/families/Michroma.json', Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    header_text.TextSize = 12
+    header_text.TextColor3 = Theme.TextDim
     header_text.TextXAlignment = Enum.TextXAlignment.Left
     header_text.ZIndex = 7
     header_text.Parent = header
@@ -6113,14 +6068,14 @@ local ball_velocity = {
     __config = {
         gui_name = "BallStatsGui",
         colors = {
-            background = Color3.fromRGB(18, 18, 18),
-            container = Color3.fromRGB(28, 28, 28),
-            header = Color3.fromRGB(12, 12, 12),
-            text_primary = Color3.fromRGB(255, 255, 255),
-            text_secondary = Color3.fromRGB(170, 170, 170),
+            background = Theme.Background,
+            container = Theme.Container,
+            header = Theme.Container,
+            text_primary = Theme.Text,
+            text_secondary = Theme.TextDim,
             accent_green = Color3.fromRGB(34, 197, 94),
             accent_orange = Color3.fromRGB(249, 115, 22),
-            border = Color3.fromRGB(40, 40, 40)
+            border = Theme.Border
         }
     },
 
@@ -6181,7 +6136,7 @@ function ball_velocity.create_gui()
     title.Text = "Ball Stats"
     title.TextColor3 = ball_velocity.__config.colors.text_primary
     title.TextSize = 13
-    title.Font = Enum.Font.GothamBold
+    title.FontFace = Font.new('rbxasset://fonts/families/Michroma.json', Enum.FontWeight.Bold, Enum.FontStyle.Normal)
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = header
 
