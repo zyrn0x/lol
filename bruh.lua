@@ -450,21 +450,21 @@ UIListLayout.Parent = NotificationContainer
 
 function Library.SendNotification(settings)
   
-    -- Create the main container for this specific notification
+    -- Main Notification Frame (Wrapper)
     local Notification = Instance.new("Frame")
-    Notification.Size = UDim2.new(1, 0, 0, 0) -- Start with 0 height for expansion animation
+    Notification.Size = UDim2.new(1, 0, 0, 0) -- Start height 0
     Notification.BackgroundTransparency = 1
     Notification.BorderSizePixel = 0
     Notification.Name = "Notification"
     Notification.ClipsDescendants = false
     Notification.Parent = NotificationContainer
 
-    -- Inner content frame
+    -- Inner Content Frame
     local InnerFrame = Instance.new("Frame")
-    InnerFrame.Size = UDim2.new(1, 0, 0, 0) -- Automatic size will handle this
-    InnerFrame.Position = UDim2.new(1, 0, 0, 0) -- Start off-screen (right)
+    InnerFrame.Size = UDim2.new(1, -10, 0, 0) -- Width full minus padding
+    InnerFrame.Position = UDim2.new(0, 5, 0, 0) -- Centered
     InnerFrame.BackgroundColor3 = _G.Theme.Container
-    InnerFrame.BackgroundTransparency = 0.1
+    InnerFrame.BackgroundTransparency = 1 -- Start invisible
     InnerFrame.BorderSizePixel = 0
     InnerFrame.Name = "InnerFrame"
     InnerFrame.AutomaticSize = Enum.AutomaticSize.Y
@@ -473,42 +473,14 @@ function Library.SendNotification(settings)
     local InnerUIStroke = Instance.new("UIStroke")
     InnerUIStroke.Color = _G.Theme.Border
     InnerUIStroke.LinkToEnd = true
-    InnerUIStroke.Transparency = 0
+    InnerUIStroke.Transparency = 1 -- Start invisible
     InnerUIStroke.Parent = InnerFrame
 
     local InnerUICorner = Instance.new("UICorner")
     InnerUICorner.CornerRadius = UDim.new(0, 6)
     InnerUICorner.Parent = InnerFrame
 
-    local Title = Instance.new("TextLabel")
-    Title.Text = settings.title or "Notification"
-    Title.TextColor3 = _G.Theme.Accent
-    Title.FontFace = Font.new('rbxasset://fonts/families/Michroma.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
-    Title.TextSize = 14
-    Title.Size = UDim2.new(1, -20, 0, 20)
-    Title.Position = UDim2.new(0, 10, 0, 8)
-    Title.BackgroundTransparency = 1
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.TextYAlignment = Enum.TextYAlignment.Center
-    Title.TextWrapped = true
-    Title.AutomaticSize = Enum.AutomaticSize.Y
-    Title.Parent = InnerFrame
-
-    local Body = Instance.new("TextLabel")
-    Body.Text = settings.text or ""
-    Body.TextColor3 = Color3.new(1, 1, 1) -- Pure White
-    Body.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Bold, Enum.FontStyle.Normal)
-    Body.TextSize = 12
-    Body.Size = UDim2.new(1, -20, 0, 0)
-    Body.Position = UDim2.new(0, 10, 0, 30)
-    Body.BackgroundTransparency = 1
-    Body.TextXAlignment = Enum.TextXAlignment.Left
-    Body.TextYAlignment = Enum.TextYAlignment.Top
-    Body.TextWrapped = true
-    Body.AutomaticSize = Enum.AutomaticSize.Y
-    Body.Parent = InnerFrame
-
-    -- Padding for bottom
+    -- Padding
     local Padding = Instance.new("UIPadding")
     Padding.PaddingTop = UDim.new(0, 8)
     Padding.PaddingBottom = UDim.new(0, 8)
@@ -516,46 +488,70 @@ function Library.SendNotification(settings)
     Padding.PaddingRight = UDim.new(0, 10)
     Padding.Parent = InnerFrame
 
-    -- Animation Logic
+    -- Title
+    local Title = Instance.new("TextLabel")
+    Title.Text = settings.title or "Notification"
+    Title.TextColor3 = _G.Theme.Accent
+    Title.FontFace = Font.new('rbxasset://fonts/families/Michroma.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
+    Title.TextSize = 14
+    Title.Size = UDim2.new(1, 0, 0, 20)
+    Title.BackgroundTransparency = 1
+    Title.TextTransparency = 1 -- Start invisible
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.AutomaticSize = Enum.AutomaticSize.Y
+    Title.Parent = InnerFrame
+
+    -- Body
+    local Body = Instance.new("TextLabel")
+    Body.Text = settings.text or ""
+    Body.TextColor3 = Color3.new(1, 1, 1) -- Pure White
+    Body.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    Body.TextSize = 12
+    Body.Size = UDim2.new(1, 0, 0, 0)
+    Body.Position = UDim2.new(0, 0, 0, 22)
+    Body.BackgroundTransparency = 1
+    Body.TextTransparency = 1 -- Start invisible
+    Body.TextXAlignment = Enum.TextXAlignment.Left
+    Body.TextWrapped = true
+    Body.AutomaticSize = Enum.AutomaticSize.Y
+    Body.Parent = InnerFrame
+
+    -- Animation
     task.spawn(function()
-        -- 1. Expand parent height
-        local contentHeight = 60 -- Default approx
+        -- 1. Expand Height
+        local contentHeight = 60 -- Approximate start
         game:GetService("TweenService"):Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
             Size = UDim2.new(1, 0, 0, contentHeight)
         }):Play()
+        task.wait(0.1)
 
-        -- 2. Slide in InnerFrame
-        game:GetService("TweenService"):Create(InnerFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-            Position = UDim2.new(0, 0, 0, 0)
-        }):Play()
+        -- 2. Fade In
+        game:GetService("TweenService"):Create(InnerFrame, TweenInfo.new(0.3), { BackgroundTransparency = 0.1 }):Play()
+        game:GetService("TweenService"):Create(InnerUIStroke, TweenInfo.new(0.3), { Transparency = 0 }):Play()
+        game:GetService("TweenService"):Create(Title, TweenInfo.new(0.3), { TextTransparency = 0 }):Play()
+        game:GetService("TweenService"):Create(Body, TweenInfo.new(0.3), { TextTransparency = 0 }):Play()
 
-        -- Wait for duration
-        local duration = settings.duration or 4
-        task.wait(duration)
+        -- Duration
+        task.wait(settings.duration or 3)
 
-        -- 3. Fade out and Slide out
-        game:GetService("TweenService"):Create(InnerFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
-            Position = UDim2.new(1.2, 0, 0, 0), -- Move further right
-            BackgroundTransparency = 1
-        }):Play()
-        
-        game:GetService("TweenService"):Create(InnerUIStroke, TweenInfo.new(0.4), { Transparency = 1 }):Play()
-        game:GetService("TweenService"):Create(Title, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
-        game:GetService("TweenService"):Create(Body, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+        -- 3. Fade Out
+        game:GetService("TweenService"):Create(InnerFrame, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+        game:GetService("TweenService"):Create(InnerUIStroke, TweenInfo.new(0.3), { Transparency = 1 }):Play()
+        game:GetService("TweenService"):Create(Title, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+        game:GetService("TweenService"):Create(Body, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+        task.wait(0.3)
 
-        -- 4. Collapse parent height
-        task.wait(0.2)
+        -- 4. Collapse
         local collapse = game:GetService("TweenService"):Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
             Size = UDim2.new(1, 0, 0, 0)
         })
         collapse:Play()
-
-        -- 5. Cleanup
+        
         collapse.Completed:Connect(function()
             Notification:Destroy()
         end)
         
-        -- Backup cleanup
+        -- Backup
         game:GetService("Debris"):AddItem(Notification, 1)
     end)
 end
@@ -4146,75 +4142,93 @@ local function create_curve_selector_mobile()
     gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
     local main_frame = Instance.new('Frame')
-    main_frame.Size = UDim2.new(0, 140, 0, 40)
-    main_frame.Position = UDim2.new(0.5, -70, 0.12, 0)
-    main_frame.BackgroundColor3 = Theme.Background
+    main_frame.Name = "CurveSelectorMain"
+    main_frame.Size = UDim2.new(0, 150, 0, 0) -- Automatic Height
+    main_frame.AutomaticSize = Enum.AutomaticSize.Y
+    main_frame.Position = UDim2.new(0.5, -75, 0.15, 0)
+    main_frame.BackgroundColor3 = Theme.Container
+    main_frame.BackgroundTransparency = 0.2 -- Glass effect
     main_frame.BorderSizePixel = 0
-    main_frame.AnchorPoint = Vector2.new(0.5, 0)
-    main_frame.ZIndex = 5
+    main_frame.ClipsDescendants = true
+    main_frame.Active = true
     main_frame.Parent = gui
     
     local main_corner = Instance.new('UICorner')
-    main_corner.CornerRadius = UDim.new(0, 10)
+    main_corner.CornerRadius = UDim.new(0, 16) -- Pill-ish
     main_corner.Parent = main_frame
     
     local main_stroke = Instance.new('UIStroke')
-    main_stroke.Color = Theme.Border
-    main_stroke.Thickness = 1
+    main_stroke.Thickness = 1.5
+    main_stroke.Color = Color3.new(1, 1, 1)
     main_stroke.Parent = main_frame
 
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Theme.Accent),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 100))
+    }
+    gradient.Rotation = 45
+    gradient.Parent = main_stroke
+
+    local padding = Instance.new("UIPadding")
+    padding.PaddingTop = UDim.new(0, 12)
+    padding.PaddingBottom = UDim.new(0, 12)
+    padding.PaddingLeft = UDim.new(0, 12)
+    padding.PaddingRight = UDim.new(0, 12)
+    padding.Parent = main_frame
+
+    local list_layout = Instance.new("UIListLayout")
+    list_layout.SortOrder = Enum.SortOrder.LayoutOrder
+    list_layout.Padding = UDim.new(0, 8)
+    list_layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    list_layout.Parent = main_frame
+
+    -- Header
     local header = Instance.new('Frame')
-    header.Size = UDim2.new(1, 0, 0, 40)
+    header.Size = UDim2.new(1, 0, 0, 24)
     header.BackgroundTransparency = 1
-    header.ZIndex = 6
+    header.LayoutOrder = 0
     header.Parent = main_frame
     
     local header_text = Instance.new('TextLabel')
-    header_text.Size = UDim2.new(1, -35, 1, 0)
-    header_text.Position = UDim2.new(0, 12, 0, 0)
+    header_text.Size = UDim2.new(1, -24, 1, 0)
     header_text.BackgroundTransparency = 1
     header_text.Text = "CURVE"
     header_text.FontFace = Font.new('rbxasset://fonts/families/Michroma.json', Enum.FontWeight.Bold, Enum.FontStyle.Normal)
     header_text.TextSize = 12
-    header_text.TextColor3 = Theme.TextDim
+    header_text.TextColor3 = Theme.Accent
     header_text.TextXAlignment = Enum.TextXAlignment.Left
-    header_text.ZIndex = 7
     header_text.Parent = header
 
     local toggle_btn = Instance.new('TextButton')
     toggle_btn.Size = UDim2.new(0, 24, 0, 24)
-    toggle_btn.Position = UDim2.new(1, -32, 0.5, -12)
-    toggle_btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    toggle_btn.Text = "−"
+    toggle_btn.Position = UDim2.new(1, -24, 0, 0)
+    toggle_btn.BackgroundColor3 = Theme.Background
+    toggle_btn.BackgroundTransparency = 0.5
+    toggle_btn.Text = "▼"
     toggle_btn.Font = Enum.Font.GothamBold
-    toggle_btn.TextSize = 14
-    toggle_btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    toggle_btn.TextSize = 12
+    toggle_btn.TextColor3 = Theme.Text
     toggle_btn.AutoButtonColor = false
-    toggle_btn.ZIndex = 7
     toggle_btn.Parent = header
     
     local toggle_corner = Instance.new('UICorner')
-    toggle_corner.CornerRadius = UDim.new(0, 4)
+    toggle_corner.CornerRadius = UDim.new(1, 0)
     toggle_corner.Parent = toggle_btn
-    
-    local toggle_stroke = Instance.new('UIStroke')
-    toggle_stroke.Color = Color3.fromRGB(50, 50, 50)
-    toggle_stroke.Thickness = 1
-    toggle_stroke.Parent = toggle_btn
 
+    -- Options Container
     local buttons_container = Instance.new('Frame')
-    buttons_container.Size = UDim2.new(1, -16, 0, 0)
-    buttons_container.Position = UDim2.new(0, 8, 0, 48)
+    buttons_container.Size = UDim2.new(1, 0, 0, 0) -- Automatic
+    buttons_container.AutomaticSize = Enum.AutomaticSize.Y
     buttons_container.BackgroundTransparency = 1
-    buttons_container.ClipsDescendants = true
-    buttons_container.ZIndex = 6
+    buttons_container.LayoutOrder = 1
+    buttons_container.Visible = true -- Start visible or not?
     buttons_container.Parent = main_frame
     
-    local list_layout = Instance.new('UIListLayout')
-    list_layout.Padding = UDim.new(0, 4)
-    list_layout.FillDirection = Enum.FillDirection.Vertical
-    list_layout.SortOrder = Enum.SortOrder.LayoutOrder
-    list_layout.Parent = buttons_container
+    local btn_layout = Instance.new('UIListLayout')
+    btn_layout.Padding = UDim.new(0, 4)
+    btn_layout.SortOrder = Enum.SortOrder.LayoutOrder
+    btn_layout.Parent = buttons_container
     
     local CURVE_TYPES = {
         {name = "Camera"},
@@ -4229,63 +4243,34 @@ local function create_curve_selector_mobile()
     local current_selected = nil
     
     for i, curve_data in ipairs(CURVE_TYPES) do
-        local btn_container = Instance.new('Frame')
-        btn_container.Size = UDim2.new(1, 0, 0, 32)
-        btn_container.BackgroundTransparency = 1
-        btn_container.ZIndex = 7
-        btn_container.LayoutOrder = i
-        btn_container.Parent = buttons_container
-        
         local btn = Instance.new('TextButton')
-        btn.Size = UDim2.new(1, 0, 1, 0)
-        btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-        btn.Text = ""
+        btn.Size = UDim2.new(1, 0, 0, 28)
+        btn.BackgroundColor3 = Theme.Background
+        btn.BackgroundTransparency = 0.6
+        btn.Text = curve_data.name
+        btn.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+        btn.TextSize = 11
+        btn.TextColor3 = Theme.TextDim
         btn.AutoButtonColor = false
-        btn.ZIndex = 8
-        btn.Parent = btn_container
+        btn.LayoutOrder = i
+        btn.Parent = buttons_container
         
         local btn_corner = Instance.new('UICorner')
-        btn_corner.CornerRadius = UDim.new(0, 6)
+        btn_corner.CornerRadius = UDim.new(0, 8)
         btn_corner.Parent = btn
         
         local btn_stroke = Instance.new('UIStroke')
-        btn_stroke.Color = Color3.fromRGB(45, 45, 45)
+        btn_stroke.Color = Theme.Border
         btn_stroke.Thickness = 1
+        btn_stroke.Transparency = 0.5
         btn_stroke.Parent = btn
-
-        local indicator = Instance.new('Frame')
-        indicator.Size = UDim2.new(0, 3, 0, 20)
-        indicator.Position = UDim2.new(0, 6, 0.5, -10)
-        indicator.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        indicator.BorderSizePixel = 0
-        indicator.Visible = false
-        indicator.ZIndex = 10
-        indicator.Parent = btn
-        
-        local indicator_corner = Instance.new('UICorner')
-        indicator_corner.CornerRadius = UDim.new(1, 0)
-        indicator_corner.Parent = indicator
-        
-        local btn_text = Instance.new('TextLabel')
-        btn_text.Size = UDim2.new(1, -20, 1, 0)
-        btn_text.Position = UDim2.new(0, 16, 0, 0)
-        btn_text.BackgroundTransparency = 1
-        btn_text.Text = curve_data.name
-        btn_text.Font = Enum.Font.Gotham
-        btn_text.TextSize = 11
-        btn_text.TextColor3 = Color3.fromRGB(150, 150, 150)
-        btn_text.TextXAlignment = Enum.TextXAlignment.Left
-        btn_text.ZIndex = 9
-        btn_text.Parent = btn
         
         buttons[i] = {
             button = btn, 
-            stroke = btn_stroke, 
-            text = btn_text,
-            indicator = indicator,
-            container = btn_container
+            stroke = btn_stroke
         }
         
+        -- Touch Logic
         local touch_start = 0
         local was_dragged = false
         
@@ -4306,40 +4291,27 @@ local function create_curve_selector_mobile()
         
         btn.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.Touch and not was_dragged then
-
+                -- Selection Logic
                 for idx, name in ipairs(System.__config.__curve_names) do
                     if name == curve_data.name then
                         System.__properties.__curve_mode = idx
-                        AutoCurveDropdown:update(curve_data.name)
+                        if AutoCurveDropdown then AutoCurveDropdown:update(curve_data.name) end
                         break
                     end
                 end
 
+                -- Visual Update
                 if current_selected then
-                    game:GetService("TweenService"):Create(current_selected.button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                        BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-                    }):Play()
-                    game:GetService("TweenService"):Create(current_selected.text, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                        TextColor3 = Color3.fromRGB(150, 150, 150)
-                    }):Play()
-                    game:GetService("TweenService"):Create(current_selected.stroke, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                        Color = Color3.fromRGB(45, 45, 45)
-                    }):Play()
-                    current_selected.indicator.Visible = false
+                    game:GetService("TweenService"):Create(current_selected.button, TweenInfo.new(0.2), { BackgroundTransparency = 0.6 }):Play()
+                    game:GetService("TweenService"):Create(current_selected.button, TweenInfo.new(0.2), { TextColor3 = Theme.TextDim }):Play()
+                    game:GetService("TweenService"):Create(current_selected.stroke, TweenInfo.new(0.2), { Color = Theme.Border, Transparency = 0.5 }):Play()
                 end
 
-                game:GetService("TweenService"):Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                    BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-                }):Play()
-                game:GetService("TweenService"):Create(btn_text, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                    TextColor3 = Color3.fromRGB(255, 255, 255)
-                }):Play()
-                game:GetService("TweenService"):Create(btn_stroke, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                    Color = Color3.fromRGB(255, 255, 255)
-                }):Play()
-                indicator.Visible = true
-                
                 current_selected = buttons[i]
+                
+                game:GetService("TweenService"):Create(btn, TweenInfo.new(0.2), { BackgroundTransparency = 0.2 }):Play()
+                game:GetService("TweenService"):Create(btn, TweenInfo.new(0.2), { TextColor3 = Theme.Accent }):Play()
+                game:GetService("TweenService"):Create(btn_stroke, TweenInfo.new(0.2), { Color = Theme.Accent, Transparency = 0 }):Play()
                 
                 if getgenv().AutoCurveHotkeyNotify then
                     Library.SendNotification({
@@ -4352,28 +4324,16 @@ local function create_curve_selector_mobile()
         end)
     end
 
+    -- Toggle Expand/Collapse
     local is_expanded = true
-    local expanded_height = 48 + (#CURVE_TYPES * 32) + ((#CURVE_TYPES - 1) * 4) + 12
-    local minimized_height = 40
-    
-    buttons_container.Size = UDim2.new(1, -16, 0, (#CURVE_TYPES * 32) + ((#CURVE_TYPES - 1) * 4))
-    main_frame.Size = UDim2.new(0, 140, 0, expanded_height)
-    
     toggle_btn.MouseButton1Click:Connect(function()
         is_expanded = not is_expanded
-        toggle_btn.Text = is_expanded and "−" or "+"
-        
-        game:GetService("TweenService"):Create(main_frame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 140, 0, is_expanded and expanded_height or minimized_height)
-        }):Play()
-        
-        game:GetService("TweenService"):Create(buttons_container, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Size = UDim2.new(1, -16, 0, is_expanded and (#CURVE_TYPES * 32) + ((#CURVE_TYPES - 1) * 4) or 0)
-        }):Play()
+        toggle_btn.Text = is_expanded and "▼" or "◀"
+        buttons_container.Visible = is_expanded
     end)
 
-    local drag_start = nil
-    local start_pos = nil
+    -- Draggable Main Frame
+    local drag_start, start_pos
     local is_dragging = false
     
     header.InputBegan:Connect(function(input)
@@ -4388,10 +4348,8 @@ local function create_curve_selector_mobile()
         if is_dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
             local delta = input.Position - drag_start
             main_frame.Position = UDim2.new(
-                start_pos.X.Scale,
-                start_pos.X.Offset + delta.X,
-                start_pos.Y.Scale,
-                start_pos.Y.Offset + delta.Y
+                start_pos.X.Scale, start_pos.X.Offset + delta.X,
+                start_pos.Y.Scale, start_pos.Y.Offset + delta.Y
             )
         end
     end)
