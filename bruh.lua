@@ -1,4 +1,4 @@
---official
+--test
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -450,109 +450,92 @@ UIListLayout.Parent = NotificationContainer
 
 function Library.SendNotification(settings)
   
-    -- Main Notification Frame (Wrapper)
+    -- Use UwU.txt style notification logic for reliability
     local Notification = Instance.new("Frame")
-    Notification.Size = UDim2.new(1, 0, 0, 0) -- Start height 0
+    Notification.Size = UDim2.new(1, 0, 0, 60)
     Notification.BackgroundTransparency = 1
     Notification.BorderSizePixel = 0
     Notification.Name = "Notification"
-    Notification.ClipsDescendants = false
     Notification.Parent = NotificationContainer
+    Notification.AutomaticSize = Enum.AutomaticSize.Y
 
-    -- Inner Content Frame
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 4)
+    UICorner.Parent = Notification
+
     local InnerFrame = Instance.new("Frame")
-    InnerFrame.Size = UDim2.new(1, -10, 0, 0) -- Width full minus padding
-    InnerFrame.Position = UDim2.new(0, 5, 0, 0) -- Centered
-    InnerFrame.BackgroundColor3 = _G.Theme.Container
-    InnerFrame.BackgroundTransparency = 1 -- Start invisible
+    InnerFrame.Size = UDim2.new(1, 0, 0, 60)
+    InnerFrame.Position = UDim2.new(0, 0, 0, 0)
+    InnerFrame.BackgroundColor3 = _G.Theme.Container -- Cosmos Background
+    InnerFrame.BackgroundTransparency = 0.1
     InnerFrame.BorderSizePixel = 0
     InnerFrame.Name = "InnerFrame"
-    InnerFrame.AutomaticSize = Enum.AutomaticSize.Y
     InnerFrame.Parent = Notification
-
-    local InnerUIStroke = Instance.new("UIStroke")
-    InnerUIStroke.Color = _G.Theme.Border
-    InnerUIStroke.LinkToEnd = true
-    InnerUIStroke.Transparency = 1 -- Start invisible
-    InnerUIStroke.Parent = InnerFrame
+    InnerFrame.AutomaticSize = Enum.AutomaticSize.Y
 
     local InnerUICorner = Instance.new("UICorner")
     InnerUICorner.CornerRadius = UDim.new(0, 6)
     InnerUICorner.Parent = InnerFrame
 
-    -- Padding
-    local Padding = Instance.new("UIPadding")
-    Padding.PaddingTop = UDim.new(0, 8)
-    Padding.PaddingBottom = UDim.new(0, 8)
-    Padding.PaddingLeft = UDim.new(0, 10)
-    Padding.PaddingRight = UDim.new(0, 10)
-    Padding.Parent = InnerFrame
+    local InnerUIStroke = Instance.new("UIStroke")
+    InnerUIStroke.Color = _G.Theme.Border -- Cosmos Gradient Border
+    InnerUIStroke.LinkToEnd = true
+    InnerUIStroke.Transparency = 0
+    InnerUIStroke.Parent = InnerFrame
 
-    -- Title
     local Title = Instance.new("TextLabel")
     Title.Text = settings.title or "Notification"
     Title.TextColor3 = _G.Theme.Accent
     Title.FontFace = Font.new('rbxasset://fonts/families/Michroma.json', Enum.FontWeight.SemiBold, Enum.FontStyle.Normal)
     Title.TextSize = 14
-    Title.Size = UDim2.new(1, 0, 0, 20)
+    Title.Size = UDim2.new(1, -10, 0, 20)
+    Title.Position = UDim2.new(0, 5, 0, 5)
     Title.BackgroundTransparency = 1
-    Title.TextTransparency = 1 -- Start invisible
     Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.TextYAlignment = Enum.TextYAlignment.Center
+    Title.TextWrapped = true
     Title.AutomaticSize = Enum.AutomaticSize.Y
     Title.Parent = InnerFrame
 
-    -- Body
     local Body = Instance.new("TextLabel")
     Body.Text = settings.text or ""
     Body.TextColor3 = Color3.new(1, 1, 1) -- Pure White
-    Body.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    Body.FontFace = Font.new('rbxasset://fonts/families/GothamSSm.json', Enum.FontWeight.Regular, Enum.FontStyle.Normal)
     Body.TextSize = 12
-    Body.Size = UDim2.new(1, 0, 0, 0)
-    Body.Position = UDim2.new(0, 0, 0, 22)
+    Body.Size = UDim2.new(1, -10, 0, 30)
+    Body.Position = UDim2.new(0, 5, 0, 25)
     Body.BackgroundTransparency = 1
-    Body.TextTransparency = 1 -- Start invisible
     Body.TextXAlignment = Enum.TextXAlignment.Left
+    Body.TextYAlignment = Enum.TextYAlignment.Top
     Body.TextWrapped = true
     Body.AutomaticSize = Enum.AutomaticSize.Y
     Body.Parent = InnerFrame
 
-    -- Animation
     task.spawn(function()
-        -- 1. Expand Height
-        local contentHeight = 60 -- Approximate start
-        game:GetService("TweenService"):Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-            Size = UDim2.new(1, 0, 0, contentHeight)
-        }):Play()
         task.wait(0.1)
+        local totalHeight = Title.TextBounds.Y + Body.TextBounds.Y + 10
+        InnerFrame.Size = UDim2.new(1, 0, 0, totalHeight)
+    end)
 
-        -- 2. Fade In
-        game:GetService("TweenService"):Create(InnerFrame, TweenInfo.new(0.3), { BackgroundTransparency = 0.1 }):Play()
-        game:GetService("TweenService"):Create(InnerUIStroke, TweenInfo.new(0.3), { Transparency = 0 }):Play()
-        game:GetService("TweenService"):Create(Title, TweenInfo.new(0.3), { TextTransparency = 0 }):Play()
-        game:GetService("TweenService"):Create(Body, TweenInfo.new(0.3), { TextTransparency = 0 }):Play()
-
-        -- Duration
-        task.wait(settings.duration or 3)
-
-        -- 3. Fade Out
-        game:GetService("TweenService"):Create(InnerFrame, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
-        game:GetService("TweenService"):Create(InnerUIStroke, TweenInfo.new(0.3), { Transparency = 1 }):Play()
-        game:GetService("TweenService"):Create(Title, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
-        game:GetService("TweenService"):Create(Body, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
-        task.wait(0.3)
-
-        -- 4. Collapse
-        local collapse = game:GetService("TweenService"):Create(Notification, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
-            Size = UDim2.new(1, 0, 0, 0)
+    task.spawn(function()
+        -- Slide In
+        local tweenIn = game:GetService("TweenService"):Create(InnerFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0, 0, 0, 10 + NotificationContainer.Size.Y.Offset)
         })
-        collapse:Play()
-        
-        collapse.Completed:Connect(function()
+        tweenIn:Play()
+
+        local duration = settings.duration or 3
+        task.wait(duration)
+
+        -- Slide Out
+        local tweenOut = game:GetService("TweenService"):Create(InnerFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+            Position = UDim2.new(1, 310, 0, 10 + NotificationContainer.Size.Y.Offset)
+        })
+        tweenOut:Play()
+
+        tweenOut.Completed:Connect(function()
             Notification:Destroy()
         end)
-        
-        -- Backup
-        game:GetService("Debris"):AddItem(Notification, 1)
     end)
 end
 
@@ -3903,26 +3886,29 @@ local function create_mobile_button(name, position_y, color)
     local button = Instance.new('TextButton')
     button.Size = UDim2.new(0, 140, 0, 50)
     button.Position = UDim2.new(0.5, -70, position_y, 0)
-    button.BackgroundTransparency = 1
+    button.BackgroundTransparency = 0.2 -- Glass effect
+    button.BackgroundColor3 = Theme.Container
     button.AnchorPoint = Vector2.new(0.5, 0)
     button.Draggable = true
     button.AutoButtonColor = false
     button.ZIndex = 2
     
-    local bg = Instance.new('Frame')
-    bg.Size = UDim2.new(1, 0, 1, 0)
-    bg.BackgroundColor3 = Theme.Container
-    bg.Parent = button
-    
     local corner = Instance.new('UICorner')
-    corner.CornerRadius = UDim.new(0, 10)
-    corner.Parent = bg
+    corner.CornerRadius = UDim.new(0, 25) -- Pill shape
+    corner.Parent = button
     
     local stroke = Instance.new('UIStroke')
-    stroke.Color = Theme.Accent
-    stroke.Thickness = 1
-    stroke.Transparency = 0.3
-    stroke.Parent = bg
+    stroke.Thickness = 1.5
+    stroke.Color = Color3.new(1, 1, 1) -- Create white stroke for gradient
+    stroke.Parent = button
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Theme.Accent),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 100)) -- Midnight Blue
+    }
+    gradient.Rotation = 45
+    gradient.Parent = stroke
     
     local text = Instance.new('TextLabel')
     text.Size = UDim2.new(1, 0, 1, 0)
@@ -3934,10 +3920,18 @@ local function create_mobile_button(name, position_y, color)
     text.ZIndex = 3
     text.Parent = button
     
+    -- Glow Effect
+    local glow = Instance.new("app")
+    local glow = Instance.new("UIStroke")
+    glow.Thickness = 2
+    glow.Transparency = 0.8
+    glow.Color = Theme.Accent
+    glow.Parent = text
+
     button.Parent = gui
     gui.Parent = CoreGui
     
-    return {gui = gui, button = button, text = text, bg = bg}
+    return {gui = gui, button = button, text = text}
 end
 
 
@@ -4715,16 +4709,16 @@ local manual_spam_module = set:create_module({
                             if System.__properties.__manual_spam_enabled then
                                 System.manual_spam.start()
                                 manual_spam_mobile.text.Text = "ON"
-                                manual_spam_mobile.text.TextColor3 = Color3.fromRGB(0, 255, 100)
+                                manual_spam_mobile.text.TextColor3 = Theme.Accent -- Cosmos Purple
                             else
                                 System.manual_spam.stop()
                                 manual_spam_mobile.text.Text = "Spam"
-                                manual_spam_mobile.text.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                manual_spam_mobile.text.TextColor3 = Theme.Text -- Starlight
                             end
                             
                             if getgenv().ManualSpamNotify then
                                 Library.SendNotification({
-                                    title = "ManualSpam",
+                                    title = "Manual Spam",
                                     text = System.__properties.__manual_spam_enabled and "ON" or "OFF",
                                     duration = 2
                                 })
