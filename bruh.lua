@@ -1,4 +1,4 @@
---test
+--claude
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
