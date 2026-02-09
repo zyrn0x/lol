@@ -1,4 +1,4 @@
--- Blade Ball Fast Flags (UwU Edition) 2
+-- Blade Ball Fast Flags (UwU Edition)
 -- Structure inspired by Bloxstrap/Premium scripts
 -- Optimized for Blade Ball performance
 
@@ -138,16 +138,32 @@ local function ApplyUltra()
     ToggleFFlag("FIntMainThreadPriority", 3)
     
     -- Best Ever / User Requests
-    ToggleFFlag("FFlagVisualEnginePerfImprovement", true)
-    ToggleFFlag("FFlagDebugPauseVoxelizer", true)
-    ToggleFFlag("DFIntTextureQualityOverride", 0)
     ToggleFFlag("FFlagDebugSkyGray", true) -- Grey Sky
     ToggleFFlag("FFlagDebugDisplayFPS", true) -- Show FPS
     ToggleFFlag("DFIntS2PhysicsSenderRate", 1) -- Lag Ball (Desync)
     
+    -- User Provided List
+    ToggleFFlag("FFlagHandleAltEnterFullscreenManually", false)
+    ToggleFFlag("DFIntCSGLevelOfDetailSwitchingDistance", 0)
+    ToggleFFlag("DFIntCSGLevelOfDetailSwitchingDistanceL12", 0)
+    ToggleFFlag("DFIntCSGLevelOfDetailSwitchingDistanceL23", 0)
+    ToggleFFlag("DFIntCSGLevelOfDetailSwitchingDistanceL34", 0)
+    ToggleFFlag("DFFlagTextureQualityOverrideEnabled", true)
+    ToggleFFlag("DFIntTextureQualityOverride", 1)
+    ToggleFFlag("FIntDebugForceMSAASamples", 4)
+    ToggleFFlag("DFFlagDisableDPIScale", true)
+    ToggleFFlag("FFlagDebugGraphicsPreferD3D11", true)
+    ToggleFFlag("DFFlagDebugPauseVoxelizer", true)
+    ToggleFFlag("DFIntDebugFRMQualityLevelOverride", 1)
+    ToggleFFlag("FIntFRMMaxGrassDistance", 0)
+    ToggleFFlag("FIntFRMMinGrassDistance", 0)
+    ToggleFFlag("FFlagDebugGraphicsPreferVulkan", false)
+    ToggleFFlag("FFlagDebugGraphicsPreferOpenGL", false)
+    ToggleFFlag("FIntGrassMovementReducedMotionFactor", 0)
+    
     ApplyHitregFix()
     
-    Notify("UwU FLAGS", "Ultra + CPU Optimization Applied ⚡", 3)
+    Notify("UwU FLAGS", "Ultra + Ultimate FFlags Applied ⚡", 3)
 end
 
 -- === UI CREATION (Glass Pill Style) ===
