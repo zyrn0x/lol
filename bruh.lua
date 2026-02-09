@@ -1,9 +1,13 @@
--- Blade Ball Fast Flags Script
+-- Blade Ball FPS Booster Script
 -- UwU FLAGS - Performance Optimization
+-- Uses actual Roblox optimization (no setfflag needed)
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local StarterGui = game:GetService("StarterGui")
+local Lighting = game:GetService("Lighting")
+local UserGameSettings = UserSettings():GetService("UserGameSettings")
+local RunService = game:GetService("RunService")
 
 -- Notification Function
 local function Notify(title, text, duration)
@@ -14,100 +18,105 @@ local function Notify(title, text, duration)
     })
 end
 
--- Fast Flags Configuration
-local FastFlags = {
-    Simple = {
-        -- Basic Performance Flags
-        ["FFlagDebugRenderForceTechnologyVoxel"] = "false",
-        ["DFFlagDebugRenderForceTechnologyVoxel"] = "false",
-        ["FFlagRenderFixFog"] = "false",
-        ["DFIntDebugFRMQualityLevelOverride"] = "1",
-        ["DFFlagDebugPauseVoxelizer"] = "true",
-        ["FFlagGlobalWindRendering"] = "false",
-        ["FIntRenderShadowIntensity"] = "0",
-        ["DFIntTextureCompositorActiveJobs"] = "1",
-        ["DFIntCSGLevelOfDetailSwitchingDistance"] = "0",
-        ["DFIntCSGLevelOfDetailSwitchingDistanceL12"] = "0",
-        ["DFIntCSGLevelOfDetailSwitchingDistanceL23"] = "0",
-        ["DFIntCSGLevelOfDetailSwitchingDistanceL34"] = "0",
-        ["FIntTerrainArraySliceSize"] = "4",
-        ["FIntFRMMinGrassDistance"] = "0",
-        ["FIntFRMMaxGrassDistance"] = "0",
-        ["FIntRenderGrassDetailStrands"] = "0",
-        ["FIntRenderGrassHeightScaler"] = "0",
-    },
+-- Optimization Functions
+local function ApplySimpleOptimizations()
+    local count = 0
     
-    Ultra = {
-        -- Aggressive Performance Flags
-        ["FFlagDebugRenderForceTechnologyVoxel"] = "false",
-        ["DFFlagDebugRenderForceTechnologyVoxel"] = "false",
-        ["FFlagRenderFixFog"] = "false",
-        ["DFIntDebugFRMQualityLevelOverride"] = "1",
-        ["DFFlagDebugPauseVoxelizer"] = "true",
-        ["FFlagGlobalWindRendering"] = "false",
-        ["FIntRenderShadowIntensity"] = "0",
-        ["DFIntTextureCompositorActiveJobs"] = "1",
-        ["DFIntCSGLevelOfDetailSwitchingDistance"] = "0",
-        ["DFIntCSGLevelOfDetailSwitchingDistanceL12"] = "0",
-        ["DFIntCSGLevelOfDetailSwitchingDistanceL23"] = "0",
-        ["DFIntCSGLevelOfDetailSwitchingDistanceL34"] = "0",
-        ["FIntTerrainArraySliceSize"] = "4",
-        ["FIntFRMMinGrassDistance"] = "0",
-        ["FIntFRMMaxGrassDistance"] = "0",
-        ["FIntRenderGrassDetailStrands"] = "0",
-        ["FIntRenderGrassHeightScaler"] = "0",
-        -- Ultra Additional Flags
-        ["FFlagDisablePostFx"] = "true",
-        ["FIntDebugTextureManagerSkipMips"] = "8",
-        ["DFIntTimestepArbiterThresholdCFLThou"] = "300",
-        ["DFFlagVideoCaptureServiceEnabled"] = "false",
-        ["FFlagEnableInGameMenuChromeABTest3"] = "false",
-        ["FFlagEnableReportAbuseMenuRoactABTest2"] = "false",
-        ["FFlagEnableInGameMenuModernization"] = "false",
-        ["DFIntTaskSchedulerTargetFps"] = "240",
-        ["FFlagTaskSchedulerLimitTargetFpsTo2402"] = "false",
-        ["DFIntDefaultTimeoutTimeMs"] = "10000",
-        ["DFIntHttpCurlConnectionCacheSize"] = "134217728",
-        ["DFIntConnectionMTUSize"] = "MTU_1492",
-        ["DFIntUserIdPlayerNameCacheSize"] = "100000",
-        ["DFIntUserIdPlayerNameLifetimeSeconds"] = "86400",
-    }
-}
-
--- Apply Fast Flags Function
-local function ApplyFastFlags(preset)
-    local flags = FastFlags[preset]
-    if not flags then
-        Notify("Error", "Invalid preset: " .. tostring(preset), 5)
-        return false
-    end
+    -- Graphics Settings
+    pcall(function()
+        UserGameSettings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
+        count = count + 1
+    end)
     
-    local success = 0
-    local failed = 0
+    pcall(function()
+        UserGameSettings.MasterVolume = UserGameSettings.MasterVolume -- Keep audio
+        count = count + 1
+    end)
     
-    for flag, value in pairs(flags) do
-        local ok, err = pcall(function()
-            if type(value) == "string" then
-                if value == "true" then
-                    setfflag(flag, true)
-                elseif value == "false" then
-                    setfflag(flag, false)
-                else
-                    setfflag(flag, value)
-                end
-            else
-                setfflag(flag, value)
-            end
-        end)
-        
-        if ok then
-            success = success + 1
-        else
-            failed = failed + 1
+    -- Lighting Optimizations
+    pcall(function()
+        Lighting.GlobalShadows = false
+        count = count + 1
+    end)
+    
+    pcall(function()
+        Lighting.FogEnd = 100000
+        Lighting.FogStart = 0
+        count = count + 1
+    end)
+    
+    -- Remove Post-Processing Effects
+    for _, effect in pairs(Lighting:GetChildren()) do
+        if effect:IsA("PostEffect") then
+            pcall(function()
+                effect.Enabled = false
+                count = count + 1
+            end)
         end
     end
     
-    return success, failed
+    -- Terrain Optimization
+    pcall(function()
+        local terrain = workspace:FindFirstChildOfClass("Terrain")
+        if terrain then
+            terrain.Decoration = false
+            count = count + 1
+        end
+    end)
+    
+    return count
+end
+
+local function ApplyUltraOptimizations()
+    local count = ApplySimpleOptimizations()
+    
+    -- Ultra: Remove all visual effects from workspace
+    for _, obj in pairs(workspace:GetDescendants()) do
+        pcall(function()
+            if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
+                obj.Enabled = false
+                count = count + 1
+            elseif obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
+                obj.Enabled = false
+                count = count + 1
+            elseif obj:IsA("PointLight") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
+                obj.Enabled = false
+                count = count + 1
+            end
+        end)
+    end
+    
+    -- Remove all Lighting effects
+    for _, effect in pairs(Lighting:GetChildren()) do
+        pcall(function()
+            if effect:IsA("PostEffect") or effect:IsA("Atmosphere") or effect:IsA("Sky") or effect:IsA("Clouds") then
+                effect:Destroy()
+                count = count + 1
+            end
+        end)
+    end
+    
+    -- Reduce part rendering
+    for _, part in pairs(workspace:GetDescendants()) do
+        pcall(function()
+            if part:IsA("BasePart") then
+                part.Material = Enum.Material.SmoothPlastic
+                part.Reflectance = 0
+                count = count + 1
+            elseif part:IsA("Decal") or part:IsA("Texture") then
+                part.Transparency = 1
+                count = count + 1
+            end
+        end)
+    end
+    
+    -- Set render distance
+    pcall(function()
+        UserGameSettings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
+        count = count + 1
+    end)
+    
+    return count
 end
 
 -- UI Creation
