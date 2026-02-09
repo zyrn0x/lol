@@ -1,4 +1,4 @@
---New
+--UI
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -59,6 +59,13 @@ local cloneref = cloneref or function(obj) return obj end
 if not pcall(function() return cloneref(game) end) then
     cloneref = function(obj) return obj end
 end
+
+-- Compatibility wrappers for common executor functions
+local getinfo = getinfo or (debug and debug.getinfo) or function() return {} end
+local getupvalues = getupvalues or (debug and debug.getupvalues) or function() return {} end
+local setupvalue = setupvalue or (debug and debug.setupvalue) or function() end
+local islclosure = islclosure or function(f) return type(f) == "function" end
+local getconnections = getconnections or function() return {} end
 
 -- Filesystem function wrappers with error handling
 local function safe_makefolder(path)
@@ -3159,7 +3166,7 @@ end
 local function __force_apply_brutal(hum, desc)
     if not hum or not desc then return false end
     for _ = 1, 20 do
-        pcall(function() hum:ApplyDescriptionClientServer(desc) end)
+        pcall(function() hum:ApplyDescription(desc) end)
         task.wait(0.05)
         local applied = nil
         pcall(function() applied = hum:GetAppliedDescription() end)
@@ -3168,7 +3175,7 @@ local function __force_apply_brutal(hum, desc)
     pcall(function() hum.Description = Instance.new("HumanoidDescription") end)
     task.wait(0.1)
     for _ = 1, 20 do
-        pcall(function() hum:ApplyDescriptionClientServer(desc) end)
+        pcall(function() hum:ApplyDescription(desc) end)
         task.wait(0.05)
         local applied = nil
         pcall(function() applied = hum:GetAppliedDescription() end)
@@ -3192,7 +3199,7 @@ local function __force_apply_brutal(hum, desc)
         end
     end
     for _ = 1, 80 do
-        pcall(function() hum:ApplyDescriptionClientServer(desc) end)
+        pcall(function() hum:ApplyDescription(desc) end)
         task.wait(0.05)
         local applied = nil
         pcall(function() applied = hum:GetAppliedDescription() end)
@@ -4121,7 +4128,7 @@ function Auto_Parry.Spam_Service(self)
 end
 
 local Connections_Manager = {}
-local Selected_Parry_Type = nil
+local Selected_Parry_Type = 'Camera'
 
 local Parried = false
 local Last_Parry = 0
