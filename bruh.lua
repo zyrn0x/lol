@@ -1,4 +1,4 @@
---UI
+--UI fix
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -115,6 +115,57 @@ local Players = getService('Players')
 local CoreGui = getService('CoreGui')
 local Debris = getService('Debris')
 local ReplicatedStorage = getService('ReplicatedStorage')
+local Stats = getService('Stats')
+
+local System = {
+    __properties = {
+        __autoparry_enabled = false,
+        __triggerbot_enabled = false,
+        __manual_spam_enabled = false,
+        __auto_spam_enabled = false,
+        __performance_mode = true,
+        __play_animation = false,
+        __curve_mode = 1,
+        __accuracy = 1,
+        __divisor_multiplier = 1.1,
+        __parried = false,
+        __training_parried = false,
+        __spam_threshold = 1.5,
+        __parries = 0,
+        __parry_key = nil,
+        __grab_animation = nil,
+        __tornado_time = tick(),
+        __first_parry_done = false,
+        __connections = {},
+        __reverted_remotes = {},
+        __spam_accumulator = 0,
+        __spam_rate = 240,
+        __infinity_active = false,
+        __deathslash_active = false,
+        __timehole_active = false,
+        __slashesoffury_active = false,
+        __slashesoffury_count = 0,
+        __is_mobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled,
+        __mobile_guis = {},
+        __cache = {
+            ball = nil,
+            closest_entity = nil,
+            last_player_update = 0,
+            last_ball_check = 0
+        }
+    },
+    
+    __config = {
+        __curve_names = {'Camera', 'Random', 'Accelerated', 'Backwards', 'Slow', 'High'},
+        __detections = {
+            __infinity = false,
+            __deathslash = false,
+            __timehole = false,
+            __slashesoffury = false,
+            __phantom = false
+        }
+    }
+}
 
 -- === OMNI-SYNC V7 MASTER ENGINE ===
 local V7 = {
@@ -3810,96 +3861,71 @@ function System.autoparry.start()
         end
         
         local ball = System.ball.get()
-        if not ball then return end
+        local training_ball = workspace:FindFirstChild("TrainingBalls") and workspace.TrainingBalls:FindFirstChildWhichIsA("BasePart")
         
-        local zoomies = ball:FindFirstChild('zoomies')
-        if not zoomies then return end
-        
-        local myPos = LocalPlayer.Character.PrimaryPart.Position
-        local ballPos = ball.Position
-        local distance = (myPos - ballPos).Magnitude
-        
-        -- Performance Mode: Skip heavy logic if far away
-        if props.__performance_mode and distance > 100 then
-            return
-        end
-        
-        if props.__parried then return end
-        
-        local velocity = zoomies.VectorVelocity
-        local speed = velocity.Magnitude
-        local ball_target = ball:GetAttribute('target')
-        
-        if ball_target ~= LocalPlayer.Name then return end
-        
-        local ping = V7:GetPing()
-        local ping_threshold = math.clamp(ping / 10, 5, 17)
-        
-        local capped_speed_diff = math.min(math.max(speed - 9.5, 0), 650)
-        local speed_divisor = (2.4 + capped_speed_diff * 0.002) * props.__divisor_multiplier
-        local parry_accuracy = ping_threshold + math.max(speed / speed_divisor, 9.5)
-        
-        -- High speed / Laggy phone compensation
-        if speed > 150 and props.__is_mobile then
-            parry_accuracy = parry_accuracy + (ping / 20)
-        end
-        
-        if distance <= parry_accuracy then
-            if System.__triggerbot.__enabled then return end
-            if getgenv().BallVelocityAbove800 then return end
-            
-            -- Checks
-            if ball:FindFirstChild('ComboCounter') then return end
-            if LocalPlayer.Character.PrimaryPart:FindFirstChild('SingularityCape') then return end
-            if System.__config.__detections.__infinity and props.__infinity_active then return end
-            
-            if getgenv().AutoParryMode == "Keypress" then
-                System.parry.keypress()
-            else
-                System.parry.execute_action()
+        if ball then
+            local zoomies = ball:FindFirstChild('zoomies')
+            if zoomies then
+                local myPos = LocalPlayer.Character.PrimaryPart.Position
+                local ballPos = ball.Position
+                local distance = (myPos - ballPos).Magnitude
+                
+                if not (props.__performance_mode and distance > 100) and not props.__parried then
+                    local velocity = zoomies.VectorVelocity
+                    local speed = velocity.Magnitude
+                    local ball_target = ball:GetAttribute('target')
+                    
+                    if ball_target == LocalPlayer.Name then
+                        local ping = V7:GetPing()
+                        local ping_threshold = math.clamp(ping / 10, 5, 17)
+                        
+                        local capped_speed_diff = math.min(math.max(speed - 9.5, 0), 650)
+                        local speed_divisor = (2.4 + capped_speed_diff * 0.002) * props.__divisor_multiplier
+                        local parry_accuracy = ping_threshold + math.max(speed / speed_divisor, 9.5)
+                        
+                        if speed > 150 and props.__is_mobile then
+                            parry_accuracy = parry_accuracy + (ping / 20)
+                        end
+                        
+                        if distance <= parry_accuracy then
+                            if not System.__triggerbot.__enabled and not getgenv().BallVelocityAbove800 then
+                                if not ball:FindFirstChild('ComboCounter') and not LocalPlayer.Character.PrimaryPart:FindFirstChild('SingularityCape') then
+                                    if getgenv().AutoParryMode == "Keypress" then
+                                        System.parry.keypress()
+                                    else
+                                        System.parry.execute_action()
+                                    end
+                                    props.__parried = true
+                                    task.delay(0.5, function() props.__parried = false end)
+                                end
+                            end
+                        end
+                    end
+                end
             end
-            props.__parried = true
-            
-            task.delay(0.5, function()
-                props.__parried = false
-            end)
         end
-    end)
 
-        if training_ball then
+        if training_ball and not props.__training_parried then
             local zoomies = training_ball:FindFirstChild('zoomies')
             if zoomies then
-                training_ball:GetAttributeChangedSignal('target'):Once(function()
-                    System.__properties.__training_parried = false
-                end)
+                local ball_target = training_ball:GetAttribute('target')
+                local distance = (LocalPlayer.Character.PrimaryPart.Position - training_ball.Position).Magnitude
+                local speed = zoomies.VectorVelocity.Magnitude
                 
-                if not System.__properties.__training_parried then
-                    local ball_target = training_ball:GetAttribute('target')
-                    local velocity = zoomies.VectorVelocity
-                    local distance = LocalPlayer:DistanceFromCharacter(training_ball.Position)
-                    local speed = velocity.Magnitude
-                    
-                    local ping = Stats.Network.ServerStatsItem['Data Ping']:GetValue() / 10
-                    local ping_threshold = math.clamp(ping / 10, 5, 17)
-                    
-                    local capped_speed_diff = math.min(math.max(speed - 9.5, 0), 650)
-                    local speed_divisor = (2.4 + capped_speed_diff * 0.002) * System.__properties.__divisor_multiplier
-                    local parry_accuracy = ping_threshold + math.max(speed / speed_divisor, 9.5)
-                    
-                    if ball_target == LocalPlayer.Name and distance <= parry_accuracy then
-                        if getgenv().AutoParryMode == "Keypress" then
-                            System.parry.keypress()
-                        else
-                            System.parry.execute_action()
-                        end
-                        System.__properties.__training_parried = true
-                        
-                        local last_parrys = tick()
-                        repeat
-                            RunService.Stepped:Wait()
-                        until (tick() - last_parrys) >= 1 or not System.__properties.__training_parried
-                        System.__properties.__training_parried = false
+                local ping = V7:GetPing()
+                local ping_threshold = math.clamp(ping / 10, 5, 17)
+                local capped_speed_diff = math.min(math.max(speed - 9.5, 0), 650)
+                local speed_divisor = (2.4 + capped_speed_diff * 0.002) * props.__divisor_multiplier
+                local parry_accuracy = ping_threshold + math.max(speed / speed_divisor, 9.5)
+                
+                if ball_target == LocalPlayer.Name and distance <= parry_accuracy then
+                    if getgenv().AutoParryMode == "Keypress" then
+                        System.parry.keypress()
+                    else
+                        System.parry.execute_action()
                     end
+                    props.__training_parried = true
+                    task.delay(0.5, function() props.__training_parried = false end)
                 end
             end
         end
