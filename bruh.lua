@@ -1,4 +1,4 @@
---UI
+--UI AI
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -120,124 +120,6 @@ local Stats = getService('Stats')
 local LocalPlayer = Players.LocalPlayer
 local Alive = workspace:FindFirstChild("Alive") or workspace:WaitForChild("Alive")
 local Runtime = workspace:FindFirstChild("Runtime") or workspace:WaitForChild("Runtime")
-
-local System = {
-    __properties = {
-        __autoparry_enabled = false,
-        __triggerbot_enabled = false,
-        __manual_spam_enabled = false,
-        __auto_spam_enabled = false,
-        __performance_mode = true,
-        __play_animation = false,
-        __curve_mode = 1,
-        __accuracy = 1,
-        __divisor_multiplier = 1.1,
-        __parried = false,
-        __training_parried = false,
-        __spam_threshold = 1.5,
-        __parries = 0,
-        __parry_key = nil,
-        __grab_animation = nil,
-        __tornado_time = tick(),
-        __first_parry_done = false,
-        __connections = {},
-        __reverted_remotes = {},
-        __spam_accumulator = 0,
-        __spam_rate = 240,
-        __infinity_active = false,
-        __deathslash_active = false,
-        __timehole_active = false,
-        __slashesoffury_active = false,
-        __slashesoffury_count = 0,
-        __is_mobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled,
-        __mobile_guis = {},
-        __cache = {
-            ball = nil,
-            closest_entity = nil,
-            last_player_update = 0,
-            last_ball_check = 0
-        },
-        __detection_log = {
-            last_pos = Vector3.zero,
-            last_vel = Vector3.zero,
-            last_tick = tick(),
-            angular_vel = 0,
-            is_curving = false
-        }
-    },
-    
-    __config = {
-        __curve_names = {'Camera', 'Random', 'Accelerated', 'Backwards', 'Slow', 'High'},
-        __detections = {
-            __infinity = false,
-            __deathslash = false,
-            __timehole = false,
-            __slashesoffury = false,
-            __phantom = false
-        }
-    }
-}
-
--- === OMNI-SYNC V7 MASTER ENGINE ===
-local V7 = {
-    PingHistory = {},
-    DeltaHistory = {},
-    LastFrame = tick(),
-    JitterBuffer = 1.2
-}
-_G.V7_Engine = V7
-getgenv().V7_Engine = V7
-
-function V7:GetPing()
-    local finalPing = 50
-    local success, ping = pcall(function()
-        return Stats.Network.ServerStatsItem['Data Ping']:GetValue()
-    end)
-    
-    finalPing = success and ping or 50
-    table.insert(self.PingHistory, 1, finalPing)
-    if #self.PingHistory > 60 then table.remove(self.PingHistory) end
-    
-    local total = 0
-    for _, p in ipairs(self.PingHistory) do total = total + p end
-    local avg = #self.PingHistory > 0 and (total / #self.PingHistory) or 50
-    
-    -- Jitter & Variance tracking
-    local var = 0
-    if #self.PingHistory > 1 then
-        for _, p in ipairs(self.PingHistory) do var = var + (p - avg)^2 end
-        local jitter = math.sqrt(var / #self.PingHistory)
-        return avg + (jitter * self.JitterBuffer)
-    end
-    
-    return avg
-end
-
-function V7:GetFPSLag()
-    local total = 0
-    if #self.DeltaHistory == 0 then return 8.33, 60 end
-    for _, d in ipairs(self.DeltaHistory) do total = total + d end
-    local avg = total / #self.DeltaHistory
-    return (avg * 1000), 1/avg
-end
-
-function V7:PredictTrajectory(ball, time_offset)
-    if not ball or not ball:FindFirstChild("zoomies") then return nil end
-    local velocity = ball.zoomies.VectorVelocity
-    local position = ball.Position
-    local acceleration = ball:GetAttribute("Acceleration") or Vector3.zero
-    
-    -- Quadratic prediction: P = P0 + V0*t + 0.5*A*t^2
-    return position + (velocity * time_offset) + (0.5 * acceleration * time_offset^2)
-end
-
-RunService.Heartbeat:Connect(function()
-    local now = tick()
-    table.insert(V7.DeltaHistory, 1, now - V7.LastFrame)
-    V7.LastFrame = now
-    if #V7.DeltaHistory > 30 then table.remove(V7.DeltaHistory) end
-end)
-
 local mouse = LocalPlayer:GetMouse()
 local old_Silly = CoreGui:FindFirstChild('Silly')
 
@@ -2942,92 +2824,123 @@ if not LPH_OBFUSCATED then
     function LPH_NO_VIRTUALIZE(Function) return Function end
 end
 
-local PrivateKey = nil
+local revertedRemotes = {}
+local originalMetatables = {}
+local Parry_Key = nil
 
-local PropertyChangeOrder = {}
+function isValidRemoteArgs(args)
+    return #args == 7 and
+        type(args[2]) == "string" and
+        type(args[3]) == "number" and
+        typeof(args[4]) == "CFrame" and
+        type(args[5]) == "table" and
+        type(args[6]) == "table" and
+        type(args[7]) == "boolean"
+end
 
-local HashOne
-local HashTwo
-local HashThree
+function hookRemote(remote)
+    if not revertedRemotes[remote] then
+        if not originalMetatables[getrawmetatable(remote)] then
+            originalMetatables[getrawmetatable(remote)] = true
+            local meta = getrawmetatable(remote)
+            setreadonly(meta, false)
 
-LPH_NO_VIRTUALIZE(function()
-    for Index, Value in next, getgc() do
-        if rawequal(typeof(Value), "function") and islclosure(Value) and getrenv().debug.info(Value, "s"):find("SwordsController") then
-            if rawequal(getrenv().debug.info(Value, "l"), 263) then
-                HashOne = getconstant(Value, 62)
-                HashTwo = getconstant(Value, 64)
-                HashThree = getconstant(Value, 65)
+            local oldIndex = meta.__index
+            meta.__index = function(self, key)
+                if (key == "FireServer" and self:IsA("RemoteEvent")) or
+                   (key == "InvokeServer" and self:IsA("RemoteFunction")) then
+                    return function(_, ...)
+                        local args = {...}
+                        if isValidRemoteArgs(args) and not revertedRemotes[self] then
+                            revertedRemotes[self] = args
+                            Parry_Key = args[2]
+                        end
+                        return oldIndex(self, key)(_, unpack(args))
+                    end
+                end
+                return oldIndex(self, key)
             end
-        end 
-    end
-end)()
-
-
-LPH_NO_VIRTUALIZE(function()
-    for Index, Object in next, game:GetDescendants() do
-        if Object:IsA("RemoteEvent") and string.find(Object.Name, "\n") then
-            Object.Changed:Once(function()
-                table.insert(PropertyChangeOrder, Object)
-            end)
+            setreadonly(meta, true)
         end
     end
-end)()
+end
 
+for _, remote in pairs(ReplicatedStorage:GetChildren()) do
+    if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+        hookRemote(remote)
+    end
+end
 
-repeat
-    task.wait()
-until #PropertyChangeOrder == 3
+ReplicatedStorage.ChildAdded:Connect(function(child)
+    if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+        hookRemote(child)
+    end
+end)
 
-
-local ShouldPlayerJump = PropertyChangeOrder[1]
-local MainRemote = PropertyChangeOrder[2]
-local GetOpponentPosition = PropertyChangeOrder[3]
-
---[[
-
-    local __namecall
-    __namecall = hookmetamethod(game, "__namecall", function(self, ...)
-        local Args = {...}
-        local Method = getnamecallmethod()
-
-        if not checkcaller() and (Method == "FireServer") and string.find(self.Name, "\n") then
-            if Args[2] then
-                PrivateKey = Args[2]
-            end
-        end
-
-        return __namecall(self, ...)
+local function Parry(CustomHash, CustomCFrame, CustomEvents, CustomAim)
+    if not next(revertedRemotes) then return end
+    
+    local camera = workspace.CurrentCamera
+    local success, mouse = pcall(function()
+        return UserInputService:GetMouseLocation()
     end)
+    
+    if not success then return end
+    
+    local vec2_mouse = {mouse.X, mouse.Y}
+    local is_mobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+    
+    local event_data = CustomEvents
+    if not event_data then
+        event_data = {}
+        if Alive then
+            for _, entity in pairs(Alive:GetChildren()) do
+                if entity.PrimaryPart then
+                    local success2, screen_point = pcall(function()
+                        return camera:WorldToScreenPoint(entity.PrimaryPart.Position)
+                    end)
+                    if success2 then
+                        event_data[entity.Name] = screen_point
+                    end
+                end
+            end
+        end
+    end
 
-]]
+    local curve_cframe = CustomCFrame or camera.CFrame 
 
-local Parry_Key
+    local final_aim_target = CustomAim
+    if not final_aim_target then
+        if is_mobile then
+            local viewport = camera.ViewportSize
+            final_aim_target = {viewport.X / 2, viewport.Y / 2}
+        else
+            final_aim_target = vec2_mouse
+        end
+    end
 
-for Index, Value in pairs(getconnections(game:GetService("Players").LocalPlayer.PlayerGui.Hotbar.Block.Activated)) do
-    if Value and Value.Function and not iscclosure(Value.Function)  then
-        for Index2,Value2 in pairs(getupvalues(Value.Function)) do
-            if type(Value2) == "function" then
-                Parry_Key = getupvalue(getupvalue(Value2, 2), 17);
-            end;
-        end;
-    end;
-end;
-
-local function Parry(...)
-    ShouldPlayerJump:FireServer(HashOne, Parry_Key, ...)
-    MainRemote:FireServer(HashTwo, Parry_Key, ...)
-    GetOpponentPosition:FireServer(HashThree, Parry_Key, ...)
+    for remote, original_args in pairs(revertedRemotes) do
+        local modified_args = {
+            original_args[1], -- Use captured hash
+            Parry_Key or original_args[2],
+            original_args[3],
+            curve_cframe,
+            event_data,
+            final_aim_target,
+            original_args[7]
+        }
+        
+        pcall(function()
+            if remote:IsA('RemoteEvent') then
+                remote:FireServer(unpack(modified_args))
+            elseif remote:IsA('RemoteFunction') then
+                remote:InvokeServer(unpack(modified_args))
+            end
+        end)
+    end
 end
 
---[[
 
-local function Parry(...)
-    ShouldPlayerJump:FireServer(HashOne, PrivateKey, ...)
-    MainRemote:FireServer(HashTwo, PrivateKey, ...)
-    GetOpponentPosition:FireServer(HashThree, PrivateKey, ...)
-end
-
-]]
 
 type functionInfo = {
     scriptName: string,
