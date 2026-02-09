@@ -1,15 +1,45 @@
--- Blade Ball FPS Booster Script
--- UwU FLAGS - Performance Optimization
--- Uses actual Roblox optimization (no setfflag needed)
+-- Blade Ball Fast Flags (UwU Edition)
+-- Structure inspired by Bloxstrap/Premium scripts
+-- Optimized for Blade Ball performance
 
-local Players = game:GetService("Players")
+-- === COMPATIBILITY & SECURITY ===
+local cloneref = (typeof(cloneref) == "function") and cloneref or function(obj) return obj end
+local setfflag = (typeof(setfflag) == "function") and setfflag or function() end
+
+local Players = cloneref(game:GetService("Players"))
 local LocalPlayer = Players.LocalPlayer
-local StarterGui = game:GetService("StarterGui")
-local Lighting = game:GetService("Lighting")
-local UserGameSettings = UserSettings():GetService("UserGameSettings")
-local RunService = game:GetService("RunService")
+local HttpService = cloneref(game:GetService("HttpService"))
+local UserInputService = cloneref(game:GetService("UserInputService"))
+local RunService = cloneref(game:GetService("RunService"))
+local Lighting = cloneref(game:GetService("Lighting"))
+local StarterGui = cloneref(game:GetService("StarterGui"))
+local Stats = cloneref(game:GetService("Stats"))
 
--- Notification Function
+-- === CONFIGURATION SYSTEM ===
+local FOLDER_NAME = "UwU_Flags"
+local CONFIG_FILE = FOLDER_NAME .. "/Config.json"
+
+if not isfolder(FOLDER_NAME) then makefolder(FOLDER_NAME) end
+
+local Config = {
+    Preset = "None",
+    FPSCap = 60,
+    HitregFix = true
+}
+
+local function SaveConfig()
+    writefile(CONFIG_FILE, HttpService:JSONEncode(Config))
+end
+
+local function LoadConfig()
+    if isfile(CONFIG_FILE) then
+        local success, result = pcall(function() return HttpService:JSONDecode(readfile(CONFIG_FILE)) end)
+        if success then Config = result end
+    end
+end
+LoadConfig()
+
+-- === UTILS ===
 local function Notify(title, text, duration)
     StarterGui:SetCore("SendNotification", {
         Title = title,
@@ -18,394 +48,223 @@ local function Notify(title, text, duration)
     })
 end
 
--- Optimization Functions
-local function ApplySimpleOptimizations()
-    local count = 0
-    
-    -- Graphics Settings
+-- === FAST FLAGS & OPTIMIZATIONS ===
+local function ToggleFFlag(name, value)
     pcall(function()
-        UserGameSettings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
-        count = count + 1
+        setfflag(name, tostring(value))
     end)
+end
+
+local function ApplyHitregFix()
+    local FFlags = {
+        ["DFIntCodecMaxIncomingPackets"] = "100",
+        ["DFIntCodecMaxOutgoingFrames"] = "10000",
+        ["DFIntLargePacketQueueSizeCutoffMB"] = "1000",
+        ["DFIntMaxProcessPacketsJobScaling"] = "10000",
+        ["DFIntMaxProcessPacketsStepsAccumulated"] = "0",
+        ["DFIntMaxProcessPacketsStepsPerCyclic"] = "5000",
+        ["DFIntMegaReplicatorNetworkQualityProcessorUnit"] = "10",
+        ["DFIntNetworkLatencyTolerance"] = "1",
+        ["DFIntNetworkPrediction"] = "120",
+        ["DFIntOptimizePingThreshold"] = "50",
+        ["DFIntPlayerNetworkUpdateQueueSize"] = "20",
+        ["DFIntPlayerNetworkUpdateRate"] = "60",
+        ["DFIntRaknetBandwidthInfluxHundredthsPercentageV2"] = "10000",
+        ["DFIntRaknetBandwidthPingSendEveryXSeconds"] = "1",
+        ["DFIntRakNetLoopMs"] = "1",
+        ["DFIntRakNetResendRttMultiple"] = "1",
+        ["DFIntServerPhysicsUpdateRate"] = "60",
+        ["DFIntServerTickRate"] = "60",
+        ["DFIntWaitOnRecvFromLoopEndedMS"] = "100",
+        ["DFIntWaitOnUpdateNetworkLoopEndedMS"] = "100",
+        ["FFlagOptimizeNetwork"] = "true",
+        ["FFlagOptimizeNetworkRouting"] = "true",
+        ["FFlagOptimizeNetworkTransport"] = "true",
+        ["FFlagOptimizeServerTickRate"] = "true",
+        ["FIntRakNetResendBufferArrayLength"] = "128"
+    }
+    for flag, val in pairs(FFlags) do
+        ToggleFFlag(flag, val)
+    end
+end
+
+local function ApplySimple()
+    Config.Preset = "Simple"
+    SaveConfig()
     
-    pcall(function()
-        UserGameSettings.MasterVolume = UserGameSettings.MasterVolume -- Keep audio
-        count = count + 1
-    end)
-    
-    -- Lighting Optimizations
+    -- Lighting
     pcall(function()
         Lighting.GlobalShadows = false
-        count = count + 1
-    end)
-    
-    pcall(function()
         Lighting.FogEnd = 100000
-        Lighting.FogStart = 0
-        count = count + 1
-    end)
-    
-    -- Remove Post-Processing Effects
-    for _, effect in pairs(Lighting:GetChildren()) do
-        if effect:IsA("PostEffect") then
-            pcall(function()
-                effect.Enabled = false
-                count = count + 1
-            end)
-        end
-    end
-    
-    -- Terrain Optimization
-    pcall(function()
-        local terrain = workspace:FindFirstChildOfClass("Terrain")
-        if terrain then
-            terrain.Decoration = false
-            count = count + 1
+        for _, effect in pairs(Lighting:GetChildren()) do
+            if effect:IsA("PostEffect") then effect.Enabled = false end
         end
     end)
     
-    return count
+    -- FFlags
+    ToggleFFlag("DFIntTaskSchedulerTargetFps", 144)
+    Notify("UwU FLAGS", "Simple Optimization Applied ✓", 3)
 end
 
-local function ApplyUltraOptimizations()
-    local count = ApplySimpleOptimizations()
+local function ApplyUltra()
+    Config.Preset = "Ultra"
+    SaveConfig()
     
-    -- Ultra: Remove all visual effects from workspace
+    -- Extreme Visual Cleanup
     for _, obj in pairs(workspace:GetDescendants()) do
         pcall(function()
-            if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") then
+            if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
                 obj.Enabled = false
-                count = count + 1
-            elseif obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
-                obj.Enabled = false
-                count = count + 1
-            elseif obj:IsA("PointLight") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
-                obj.Enabled = false
-                count = count + 1
+            elseif obj:IsA("PostEffect") or obj:IsA("Explosion") then
+                obj:Destroy()
+            elseif obj:IsA("BasePart") then
+                obj.Material = Enum.Material.SmoothPlastic
+                obj.Reflectance = 0
             end
         end)
     end
     
-    -- Remove all Lighting effects
-    for _, effect in pairs(Lighting:GetChildren()) do
-        pcall(function()
-            if effect:IsA("PostEffect") or effect:IsA("Atmosphere") or effect:IsA("Sky") or effect:IsA("Clouds") then
-                effect:Destroy()
-                count = count + 1
-            end
-        end)
-    end
+    -- FFlags & Hitreg
+    ToggleFFlag("DFIntTaskSchedulerTargetFps", 9999)
+    ToggleFFlag("FIntRenderShadowIntensity", 0)
+    ApplyHitregFix()
     
-    -- Reduce part rendering
-    for _, part in pairs(workspace:GetDescendants()) do
-        pcall(function()
-            if part:IsA("BasePart") then
-                part.Material = Enum.Material.SmoothPlastic
-                part.Reflectance = 0
-                count = count + 1
-            elseif part:IsA("Decal") or part:IsA("Texture") then
-                part.Transparency = 1
-                count = count + 1
-            end
-        end)
-    end
-    
-    -- Set render distance
-    pcall(function()
-        UserGameSettings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
-        count = count + 1
-    end)
-    
-    return count
+    Notify("UwU FLAGS", "Ultra Optimization Applied ⚡", 3)
 end
 
--- UI Creation
+-- === UI CREATION (Glass Pill Style) ===
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "UwUFlagsGui"
+ScreenGui.Name = "UwUFlagsPro"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- Check if GUI already exists
-if LocalPlayer.PlayerGui:FindFirstChild("UwUFlagsGui") then
-    LocalPlayer.PlayerGui.UwUFlagsGui:Destroy()
+if LocalPlayer.PlayerGui:FindFirstChild("UwUFlagsPro") then
+    LocalPlayer.PlayerGui.UwUFlagsPro:Destroy()
 end
 
--- Main Frame
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainFrame.BackgroundTransparency = 0.1
 MainFrame.BorderSizePixel = 0
-MainFrame.Position = UDim2.new(0.5, -350, 0.5, -200)
-MainFrame.Size = UDim2.new(0, 700, 0, 400)
+MainFrame.Position = UDim2.new(0.5, -200, 0.5, -125)
+MainFrame.Size = UDim2.new(0, 400, 0, 250)
 
--- UI Corner
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 12)
-MainCorner.Parent = MainFrame
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 20)
+UICorner.Parent = MainFrame
 
--- Title
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(100, 100, 255)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
+
 local Title = Instance.new("TextLabel")
 Title.Name = "Title"
 Title.Parent = MainFrame
 Title.BackgroundTransparency = 1
-Title.Position = UDim2.new(0, 0, 0, 20)
-Title.Size = UDim2.new(1, 0, 0, 60)
+Title.Position = UDim2.new(0, 0, 0, 15)
+Title.Size = UDim2.new(1, 0, 0, 40)
 Title.Font = Enum.Font.GothamBold
-Title.Text = "UwU FLAGS"
+Title.Text = "Blade Ball FastFlags"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 48
-Title.TextStrokeTransparency = 0.8
+Title.TextSize = 24
 
--- Subtitle
 local Subtitle = Instance.new("TextLabel")
 Subtitle.Name = "Subtitle"
 Subtitle.Parent = MainFrame
 Subtitle.BackgroundTransparency = 1
-Subtitle.Position = UDim2.new(0, 0, 0, 80)
-Subtitle.Size = UDim2.new(1, 0, 0, 30)
+Subtitle.Position = UDim2.new(0, 0, 0, 45)
+Subtitle.Size = UDim2.new(1, 0, 0, 20)
 Subtitle.Font = Enum.Font.Gotham
-Subtitle.Text = "Select your optimization preset"
+Subtitle.Text = "Select your preset for maximum performance"
 Subtitle.TextColor3 = Color3.fromRGB(150, 150, 160)
-Subtitle.TextSize = 18
+Subtitle.TextSize = 14
 
--- Premium Button (Top Right)
-local PremiumBtn = Instance.new("TextButton")
-PremiumBtn.Name = "PremiumBtn"
-PremiumBtn.Parent = MainFrame
-PremiumBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
-PremiumBtn.BorderSizePixel = 0
-PremiumBtn.Position = UDim2.new(1, -120, 0, 20)
-PremiumBtn.Size = UDim2.new(0, 100, 0, 35)
-PremiumBtn.Font = Enum.Font.GothamBold
-PremiumBtn.Text = "PREMIUM"
-PremiumBtn.TextColor3 = Color3.fromRGB(100, 150, 255)
-PremiumBtn.TextSize = 14
-
-local PremiumCorner = Instance.new("UICorner")
-PremiumCorner.CornerRadius = UDim.new(0, 6)
-PremiumCorner.Parent = PremiumBtn
-
-local PremiumStroke = Instance.new("UIStroke")
-PremiumStroke.Color = Color3.fromRGB(100, 150, 255)
-PremiumStroke.Thickness = 2
-PremiumStroke.Parent = PremiumBtn
-
--- Simple FastFlag Button
+-- Simple Button
 local SimpleBtn = Instance.new("TextButton")
 SimpleBtn.Name = "SimpleBtn"
 SimpleBtn.Parent = MainFrame
-SimpleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+SimpleBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 SimpleBtn.BorderSizePixel = 0
-SimpleBtn.Position = UDim2.new(0.05, 0, 0, 150)
-SimpleBtn.Size = UDim2.new(0.9, 0, 0, 80)
+SimpleBtn.Position = UDim2.new(0.1, 0, 0.4, 0)
+SimpleBtn.Size = UDim2.new(0, 150, 0, 100)
 SimpleBtn.Font = Enum.Font.GothamBold
-SimpleBtn.Text = ""
-SimpleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-SimpleBtn.TextSize = 24
+SimpleBtn.Text = "SIMPLE"
+SimpleBtn.TextColor3 = Color3.fromRGB(100, 150, 255)
+SimpleBtn.TextSize = 18
 
 local SimpleCorner = Instance.new("UICorner")
-SimpleCorner.CornerRadius = UDim.new(0, 10)
+SimpleCorner.CornerRadius = UDim.new(0, 15)
 SimpleCorner.Parent = SimpleBtn
 
-local SimpleStroke = Instance.new("UIStroke")
-SimpleStroke.Color = Color3.fromRGB(100, 150, 255)
-SimpleStroke.Thickness = 2
-SimpleStroke.Parent = SimpleBtn
-
--- Simple Icon
-local SimpleIcon = Instance.new("ImageLabel")
-SimpleIcon.Name = "Icon"
-SimpleIcon.Parent = SimpleBtn
-SimpleIcon.BackgroundTransparency = 1
-SimpleIcon.Position = UDim2.new(0, 20, 0.5, -20)
-SimpleIcon.Size = UDim2.new(0, 40, 0, 40)
-SimpleIcon.Image = "rbxassetid://7733964640" -- Cloud download icon
-SimpleIcon.ImageColor3 = Color3.fromRGB(100, 150, 255)
-
--- Simple Label
-local SimpleLabel = Instance.new("TextLabel")
-SimpleLabel.Name = "Label"
-SimpleLabel.Parent = SimpleBtn
-SimpleLabel.BackgroundTransparency = 1
-SimpleLabel.Position = UDim2.new(0, 80, 0, 0)
-SimpleLabel.Size = UDim2.new(1, -100, 1, 0)
-SimpleLabel.Font = Enum.Font.GothamBold
-SimpleLabel.Text = "Simple FastFlag"
-SimpleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-SimpleLabel.TextSize = 24
-SimpleLabel.TextXAlignment = Enum.TextXAlignment.Left
-
--- Simple Arrow
-local SimpleArrow = Instance.new("TextLabel")
-SimpleArrow.Name = "Arrow"
-SimpleArrow.Parent = SimpleBtn
-SimpleArrow.BackgroundTransparency = 1
-SimpleArrow.Position = UDim2.new(1, -40, 0.5, -15)
-SimpleArrow.Size = UDim2.new(0, 30, 0, 30)
-SimpleArrow.Font = Enum.Font.GothamBold
-SimpleArrow.Text = "→"
-SimpleArrow.TextColor3 = Color3.fromRGB(150, 150, 160)
-SimpleArrow.TextSize = 28
-
--- Ultra FastFlag Button
+-- Ultra Button
 local UltraBtn = Instance.new("TextButton")
 UltraBtn.Name = "UltraBtn"
 UltraBtn.Parent = MainFrame
-UltraBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+UltraBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 UltraBtn.BorderSizePixel = 0
-UltraBtn.Position = UDim2.new(0.05, 0, 0, 250)
-UltraBtn.Size = UDim2.new(0.9, 0, 0, 80)
+UltraBtn.Position = UDim2.new(0.55, 0, 0.4, 0)
+UltraBtn.Size = UDim2.new(0, 150, 0, 100)
 UltraBtn.Font = Enum.Font.GothamBold
-UltraBtn.Text = ""
-UltraBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-UltraBtn.TextSize = 24
+UltraBtn.Text = "ULTRA"
+UltraBtn.TextColor3 = Color3.fromRGB(255, 100, 150)
+UltraBtn.TextSize = 18
 
 local UltraCorner = Instance.new("UICorner")
-UltraCorner.CornerRadius = UDim.new(0, 10)
+UltraCorner.CornerRadius = UDim.new(0, 15)
 UltraCorner.Parent = UltraBtn
 
-local UltraStroke = Instance.new("UIStroke")
-UltraStroke.Color = Color3.fromRGB(255, 100, 150)
-UltraStroke.Thickness = 2
-UltraStroke.Parent = UltraBtn
-
--- Ultra Icon
-local UltraIcon = Instance.new("ImageLabel")
-UltraIcon.Name = "Icon"
-UltraIcon.Parent = UltraBtn
-UltraIcon.BackgroundTransparency = 1
-UltraIcon.Position = UDim2.new(0, 20, 0.5, -20)
-UltraIcon.Size = UDim2.new(0, 40, 0, 40)
-UltraIcon.Image = "rbxassetid://7733964640" -- Cloud download icon
-UltraIcon.ImageColor3 = Color3.fromRGB(255, 100, 150)
-
--- Ultra Label
-local UltraLabel = Instance.new("TextLabel")
-UltraLabel.Name = "Label"
-UltraLabel.Parent = UltraBtn
-UltraLabel.BackgroundTransparency = 1
-UltraLabel.Position = UDim2.new(0, 80, 0, 0)
-UltraLabel.Size = UDim2.new(1, -100, 1, 0)
-UltraLabel.Font = Enum.Font.GothamBold
-UltraLabel.Text = "Ultra FastFlag"
-UltraLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-UltraLabel.TextSize = 24
-UltraLabel.TextXAlignment = Enum.TextXAlignment.Left
-
--- Ultra Arrow
-local UltraArrow = Instance.new("TextLabel")
-UltraArrow.Name = "Arrow"
-UltraArrow.Parent = UltraBtn
-UltraArrow.BackgroundTransparency = 1
-UltraArrow.Position = UDim2.new(1, -40, 0.5, -15)
-UltraArrow.Size = UDim2.new(0, 30, 0, 30)
-UltraArrow.Font = Enum.Font.GothamBold
-UltraArrow.Text = "→"
-UltraArrow.TextColor3 = Color3.fromRGB(150, 150, 160)
-UltraArrow.TextSize = 28
-
--- Footer
-local Footer = Instance.new("TextLabel")
-Footer.Name = "Footer"
-Footer.Parent = MainFrame
-Footer.BackgroundTransparency = 1
-Footer.Position = UDim2.new(0, 0, 1, -40)
-Footer.Size = UDim2.new(1, 0, 0, 30)
-Footer.Font = Enum.Font.Gotham
-Footer.Text = "UwU Flag Applicator"
-Footer.TextColor3 = Color3.fromRGB(100, 150, 255)
-Footer.TextSize = 14
-
--- Button Hover Effects
-local function AddHoverEffect(button)
-    button.MouseEnter:Connect(function()
-        button:TweenSize(UDim2.new(0.92, 0, 0, 85), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
-    end)
-    
-    button.MouseLeave:Connect(function()
-        button:TweenSize(UDim2.new(0.9, 0, 0, 80), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
-    end)
-end
-
-AddHoverEffect(SimpleBtn)
-AddHoverEffect(UltraBtn)
-
--- Button Click Handlers
+-- Interaction Handlers
 SimpleBtn.MouseButton1Click:Connect(function()
-    Notify("UwU FLAGS", "Applying Simple FastFlags...", 3)
+    ApplySimple()
+    MainFrame:TweenPosition(UDim2.new(0.5, -200, -0.5, 0), "In", "Back", 0.5, true)
     task.wait(0.5)
-    
-    local success, failed = ApplyFastFlags("Simple")
-    if success then
-        Notify("Success!", "Applied " .. success .. " flags ✓", 5)
-        MainFrame:TweenPosition(UDim2.new(0.5, -350, -0.5, 0), Enum.EasingDirection.In, Enum.EasingStyle.Back, 0.5, true)
-        task.wait(0.5)
-        ScreenGui:Destroy()
-    else
-        Notify("Error", "Failed to apply flags", 5)
-    end
+    ScreenGui:Destroy()
 end)
 
 UltraBtn.MouseButton1Click:Connect(function()
-    Notify("UwU FLAGS", "Applying Ultra FastFlags...", 3)
+    ApplyUltra()
+    MainFrame:TweenPosition(UDim2.new(0.5, -200, -0.5, 0), "In", "Back", 0.5, true)
     task.wait(0.5)
-    
-    local success, failed = ApplyFastFlags("Ultra")
-    if success then
-        Notify("Success!", "Applied " .. success .. " flags ✓", 5)
-        MainFrame:TweenPosition(UDim2.new(0.5, -350, -0.5, 0), Enum.EasingDirection.In, Enum.EasingStyle.Back, 0.5, true)
-        task.wait(0.5)
-        ScreenGui:Destroy()
-    else
-        Notify("Error", "Failed to apply flags", 5)
-    end
+    ScreenGui:Destroy()
 end)
 
-PremiumBtn.MouseButton1Click:Connect(function()
-    Notify("Premium", "Premium features coming soon!", 3)
-end)
-
--- Draggable Frame
-local dragging, dragInput, dragStart, startPos
-
-local function update(input)
-    local delta = input.Position - dragStart
-    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+-- Hover Effects
+local function AddHover(btn, color)
+    btn.MouseEnter:Connect(function()
+        btn.BackgroundColor3 = color:Lerp(Color3.new(0,0,0), 0.5)
+    end)
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    end)
 end
 
-MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
+AddHover(SimpleBtn, Color3.fromRGB(100, 150, 255))
+AddHover(UltraBtn, Color3.fromRGB(255, 100, 150))
 
-MainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
-end)
+-- Close Button (X)
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Name = "CloseBtn"
+CloseBtn.Parent = MainFrame
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Position = UDim2.new(1, -35, 0, 10)
+CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(200, 0, 0)
+CloseBtn.TextSize = 20
 
-game:GetService("UserInputService").InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
-    end
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
 end)
 
 -- Parent to PlayerGui
 ScreenGui.Parent = LocalPlayer.PlayerGui
 
 -- Entrance Animation
-MainFrame.Position = UDim2.new(0.5, -350, -0.5, 0)
-MainFrame:TweenPosition(UDim2.new(0.5, -350, 0.5, -200), Enum.EasingDirection.Out, Enum.EasingStyle.Back, 0.6, true)
+MainFrame.Position = UDim2.new(0.5, -200, -0.5, 0)
+MainFrame:TweenPosition(UDim2.new(0.5, -200, 0.5, -125), "Out", "Back", 0.6, true)
 
--- Initial Notification
-Notify("UwU FLAGS", "Fast Flags GUI Loaded!", 3)
+Notify("UwU FLAGS", "Blade Ball Pro FastFlags Loaded!", 3)
