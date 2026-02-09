@@ -1,4 +1,4 @@
---UI fix
+--UI lastest
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -152,6 +152,13 @@ local System = {
             closest_entity = nil,
             last_player_update = 0,
             last_ball_check = 0
+        },
+        __detection_log = {
+            last_pos = Vector3.zero,
+            last_vel = Vector3.zero,
+            last_tick = tick(),
+            angular_vel = 0,
+            is_curving = false
         }
     },
     
@@ -178,56 +185,44 @@ _G.V7_Engine = V7
 getgenv().V7_Engine = V7
 
 function V7:GetPing()
-    local finalPing = 50 -- Default fallback
-    
+    local finalPing = 50
     local success, ping = pcall(function()
         local stats = game:GetService('Stats')
-        if stats and stats.Network then
-            local serverStats = stats.Network:FindFirstChild("ServerStatsItem")
-            if serverStats then
-                local dataPing = serverStats:FindFirstChild("Data Ping")
-                if dataPing then
-                    return dataPing:GetValue()
-                end
-            end
-        end
-        return 50
+        return stats.Network.ServerStatsItem['Data Ping']:GetValue()
     end)
     
     finalPing = success and ping or 50
     table.insert(self.PingHistory, 1, finalPing)
-    if #self.PingHistory > 30 then table.remove(self.PingHistory) end
+    if #self.PingHistory > 60 then table.remove(self.PingHistory) end
     
     local total = 0
     for _, p in ipairs(self.PingHistory) do total = total + p end
     local avg = total / #self.PingHistory
     
-    if #self.PingHistory > 1 then
-        local var = 0
-        for _, p in ipairs(self.PingHistory) do var = var + (p - avg)^2 end
-        local jitter = math.sqrt(var / #self.PingHistory)
-        avg = avg + (jitter * self.JitterBuffer)
-    end
-    return avg
+    -- Jitter & Variance tracking
+    local var = 0
+    for _, p in ipairs(self.PingHistory) do var = var + (p - avg)^2 end
+    local jitter = math.sqrt(var / #self.PingHistory)
+    
+    return avg + (jitter * self.JitterBuffer)
 end
 
 function V7:GetFPSLag()
     local total = 0
+    if #self.DeltaHistory == 0 then return 8.33, 60 end
     for _, d in ipairs(self.DeltaHistory) do total = total + d end
-    local avg = #self.DeltaHistory > 0 and (total / #self.DeltaHistory) or 0.00833
-    local penalty = math.max(0, (avg * 1000) - 5.5)
-    return penalty, 1/avg
+    local avg = total / #self.DeltaHistory
+    return (avg * 1000), 1/avg
 end
 
-function V7:GetEffectivePing(speed)
-    local net = self:GetPing()
-    local lag = self:GetFPSLag()
-    local effective = net + (lag * 1.5)
-    if speed and speed > 10 then
-        local factor = math.pow(speed / 900, 1.15)
-        effective = effective + (net * 0.002 * factor)
-    end
-    return effective
+function V7:PredictTrajectory(ball, time_offset)
+    if not ball or not ball:FindFirstChild("zoomies") then return nil end
+    local velocity = ball.zoomies.VectorVelocity
+    local position = ball.Position
+    local acceleration = ball:GetAttribute("Acceleration") or Vector3.zero
+    
+    -- Quadratic prediction: P = P0 + V0*t + 0.5*A*t^2
+    return position + (velocity * time_offset) + (0.5 * acceleration * time_offset^2)
 end
 
 RunService.Heartbeat:Connect(function()
@@ -3353,71 +3348,94 @@ local function linear_predict(a, b, time_volume)
     return a + (b - a) * time_volume
 end
 
-System.detection = {
-    __ball_properties = {
-        __aerodynamic_time = tick(),
-        __last_warping = tick(),
-        __lerp_radians = 0,
-        __curving = tick()
-    }
-}
+System.detection = {}
+
+function System.detection.analyze_ball()
+    local ball = System.ball.get()
+    if not ball then return end
+    
+    local props = System.__properties.__detection_log
+    local now = tick()
+    local dt = now - props.last_tick
+    if dt < 0.005 then return end -- Don't over-process
+    
+    local zoomies = ball:FindFirstChild('zoomies')
+    if not zoomies then return end
+    
+    local current_pos = ball.Position
+    local current_vel = zoomies.VectorVelocity
+    
+    -- Angular Velocity & Curvature detection
+    local vel_dir = current_vel.Unit
+    local last_vel_dir = props.last_vel.Unit
+    local dot = vel_dir:Dot(last_vel_dir)
+    
+    -- Detect rapid direction change (Curving)
+    props.angular_vel = math.acos(math.clamp(dot, -1, 1)) / dt
+    props.is_curving = props.angular_vel > 0.05
+    
+    props.last_pos = current_pos
+    props.last_vel = current_vel
+    props.last_tick = now
+end
+
+function System.detection.get_reach_time()
+    local ball = System.ball.get()
+    if not ball then return 999 end
+    
+    local zoomies = ball:FindFirstChild('zoomies')
+    if not zoomies then return 999 end
+    
+    local myPos = LocalPlayer.Character.PrimaryPart.Position
+    local ballPos = ball.Position
+    local velocity = zoomies.VectorVelocity
+    local distance = (myPos - ballPos).Magnitude
+    
+    -- Quadratic reach time prediction
+    -- Solve for t: |P0 + V0*t + 0.5*A*t^2 - Target| = 0
+    -- Simplified: t = distance / speed (with acceleration adjustment)
+    local speed = velocity.Magnitude
+    if speed < 1 then return 999 end
+    
+    local acceleration = ball:GetAttribute("Acceleration") or 0
+    local estimated_time = distance / speed
+    
+    -- Adjust for acceleration if available
+    if math.abs(acceleration) > 0.1 then
+        local discriminant = speed^2 + 2 * acceleration * distance
+        if discriminant >= 0 then
+            estimated_time = (math.sqrt(discriminant) - speed) / acceleration
+        end
+    end
+    
+    return estimated_time
+end
 
 function System.detection.is_curved()
-    local ball_properties = System.detection.__ball_properties
+    System.detection.analyze_ball()
+    local props = System.__properties.__detection_log
     local ball = System.ball.get()
-    
     if not ball then return false end
     
     local zoomies = ball:FindFirstChild('zoomies')
     if not zoomies then return false end
     
     local velocity = zoomies.VectorVelocity
-    local ball_direction = velocity.Unit
+    local ball_target = ball:GetAttribute('target')
     
-    local direction = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Unit
-    local dot = direction:Dot(ball_direction)
+    if ball_target ~= LocalPlayer.Name then return false end
     
-    local speed = velocity.Magnitude
-    local speed_threshold = math.min(speed / 100, 40)
+    -- World Class Curve Logic
+    local dir_to_me = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Unit
+    local vel_dir = velocity.Unit
+    local dot = dir_to_me:Dot(vel_dir)
     
-    local direction_difference = (ball_direction - velocity).Unit
-    local direction_similarity = direction:Dot(direction_difference)
-    
-    local dot_difference = dot - direction_similarity
-    local distance = (LocalPlayer.Character.PrimaryPart.Position - ball.Position).Magnitude
-    
-    local ping = Stats.Network.ServerStatsItem['Data Ping']:GetValue()
-    
-    local dot_threshold = 0.5 - (ping / 1000)
-    local reach_time = distance / speed - (ping / 1000)
-    
-    local ball_distance_threshold = 15 - math.min(distance / 1000, 15) + speed_threshold
-    
-    local clamped_dot = math.clamp(dot, -1, 1)
-    local radians = math.rad(math.asin(clamped_dot))
-    
-    ball_properties.__lerp_radians = linear_predict(ball_properties.__lerp_radians, radians, 0.8)
-    
-    if speed > 0 and reach_time > ping / 10 then
-        ball_distance_threshold = math.max(ball_distance_threshold - 15, 15)
-    end
-    
-    if distance < ball_distance_threshold then return false end
-    if dot_difference < dot_threshold then return true end
-    
-    if ball_properties.__lerp_radians < 0.018 then
-        ball_properties.__last_warping = tick()
-    end
-    
-    if (tick() - ball_properties.__last_warping) < (reach_time / 1.5) then
+    -- If angular velocity is high and it's not heading directly towards me
+    if props.is_curving and dot < 0.85 then
         return true
     end
     
-    if (tick() - ball_properties.__curving) < (reach_time / 1.5) then
-        return true
-    end
-    
-    return dot < dot_threshold
+    return dot < 0.6 -- Standard threshold as backup
 end
 
 ReplicatedStorage.Remotes.DeathBall.OnClientEvent:Connect(function(c, d)
@@ -3811,11 +3829,12 @@ function System.auto_spam.start()
         local distBall = (myPos - ballPos).Magnitude
         local distEnt = (myPos - entPos).Magnitude
         
-        -- Optimized Spam Calculation
+        -- Fastest Spam Algorithm (Pulse Sync)
         local ping = V7:GetPing()
         local speed = ball.AssemblyLinearVelocity.Magnitude
         
-        local maxSpamDist = (ping / 5) + math.min(speed / 7, 30)
+        -- Dynamic clashing distance based on ball reaction speeds
+        local maxSpamDist = (ping / 4.5) + math.min(speed / 6.5, 35)
         
         if distBall < maxSpamDist and distEnt < maxSpamDist then
             if props.__parries > props.__spam_threshold then
@@ -3864,69 +3883,50 @@ function System.autoparry.start()
         local training_ball = workspace:FindFirstChild("TrainingBalls") and workspace.TrainingBalls:FindFirstChildWhichIsA("BasePart")
         
         if ball then
-            local zoomies = ball:FindFirstChild('zoomies')
-            if zoomies then
-                local myPos = LocalPlayer.Character.PrimaryPart.Position
-                local ballPos = ball.Position
-                local distance = (myPos - ballPos).Magnitude
+            local ball_target = ball:GetAttribute("target")
+            if ball_target == LocalPlayer.Name then
+                local reach_time = System.detection.get_reach_time()
+                local is_curved = System.detection.is_curved()
                 
-                if not (props.__performance_mode and distance > 100) and not props.__parried then
-                    local velocity = zoomies.VectorVelocity
-                    local speed = velocity.Magnitude
-                    local ball_target = ball:GetAttribute('target')
-                    
-                    if ball_target == LocalPlayer.Name then
-                        local ping = V7:GetPing()
-                        local ping_threshold = math.clamp(ping / 10, 5, 17)
-                        
-                        local capped_speed_diff = math.min(math.max(speed - 9.5, 0), 650)
-                        local speed_divisor = (2.4 + capped_speed_diff * 0.002) * props.__divisor_multiplier
-                        local parry_accuracy = ping_threshold + math.max(speed / speed_divisor, 9.5)
-                        
-                        if speed > 150 and props.__is_mobile then
-                            parry_accuracy = parry_accuracy + (ping / 20)
+                -- Effective Latency (Net + Lag + Jitter)
+                local ping = V7:GetPing()
+                local lag, fps = V7:GetFPSLag()
+                local effective_latency = (ping / 1000) + (lag / 1000)
+                
+                -- Dynamic Window Adjustment
+                local parry_threshold = effective_latency * props.__divisor_multiplier
+                
+                -- Early parry for curves
+                if is_curved then
+                    parry_threshold = parry_threshold * 1.25
+                end
+                
+                if reach_time <= parry_threshold and not props.__parried then
+                    if not System.__triggerbot.__enabled then
+                        if getgenv().AutoParryMode == "Keypress" then
+                            System.parry.keypress()
+                        else
+                            System.parry.execute_action()
                         end
-                        
-                        if distance <= parry_accuracy then
-                            if not System.__triggerbot.__enabled and not getgenv().BallVelocityAbove800 then
-                                if not ball:FindFirstChild('ComboCounter') and not LocalPlayer.Character.PrimaryPart:FindFirstChild('SingularityCape') then
-                                    if getgenv().AutoParryMode == "Keypress" then
-                                        System.parry.keypress()
-                                    else
-                                        System.parry.execute_action()
-                                    end
-                                    props.__parried = true
-                                    task.delay(0.5, function() props.__parried = false end)
-                                end
-                            end
-                        end
+                        props.__parried = true
+                        task.delay(0.5, function() props.__parried = false end)
                     end
                 end
             end
         end
 
+        -- Training Ball logic (Optimized)
         if training_ball and not props.__training_parried then
-            local zoomies = training_ball:FindFirstChild('zoomies')
-            if zoomies then
-                local ball_target = training_ball:GetAttribute('target')
-                local distance = (LocalPlayer.Character.PrimaryPart.Position - training_ball.Position).Magnitude
-                local speed = zoomies.VectorVelocity.Magnitude
-                
-                local ping = V7:GetPing()
-                local ping_threshold = math.clamp(ping / 10, 5, 17)
-                local capped_speed_diff = math.min(math.max(speed - 9.5, 0), 650)
-                local speed_divisor = (2.4 + capped_speed_diff * 0.002) * props.__divisor_multiplier
-                local parry_accuracy = ping_threshold + math.max(speed / speed_divisor, 9.5)
-                
-                if ball_target == LocalPlayer.Name and distance <= parry_accuracy then
-                    if getgenv().AutoParryMode == "Keypress" then
-                        System.parry.keypress()
-                    else
-                        System.parry.execute_action()
-                    end
-                    props.__training_parried = true
-                    task.delay(0.5, function() props.__training_parried = false end)
+            local speed = training_ball.AssemblyLinearVelocity.Magnitude
+            local dist = (LocalPlayer.Character.PrimaryPart.Position - training_ball.Position).Magnitude
+            if (dist / speed) <= ((V7:GetPing() / 1000) * props.__divisor_multiplier) then
+                if getgenv().AutoParryMode == "Keypress" then
+                    System.parry.keypress()
+                else
+                    System.parry.execute_action()
                 end
+                props.__training_parried = true
+                task.delay(0.5, function() props.__training_parried = false end)
             end
         end
     end)
