@@ -1,4 +1,4 @@
--- Blade Ball Fast Flags (UwU Edition)
+-- Blade Ball Fast Flags (UwU Edition) 2
 -- Structure inspired by Bloxstrap/Premium scripts
 -- Optimized for Blade Ball performance
 
@@ -103,6 +103,8 @@ local function ApplySimple()
     
     -- FFlags
     ToggleFFlag("DFIntTaskSchedulerTargetFps", 144)
+    ToggleFFlag("FFlagDebugDisplayFPS", true) -- Show FPS
+    
     Notify("UwU FLAGS", "Simple Optimization Applied ✓", 3)
 end
 
@@ -115,7 +117,7 @@ local function ApplyUltra()
         pcall(function()
             if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
                 obj.Enabled = false
-            elseif obj:IsA("PostEffect") or obj:IsA("Explosion") then
+            elseif obj:IsA("PostEffect") or obj:IsA("Explosion") or obj:IsA("Atmosphere") or obj:IsA("Sky") or obj:IsA("Clouds") then
                 obj:Destroy()
             elseif obj:IsA("BasePart") then
                 obj.Material = Enum.Material.SmoothPlastic
@@ -127,9 +129,25 @@ local function ApplyUltra()
     -- FFlags & Hitreg
     ToggleFFlag("DFIntTaskSchedulerTargetFps", 9999)
     ToggleFFlag("FIntRenderShadowIntensity", 0)
+    
+    -- CPU Optimizations
+    ToggleFFlag("FFlagRenderDebugCheckThreading2", true)
+    ToggleFFlag("FFlagMainThreadYielding", true)
+    ToggleFFlag("FFlagMovePrerenderV2", true)
+    ToggleFFlag("FFlagParallelTaskScheduler", true)
+    ToggleFFlag("FIntMainThreadPriority", 3)
+    
+    -- Best Ever / User Requests
+    ToggleFFlag("FFlagVisualEnginePerfImprovement", true)
+    ToggleFFlag("FFlagDebugPauseVoxelizer", true)
+    ToggleFFlag("DFIntTextureQualityOverride", 0)
+    ToggleFFlag("FFlagDebugSkyGray", true) -- Grey Sky
+    ToggleFFlag("FFlagDebugDisplayFPS", true) -- Show FPS
+    ToggleFFlag("DFIntS2PhysicsSenderRate", 1) -- Lag Ball (Desync)
+    
     ApplyHitregFix()
     
-    Notify("UwU FLAGS", "Ultra Optimization Applied ⚡", 3)
+    Notify("UwU FLAGS", "Ultra + CPU Optimization Applied ⚡", 3)
 end
 
 -- === UI CREATION (Glass Pill Style) ===
