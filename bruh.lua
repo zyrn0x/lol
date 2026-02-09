@@ -1,4 +1,4 @@
---UI AI
+--New
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -2792,6 +2792,17 @@ local LobbyAP_Speed_Divisor_Multiplier = 1.1
 local firstParryFired = false
 local ParryThreshold = 2.5
 local firstParryType = 'F_Key'
+local Mobile_GUIs = {}
+local parryTypeMap = {
+    ["Camera"] = "Camera",
+    ["Random"] = "Random",
+    ["Backwards"] = "Backwards",
+    ["Straight"] = "Straight",
+    ["High"] = "High",
+    ["Left"] = "Left",
+    ["Right"] = "Right",
+    ["Random Target"] = "RandomTarget"
+}
 local Previous_Positions = {}
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local VirtualInputService = game:GetService("VirtualInputManager")
@@ -2815,6 +2826,446 @@ local function performFirstPress(parryType)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
         task.wait(0.01)
         updateNavigation(nil)
+    end
+end
+
+local function create_mobile_button(name, position_y, color)
+    local gui = Instance.new('ScreenGui')
+    gui.Name = 'Sigma' .. name .. 'Mobile'
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    local button = Instance.new('TextButton')
+    button.Size = UDim2.new(0, 140, 0, 50)
+    button.Position = UDim2.new(0.5, -70, position_y, 0)
+    button.BackgroundTransparency = 1
+    button.AnchorPoint = Vector2.new(0.5, 0)
+    button.Draggable = true
+    button.AutoButtonColor = false
+    button.ZIndex = 2
+    
+    local bg = Instance.new('Frame')
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3 = _G.Theme.Container
+    bg.Parent = button
+    
+    local corner = Instance.new('UICorner')
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = bg
+    
+    local stroke = Instance.new('UIStroke')
+    stroke.Color = _G.Theme.Accent
+    stroke.Thickness = 1
+    stroke.Transparency = 0.3
+    stroke.Parent = bg
+    
+    local text = Instance.new('TextLabel')
+    text.Size = UDim2.new(1, 0, 1, 0)
+    text.BackgroundTransparency = 1
+    text.Text = name
+    text.FontFace = Font.new('rbxasset://fonts/families/Michroma.json', Enum.FontWeight.Bold, Enum.FontStyle.Normal)
+    text.TextSize = 14
+    text.TextColor3 = _G.Theme.Text
+    text.ZIndex = 3
+    text.Parent = button
+    
+    button.Parent = gui
+    gui.Parent = game:GetService("CoreGui")
+    
+    return {gui = gui, button = button, text = text, bg = bg}
+end
+
+local function destroy_mobile_gui(gui_data)
+    if gui_data and gui_data.gui then
+        gui_data.gui:Destroy()
+    end
+end
+
+local function create_curve_selector_mobile(on_select)
+    local gui = Instance.new('ScreenGui')
+    gui.Name = 'SigmaCurveSelectorMobile'
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    local main_frame = Instance.new('Frame')
+    main_frame.Size = UDim2.new(0, 140, 0, 40)
+    main_frame.Position = UDim2.new(0.5, -70, 0.12, 0)
+    main_frame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    main_frame.BorderSizePixel = 0
+    main_frame.AnchorPoint = Vector2.new(0.5, 0)
+    main_frame.ZIndex = 5
+    main_frame.Parent = gui
+    
+    local main_corner = Instance.new('UICorner')
+    main_corner.CornerRadius = UDim.new(0, 8)
+    main_corner.Parent = main_frame
+    
+    local main_stroke = Instance.new('UIStroke')
+    main_stroke.Color = Color3.fromRGB(60, 60, 60)
+    main_stroke.Thickness = 1
+    main_stroke.Parent = main_frame
+
+    local header = Instance.new('Frame')
+    header.Size = UDim2.new(1, 0, 0, 40)
+    header.BackgroundTransparency = 1
+    header.ZIndex = 6
+    header.Parent = main_frame
+    
+    local header_text = Instance.new('TextLabel')
+    header_text.Size = UDim2.new(1, -35, 1, 0)
+    header_text.Position = UDim2.new(0, 12, 0, 0)
+    header_text.BackgroundTransparency = 1
+    header_text.Text = "CURVE"
+    header_text.Font = Enum.Font.Gotham
+    header_text.TextSize = 11
+    header_text.TextColor3 = Color3.fromRGB(180, 180, 180)
+    header_text.TextXAlignment = Enum.TextXAlignment.Left
+    header_text.ZIndex = 7
+    header_text.Parent = header
+
+    local toggle_btn = Instance.new('TextButton')
+    toggle_btn.Size = UDim2.new(0, 24, 0, 24)
+    toggle_btn.Position = UDim2.new(1, -32, 0.5, -12)
+    toggle_btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    toggle_btn.Text = "−"
+    toggle_btn.Font = Enum.Font.GothamBold
+    toggle_btn.TextSize = 14
+    toggle_btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    toggle_btn.AutoButtonColor = false
+    toggle_btn.ZIndex = 7
+    toggle_btn.Parent = header
+    
+    local toggle_corner = Instance.new('UICorner')
+    toggle_corner.CornerRadius = UDim.new(0, 4)
+    toggle_corner.Parent = toggle_btn
+    
+    local toggle_stroke = Instance.new('UIStroke')
+    toggle_stroke.Color = Color3.fromRGB(50, 50, 50)
+    toggle_stroke.Thickness = 1
+    toggle_stroke.Parent = toggle_btn
+
+    local buttons_container = Instance.new('Frame')
+    buttons_container.Size = UDim2.new(1, -16, 0, 0)
+    buttons_container.Position = UDim2.new(0, 8, 0, 48)
+    buttons_container.BackgroundTransparency = 1
+    buttons_container.ClipsDescendants = true
+    buttons_container.ZIndex = 6
+    buttons_container.Parent = main_frame
+    
+    local list_layout = Instance.new('UIListLayout')
+    list_layout.Padding = UDim.new(0, 4)
+    list_layout.FillDirection = Enum.FillDirection.Vertical
+    list_layout.SortOrder = Enum.SortOrder.LayoutOrder
+    list_layout.Parent = buttons_container
+    
+    local CURVE_TYPES = {
+        {name = "Camera"},
+        {name = "Random"},
+        {name = "Backwards"},
+        {name = "Straight"},
+        {name = "High"},
+        {name = "Left"},
+        {name = "Right"},
+        {name = "Random Target"}
+    }
+    
+    local buttons = {}
+    local current_selected = nil
+    
+    for i, curve_data in ipairs(CURVE_TYPES) do
+        local btn_container = Instance.new('Frame')
+        btn_container.Size = UDim2.new(1, 0, 0, 32)
+        btn_container.BackgroundTransparency = 1
+        btn_container.ZIndex = 7
+        btn_container.LayoutOrder = i
+        btn_container.Parent = buttons_container
+        
+        local btn = Instance.new('TextButton')
+        btn.Size = UDim2.new(1, 0, 1, 0)
+        btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        btn.Text = ""
+        btn.AutoButtonColor = false
+        btn.ZIndex = 8
+        btn.Parent = btn_container
+        
+        local btn_corner = Instance.new('UICorner')
+        btn_corner.CornerRadius = UDim.new(0, 6)
+        btn_corner.Parent = btn
+        
+        local btn_stroke = Instance.new('UIStroke')
+        btn_stroke.Color = Color3.fromRGB(45, 45, 45)
+        btn_stroke.Thickness = 1
+        btn_stroke.Parent = btn
+
+        local indicator = Instance.new('Frame')
+        indicator.Size = UDim2.new(0, 3, 0, 20)
+        indicator.Position = UDim2.new(0, 6, 0.5, -10)
+        indicator.BackgroundColor3 = _G.Theme.Accent
+        indicator.BorderSizePixel = 0
+        indicator.Visible = false
+        indicator.ZIndex = 10
+        indicator.Parent = btn
+        
+        local indicator_corner = Instance.new('UICorner')
+        indicator_corner.CornerRadius = UDim.new(1, 0)
+        indicator_corner.Parent = indicator
+        
+        local btn_text = Instance.new('TextLabel')
+        btn_text.Size = UDim2.new(1, -20, 1, 0)
+        btn_text.Position = UDim2.new(0, 16, 0, 0)
+        btn_text.BackgroundTransparency = 1
+        btn_text.Text = curve_data.name
+        btn_text.Font = Enum.Font.Gotham
+        btn_text.TextSize = 11
+        btn_text.TextColor3 = Color3.fromRGB(150, 150, 150)
+        btn_text.TextXAlignment = Enum.TextXAlignment.Left
+        btn_text.ZIndex = 9
+        btn_text.Parent = btn
+        
+        buttons[i] = {
+            button = btn, 
+            stroke = btn_stroke, 
+            text = btn_text,
+            indicator = indicator,
+            container = btn_container
+        }
+        
+        local touch_start = 0
+        local was_dragged = false
+        
+        btn.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                touch_start = tick()
+                was_dragged = false
+            end
+        end)
+        
+        btn.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                if (tick() - touch_start) > 0.1 then
+                    was_dragged = true
+                end
+            end
+        end)
+        
+        btn.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch and not was_dragged then
+                if on_select then on_select(curve_data.name) end
+
+                if current_selected then
+                    game:GetService("TweenService"):Create(current_selected.button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                        BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+                    }):Play()
+                    game:GetService("TweenService"):Create(current_selected.text, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                        TextColor3 = Color3.fromRGB(150, 150, 150)
+                    }):Play()
+                    game:GetService("TweenService"):Create(current_selected.stroke, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                        Color = Color3.fromRGB(45, 45, 45)
+                    }):Play()
+                    current_selected.indicator.Visible = false
+                end
+
+                game:GetService("TweenService"):Create(btn, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                    BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                }):Play()
+                game:GetService("TweenService"):Create(btn_text, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                    TextColor3 = Color3.fromRGB(255, 255, 255)
+                }):Play()
+                game:GetService("TweenService"):Create(btn_stroke, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                    Color = Color3.fromRGB(255, 255, 255)
+                }):Play()
+                indicator.Visible = true
+                
+                current_selected = buttons[i]
+            end
+        end)
+    end
+
+    local is_expanded = true
+    local expanded_height = 48 + (#CURVE_TYPES * 32) + ((#CURVE_TYPES - 1) * 4) + 12
+    local minimized_height = 40
+    
+    buttons_container.Size = UDim2.new(1, -16, 0, (#CURVE_TYPES * 32) + ((#CURVE_TYPES - 1) * 4))
+    main_frame.Size = UDim2.new(0, 140, 0, expanded_height)
+    
+    toggle_btn.MouseButton1Click:Connect(function()
+        is_expanded = not is_expanded
+        toggle_btn.Text = is_expanded and "−" or "+"
+        
+        game:GetService("TweenService"):Create(main_frame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 140, 0, is_expanded and expanded_height or minimized_height)
+        }):Play()
+        
+        game:GetService("TweenService"):Create(buttons_container, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2.new(1, -16, 0, is_expanded and (#CURVE_TYPES * 32) + ((#CURVE_TYPES - 1) * 4) or 0)
+        }):Play()
+    end)
+
+    local drag_start = nil
+    local start_pos = nil
+    local is_dragging = false
+    
+    header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            drag_start = input.Position
+            start_pos = main_frame.Position
+            is_dragging = true
+        end
+    end)
+    
+    header.InputChanged:Connect(function(input)
+        if is_dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+            local delta = input.Position - drag_start
+            main_frame.Position = UDim2.new(
+                start_pos.X.Scale,
+                start_pos.X.Offset + delta.X,
+                start_pos.Y.Scale,
+                start_pos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    
+    header.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            is_dragging = false
+        end
+    end)
+    
+    gui.Parent = game:GetService("CoreGui")
+    
+    return {gui = gui, main_frame = main_frame, buttons = buttons}
+end
+
+-- Avatar Changer Helpers
+local __currentDesc = nil
+local __targetUserId = nil
+local __persistent_tasks = {}
+
+local function __descriptions_match(a, b)
+    if not a or not b then return false end
+    local keys = {"Shirt", "Pants", "ShirtGraphic", "Head", "Face", "BodyTypeScale", "HeightScale", "WidthScale", "DepthScale", "ProportionScale"}
+    for _,k in ipairs(keys) do
+        local av = a[k]
+        local bv = b[k]
+        if (av ~= nil and bv ~= nil) and tostring(av) ~= tostring(bv) then
+            return false
+        end
+    end
+    return true
+end
+
+local function __force_apply_brutal(hum, desc)
+    if not hum or not desc then return false end
+    for _ = 1, 20 do
+        pcall(function() hum:ApplyDescriptionClientServer(desc) end)
+        task.wait(0.05)
+        local applied = nil
+        pcall(function() applied = hum:GetAppliedDescription() end)
+        if applied and __descriptions_match(applied, desc) then return true end
+    end
+    pcall(function() hum.Description = Instance.new("HumanoidDescription") end)
+    task.wait(0.1)
+    for _ = 1, 20 do
+        pcall(function() hum:ApplyDescriptionClientServer(desc) end)
+        task.wait(0.05)
+        local applied = nil
+        pcall(function() applied = hum:GetAppliedDescription() end)
+        if applied and __descriptions_match(applied, desc) then return true end
+    end
+    local parent = hum.Parent
+    local root = parent and parent:FindFirstChild("HumanoidRootPart")
+    if root and parent then
+        local old = hum
+        local success, newHum = pcall(function()
+            local nh = Instance.new("Humanoid")
+            nh.Name = "Humanoid"
+            nh.Parent = parent
+            return nh
+        end)
+        task.wait(0.05)
+        if success and newHum then
+            pcall(function() old:Destroy() end)
+            hum = newHum
+            task.wait(0.05)
+        end
+    end
+    for _ = 1, 80 do
+        pcall(function() hum:ApplyDescriptionClientServer(desc) end)
+        task.wait(0.05)
+        local applied = nil
+        pcall(function() applied = hum:GetAppliedDescription() end)
+        if applied and __descriptions_match(applied, desc) then return true end
+    end
+    return false
+end
+
+local function __apparence(__name)
+    local s, desc, id = pcall(function()
+        local __id = game:GetService("Players"):GetUserIdFromNameAsync(__name)
+        return game:GetService("Players"):GetHumanoidDescriptionFromUserId(__id), __id
+    end)
+    if not s then return nil, nil end
+    return desc, id
+end
+
+local function __start_persistent_reapply(character, desc)
+    if not character or not desc then return end
+    local charKey = character
+    if __persistent_tasks[charKey] then return end
+    local stop = false
+    __persistent_tasks[charKey] = { stop = function() stop = true end }
+    task.spawn(function()
+        while not stop and character and character.Parent do
+            local hum = character:FindFirstChildOfClass("Humanoid")
+            if hum then
+                local current = nil
+                pcall(function() current = hum:GetAppliedDescription() end)
+                if not current or not __descriptions_match(current, desc) then
+                    __force_apply_brutal(hum, desc)
+                end
+            end
+            task.wait(2)
+        end
+        __persistent_tasks[charKey] = nil
+    end)
+end
+
+-- Skin Changer Helpers
+local swordInstancesInstance = ReplicatedStorage:WaitForChild("Shared",9e9):WaitForChild("ReplicatedInstances",9e9):WaitForChild("Swords",9e9)
+local swordInstances = require(swordInstancesInstance)
+local swordsController
+
+task.spawn(function()
+    while task.wait() and (not swordsController) do
+        for i,v in getconnections(ReplicatedStorage.Remotes.FireSwordInfo.OnClientEvent) do
+            if v.Function and islclosure(v.Function) then
+                local upvalues = getupvalues(v.Function)
+                if #upvalues == 1 and type(upvalues[1]) == "table" then
+                    swordsController = upvalues[1]
+                    break
+                end
+            end
+        end
+    end
+end)
+
+local function getSlashName(swordName)
+    local slashName = swordInstances:GetSword(swordName)
+    return (slashName and slashName.SlashName) or "SlashEffect"
+end
+
+local function setSword()
+    if not getgenv().skinChangerEnabled then return end
+    pcall(function()
+        setupvalue(rawget(swordInstances,"EquipSwordTo"),3,false)
+    end)
+    if getgenv().changeSwordModel then
+        swordInstances:EquipSwordTo(Player.Character, getgenv().swordModel)
+    end
+    if getgenv().changeSwordAnimation and swordsController then
+        swordsController:SetSword(getgenv().swordAnimations)
     end
 end
 
@@ -3003,7 +3454,6 @@ getgenv().skinChanger = false
 getgenv().swordModel = ""
 getgenv().swordAnimations = ""
 getgenv().swordFX = ""
-
 
 local print = function() end
 
@@ -4034,16 +4484,6 @@ do
         end
     })
 
-    local parryTypeMap = {
-        ["Camera"] = "Camera",
-        ["Random"] = "Random",
-        ["Backwards"] = "Backwards",
-        ["Straight"] = "Straight",
-        ["High"] = "High",
-        ["Left"] = "Left",
-        ["Right"] = "Right",
-        ["Random Target"] = "RandomTarget"
-    }
 
     local dropdown = module:create_dropdown({
         title = 'Parry Type',
@@ -4440,134 +4880,80 @@ do
     })
 
     local ManualSpam = rage:create_module({
-        title = 'Manual Spam Parry',
-        flag = 'Manual_Spam_Parry',
-        description = 'Manually Spams Parry',
-        section = 'right',
-        callback = function(value: boolean)
-            if getgenv().ManualSpamNotify then
-                if value then
-                    Library.SendNotification({
-                        title = "Module Notification",
-                        text = "Manual Spam Parry turned ON",
-                        duration = 3
-                    })
-                else
-                    Library.SendNotification({
-                        title = "Module Notification",
-                        text = "Manual Spam Parry turned OFF",
-                        duration = 3
-                    })
-                end
-            end
-            if value then
-                Connections_Manager['Manual Spam'] = RunService.PreSimulation:Connect(function()
-                    if getgenv().spamui then
-                        return
-                    end
-
-                    if getgenv().ManualSpamKeypress then
-                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
-                    else
-                        Auto_Parry.Parry(Selected_Parry_Type)
-                    end
-
-                end)
-            else
-                if Connections_Manager['Manual Spam'] then
-                    Connections_Manager['Manual Spam']:Disconnect()
-                    Connections_Manager['Manual Spam'] = nil
-                end
-            end
-        end
-    })
-    
-    ManualSpam:change_state(false)
-
-    if isMobile then
-        ManualSpam:create_checkbox({
-            title = "UI",
-            flag = "Manual_Spam_UI",
-            callback = function(value: boolean)
-                getgenv().spamui = value
-        
-                if value then
-                    local gui = Instance.new("ScreenGui")
-                    gui.Name = "ManualSpamUI"
-                    gui.ResetOnSpawn = false
-                    gui.Parent = game.CoreGui
-        
-                    local frame = Instance.new("Frame")
-                    frame.Name = "MainFrame"
-                    frame.Position = UDim2.new(0, 20, 0, 20)
-                    frame.Size = UDim2.new(0, 200, 0, 100)
-                    frame.BackgroundColor3 = Color3.fromRGB(10, 10, 50)
-                    frame.BackgroundTransparency = 0.3
-                    frame.BorderSizePixel = 0
-                    frame.Active = true
-                    frame.Draggable = true
-                    frame.Parent = gui
-        
-                    local uiCorner = Instance.new("UICorner")
-                    uiCorner.CornerRadius = UDim.new(0, 12)
-                    uiCorner.Parent = frame
-        
-                    local uiStroke = Instance.new("UIStroke")
-                    uiStroke.Thickness = 2
-                    uiStroke.Color = Color3.new(0, 0, 0)
-                    uiStroke.Parent = frame
-        
-                    local button = Instance.new("TextButton")
-                    button.Name = "ClashModeButton"
-                    button.Text = "Clash Mode"
-                    button.Size = UDim2.new(0, 160, 0, 40)
-                    button.Position = UDim2.new(0.5, -80, 0.5, -20)
-                    button.BackgroundTransparency = 1
-                    button.BorderSizePixel = 0
-                    button.Font = Enum.Font.GothamSemibold
-                    button.TextColor3 = Color3.new(1, 1, 1)
-                    button.TextSize = 22
-                    button.Parent = frame
-        
-                    local activated = false
-        
-                    local function toggle()
-                        activated = not activated
-                        button.Text = activated and "Stop" or "Clash Mode"
-                        if activated then
-                            Connections_Manager['Manual Spam UI'] = game:GetService("RunService").Heartbeat:Connect(function()
-                                Auto_Parry.Parry(Selected_Parry_Type)
-                            end)
-                        else
-                            if Connections_Manager['Manual Spam UI'] then
-                                Connections_Manager['Manual Spam UI']:Disconnect()
-                                Connections_Manager['Manual Spam UI'] = nil
+        title = "Manual Spam",
+        description = "High-frequency parry spam",
+        flag = "manualspam",
+        section = "right",
+        callback = function(state)
+            if isMobile then
+                if state then
+                    if not Mobile_GUIs.manual_spam then
+                        local manual_spam_mobile = create_mobile_button('Spam', 0.8, Color3.fromRGB(255, 255, 255))
+                        Mobile_GUIs.manual_spam = manual_spam_mobile
+                        
+                        local manual_touch_start = 0
+                        local manual_was_dragged = false
+                        
+                        manual_spam_mobile.button.InputBegan:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.Touch then
+                                manual_touch_start = tick()
+                                manual_was_dragged = false
                             end
-                        end
+                        end)
+                        
+                        manual_spam_mobile.button.InputChanged:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.Touch then
+                                if (tick() - manual_touch_start) > 0.1 then
+                                    manual_was_dragged = true
+                                end
+                            end
+                        end)
+                        
+                        manual_spam_mobile.button.InputEnded:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.Touch and not manual_was_dragged then
+                                getgenv().manual_spam_active = not getgenv().manual_spam_active
+                                
+                                if getgenv().manual_spam_active then
+                                    manual_spam_mobile.text.Text = "ON"
+                                    manual_spam_mobile.text.TextColor3 = Color3.fromRGB(0, 255, 100)
+                                else
+                                    manual_spam_mobile.text.Text = "Spam"
+                                    manual_spam_mobile.text.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                end
+                                
+                                if getgenv().ManualSpamNotify then
+                                    Library.SendNotification({
+                                        title = "Manual Spam",
+                                        text = getgenv().manual_spam_active and "ON" or "OFF",
+                                        duration = 2
+                                    })
+                                end
+                            end
+                        end)
                     end
-        
-                    button.MouseButton1Click:Connect(toggle)
                 else
-                    if game.CoreGui:FindFirstChild("ManualSpamUI") then
-                        game.CoreGui:FindFirstChild("ManualSpamUI"):Destroy()
-                    end
-        
-                    if Connections_Manager['Manual Spam UI'] then
-                        Connections_Manager['Manual Spam UI']:Disconnect()
-                        Connections_Manager['Manual Spam UI'] = nil
-                    end
+                    getgenv().manual_spam_active = false
+                    destroy_mobile_gui(Mobile_GUIs.manual_spam)
+                    Mobile_GUIs.manual_spam = nil
+                end
+            else
+                getgenv().manual_spam_active = state
+                if getgenv().ManualSpamNotify then
+                    Library.SendNotification({
+                        title = "Manual Spam",
+                        text = state and "ON" or "OFF",
+                        duration = 2
+                    })
                 end
             end
-        })
-    end
-    
-    ManualSpam:create_checkbox({
-        title = "Keypress",
-        flag = "Manual_Spam_Keypress",
-        callback = function(value: boolean)
-            getgenv().ManualSpamKeypress = value
         end
     })
+
+    RunService.PreSimulation:Connect(function()
+        if getgenv().manual_spam_active then
+            Auto_Parry.Parry(Selected_Parry_Type)
+        end
+    end)
     
     ManualSpam:create_checkbox({
         title = "Notify",
@@ -4583,73 +4969,69 @@ do
         description = 'Instantly hits ball when targeted',
         section = 'left',
         callback = function(value: boolean)
-            if getgenv().TriggerbotNotify then
+            getgenv().triggerbot_enabled = value
+            if isMobile then
                 if value then
-                    Library.SendNotification({
-                        title = "Module Notification",
-                        text = "Triggerbot turned ON",
-                        duration = 3
-                    })
-                else
-                    Library.SendNotification({
-                        title = "Module Notification",
-                        text = "Triggerbot turned OFF",
-                        duration = 3
-                    })
-                end
-            end
-            if value then
-                Connections_Manager['Triggerbot'] = RunService.PreSimulation:Connect(function()
-                    local Balls = Auto_Parry.Get_Balls()
-        
-                    for _, Ball in pairs(Balls) do
-                        if not Ball then
-                            return
-                        end
+                    if not Mobile_GUIs.triggerbot then
+                        local triggerbot_mobile = create_mobile_button('Trigger', 0.8, Color3.fromRGB(255, 255, 255))
+                        Mobile_GUIs.triggerbot = triggerbot_mobile
                         
-                        Ball:GetAttributeChangedSignal('target'):Once(function()
-                            TriggerbotParried = false
-                        end)
-    
-                        if TriggerbotParried then
-                            return
-                        end
-
-                        local Ball_Target = Ball:GetAttribute('target')
-                        local Singularity_Cape = Player.Character.PrimaryPart:FindFirstChild('SingularityCape')
-            
-                        if Singularity_Cape then 
-                            return
-                        end 
-                    
-                        if getgenv().TriggerbotInfinityDetection and Infinity then
-                            return
-                        end
-        
-                        if Ball_Target == tostring(Player) then
-                            if getgenv().TriggerbotKeypress then
-                                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
-                            else
-                                Auto_Parry.Parry(Selected_Parry_Type)
+                        local trigger_touch_start = 0
+                        local trigger_was_dragged = false
+                        
+                        triggerbot_mobile.button.InputBegan:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.Touch then
+                                trigger_touch_start = tick()
+                                trigger_was_dragged = false
                             end
-                            TriggerbotParried = true
-                        end
-                        local Triggerbot_Last_Parrys = tick()
-                        repeat
-                            RunService.PreSimulation:Wait()
-                        until (tick() - Triggerbot_Last_Parrys) >= 1 or not TriggerbotParried
-                        TriggerbotParried = false
+                        end)
+                        
+                        triggerbot_mobile.button.InputChanged:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.Touch then
+                                if (tick() - trigger_touch_start) > 0.1 then
+                                    trigger_was_dragged = true
+                                end
+                            end
+                        end)
+                        
+                        triggerbot_mobile.button.InputEnded:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.Touch and not trigger_was_dragged then
+                                getgenv().triggerbot_active = not getgenv().triggerbot_active
+                                
+                                if getgenv().triggerbot_active then
+                                    triggerbot_mobile.text.Text = "ON"
+                                    triggerbot_mobile.text.TextColor3 = Color3.fromRGB(0, 255, 100)
+                                else
+                                    triggerbot_mobile.text.Text = "Trigger"
+                                    triggerbot_mobile.text.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                end
+                            end
+                        end)
                     end
-    
-                end)
-            else
-                if Connections_Manager['Triggerbot'] then
-                    Connections_Manager['Triggerbot']:Disconnect()
-                    Connections_Manager['Triggerbot'] = nil
+                else
+                    getgenv().triggerbot_active = false
+                    destroy_mobile_gui(Mobile_GUIs.triggerbot)
+                    Mobile_GUIs.triggerbot = nil
                 end
+            else
+                getgenv().triggerbot_active = value
             end
         end
     })
+
+    task.spawn(function()
+        while task.wait() do
+            if getgenv().triggerbot_enabled and getgenv().triggerbot_active then
+                local Balls = Auto_Parry.Get_Balls()
+                for _, Ball in pairs(Balls) do
+                    if Ball and Ball:GetAttribute('target') == Player.Name then
+                        Auto_Parry.Parry(Selected_Parry_Type)
+                        task.wait(0.5) -- Anti-spam for triggerbot
+                    end
+                end
+            end
+        end
+    end)
 
     Triggerbot:create_checkbox({
         title = "Infinity Detection",
@@ -4676,12 +5058,31 @@ do
     })
 
     local HotkeyParryType = rage:create_module({
-        title = 'Hotkey Parry Type',
+        title = 'Hotkey Parry Type' .. (isMobile and ' (Mobile)' or ' (PC)'),
         flag = 'HotkeyParryType',
         description = 'Allows Hotkey Parry Type',
         section = 'left',
         callback = function(value: boolean)
             getgenv().HotkeyParryType = value
+            if isMobile then
+                if value then
+                    if not Mobile_GUIs.curve_selector then
+                        Mobile_GUIs.curve_selector = create_curve_selector_mobile(function(newType)
+                            Selected_Parry_Type = parryTypeMap[newType] or newType
+                            if getgenv().HotkeyParryTypeNotify then
+                                Library.SendNotification({
+                                    title = "AutoCurve",
+                                    text = newType,
+                                    duration = 2
+                                })
+                            end
+                        end)
+                    end
+                else
+                    destroy_mobile_gui(Mobile_GUIs.curve_selector)
+                    Mobile_GUIs.curve_selector = nil
+                end
+            end
         end
     })
 
@@ -5402,6 +5803,138 @@ do
             end
         end
     })
+
+    local SkinChanger = player:create_module({
+        title = 'Skin Changer',
+        flag = 'SkinChanger',
+        description = 'Skin Changer',
+        section = 'left',
+        callback = function(value: boolean)
+            getgenv().skinChangerEnabled = value
+            if value then
+                if getgenv().updateSword then getgenv().updateSword() end
+            end
+        end
+    })
+
+    getgenv().updateSword = function()
+        if getgenv().changeSwordFX then
+            getgenv().slashName = getSlashName(getgenv().swordFX)
+        end
+        setSword()
+    end
+
+    task.spawn(function()
+        while task.wait(1) do
+            if getgenv().skinChangerEnabled and getgenv().changeSwordModel then
+                local char = Player.Character or Player.CharacterAdded:Wait()
+                if Player:GetAttribute("CurrentlyEquippedSword") ~= getgenv().swordModel then
+                    setSword()
+                end
+                if char and (not char:FindFirstChild(getgenv().swordModel)) then
+                    setSword()
+                end
+                for _,v in (char and char:GetChildren()) or {} do
+                    if v:IsA("Model") and v.Name ~= getgenv().swordModel then
+                        v:Destroy()
+                    end
+                    task.wait()
+                end
+            end
+        end
+    end)
+
+    SkinChanger:create_checkbox({
+        title = "Change Sword Model",
+        flag = "ChangeSwordModel",
+        callback = function(value: boolean)
+            getgenv().changeSwordModel = value
+            if getgenv().skinChangerEnabled then
+                getgenv().updateSword()
+            end
+        end
+    })
+
+    SkinChanger:create_textbox({
+        title = "Sword Model Name",
+        placeholder = "Enter Sword Name...",
+        flag = "SwordModelTextbox",
+        callback = function(text)
+            getgenv().swordModel = text
+            if getgenv().skinChangerEnabled and getgenv().changeSwordModel then
+                getgenv().updateSword()
+            end
+        end
+    })
+
+    SkinChanger:create_checkbox({
+        title = "Change Sword Animation",
+        flag = "ChangeSwordAnimation",
+        callback = function(value: boolean)
+            getgenv().changeSwordAnimation = value
+            if getgenv().skinChangerEnabled then
+                getgenv().updateSword()
+            end
+        end
+    })
+
+    SkinChanger:create_textbox({
+        title = "Sword Animation Name",
+        placeholder = "Enter Animation Name...",
+        flag = "SwordAnimationTextbox",
+        callback = function(text)
+            getgenv().swordAnimations = text
+            if getgenv().skinChangerEnabled and getgenv().changeSwordAnimation then
+                getgenv().updateSword()
+            end
+        end
+    })
+
+    local AvatarChanger = player:create_module({
+        title = 'Avatar Changer',
+        flag = 'AvatarChanger',
+        description = 'Avatar Changer',
+        section = 'right',
+        callback = function(value)
+            getgenv().AvatarChangerEnabled = value
+            if value then
+                if __currentDesc then
+                    local char = Player.Character
+                    if char then __start_persistent_reapply(char, __currentDesc) end
+                end
+            else
+                for _, task in pairs(__persistent_tasks) do
+                    if task.stop then task.stop() end
+                end
+                __persistent_tasks = {}
+                -- Trigger respawn or manual revert if needed, but usually just stopping is enough
+            end
+        end
+    })
+
+    AvatarChanger:create_textbox({
+        title = "Target Username",
+        placeholder = "Username...",
+        flag = "AvatarTarget",
+        callback = function(val)
+            if val == "" then return end
+            local desc, id = __apparence(val)
+            if desc then
+                __currentDesc = desc
+                __targetUserId = id
+                if getgenv().AvatarChangerEnabled then
+                    local char = Player.Character
+                    if char then __start_persistent_reapply(char, desc) end
+                end
+            end
+        end
+    })
+
+    Player.CharacterAdded:Connect(function(char)
+        if getgenv().AvatarChangerEnabled and __currentDesc then
+            __start_persistent_reapply(char, __currentDesc)
+        end
+    end)
 
     local fly = player:create_module({
         title = "Fly",
