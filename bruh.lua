@@ -1,4 +1,4 @@
---UI AI
+--UI triggerbot an autohotkey
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -4642,6 +4642,59 @@ do
         end
     })
 
+    local function StartTriggerbot()
+        if Connections_Manager['Triggerbot'] then return end
+        Connections_Manager['Triggerbot'] = RunService.PreSimulation:Connect(function()
+            local Balls = Auto_Parry.Get_Balls()
+
+            for _, Ball in pairs(Balls) do
+                if not Ball then
+                    return
+                end
+                
+                Ball:GetAttributeChangedSignal('target'):Once(function()
+                    TriggerbotParried = false
+                end)
+
+                if TriggerbotParried then
+                    return
+                end
+
+                local Ball_Target = Ball:GetAttribute('target')
+                local Singularity_Cape = Player.Character.PrimaryPart:FindFirstChild('SingularityCape')
+    
+                if Singularity_Cape then 
+                    return
+                end 
+            
+                if getgenv().TriggerbotInfinityDetection and Infinity then
+                    return
+                end
+
+                if Ball_Target == tostring(Player) then
+                    if getgenv().TriggerbotKeypress then
+                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
+                    else
+                        Auto_Parry.Parry(Selected_Parry_Type)
+                    end
+                    TriggerbotParried = true
+                end
+                local Triggerbot_Last_Parrys = tick()
+                repeat
+                    RunService.PreSimulation:Wait()
+                until (tick() - Triggerbot_Last_Parrys) >= 1 or not TriggerbotParried
+                TriggerbotParried = false
+            end
+        end)
+    end
+
+    local function StopTriggerbot()
+        if Connections_Manager['Triggerbot'] then
+            Connections_Manager['Triggerbot']:Disconnect()
+            Connections_Manager['Triggerbot'] = nil
+        end
+    end
+
     local Triggerbot = rage:create_module({
         title = 'Triggerbot',
         flag = 'Triggerbot',
@@ -4663,54 +4716,61 @@ do
                     })
                 end
             end
-            if value then
-                Connections_Manager['Triggerbot'] = RunService.PreSimulation:Connect(function()
-                    local Balls = Auto_Parry.Get_Balls()
-        
-                    for _, Ball in pairs(Balls) do
-                        if not Ball then
-                            return
-                        end
-                        
-                        Ball:GetAttributeChangedSignal('target'):Once(function()
-                            TriggerbotParried = false
-                        end)
-    
-                        if TriggerbotParried then
-                            return
-                        end
 
-                        local Ball_Target = Ball:GetAttribute('target')
-                        local Singularity_Cape = Player.Character.PrimaryPart:FindFirstChild('SingularityCape')
-            
-                        if Singularity_Cape then 
-                            return
-                        end 
-                    
-                        if getgenv().TriggerbotInfinityDetection and Infinity then
-                            return
-                        end
-        
-                        if Ball_Target == tostring(Player) then
-                            if getgenv().TriggerbotKeypress then
-                                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
-                            else
-                                Auto_Parry.Parry(Selected_Parry_Type)
+            if isMobile then
+                if value then
+                    if not SpamSystem.__properties.__mobile_guis.triggerbot then
+                        local btn = create_mobile_button('Trigger', 0.65, Color3.fromRGB(255, 100, 0))
+                        SpamSystem.__properties.__mobile_guis.triggerbot = btn
+                        
+                        local touch_start = 0
+                        local was_dragged = false
+                        
+                        btn.button.InputBegan:Connect(function(input) 
+                            if input.UserInputType == Enum.UserInputType.Touch then touch_start = tick(); was_dragged = false end 
+                        end)
+                        
+                        btn.button.InputChanged:Connect(function(input) 
+                            if input.UserInputType == Enum.UserInputType.Touch and (tick() - touch_start) > 0.1 then was_dragged = true end 
+                        end)
+                        
+                        btn.button.InputEnded:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.Touch and not was_dragged then
+                                SpamSystem.__properties.__triggerbot_enabled = not SpamSystem.__properties.__triggerbot_enabled
+                                
+                                if SpamSystem.__properties.__triggerbot_enabled then
+                                    StartTriggerbot()
+                                    btn.text.Text = "ON"
+                                    btn.text.TextColor3 = Color3.fromRGB(0, 255, 100)
+                                else
+                                    StopTriggerbot()
+                                    btn.text.Text = "Trigger"
+                                    btn.text.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                end
+                                
+                                if getgenv().TriggerbotNotify then 
+                                    Library.SendNotification({
+                                        title = "Triggerbot",
+                                        text = SpamSystem.__properties.__triggerbot_enabled and "ON" or "OFF",
+                                        duration = 2
+                                    })
+                                end
                             end
-                            TriggerbotParried = true
-                        end
-                        local Triggerbot_Last_Parrys = tick()
-                        repeat
-                            RunService.PreSimulation:Wait()
-                        until (tick() - Triggerbot_Last_Parrys) >= 1 or not TriggerbotParried
-                        TriggerbotParried = false
+                        end)
                     end
-    
-                end)
+                else
+                    if SpamSystem.__properties.__mobile_guis.triggerbot then
+                        destroy_mobile_gui(SpamSystem.__properties.__mobile_guis.triggerbot)
+                        SpamSystem.__properties.__mobile_guis.triggerbot = nil
+                    end
+                    StopTriggerbot()
+                    SpamSystem.__properties.__triggerbot_enabled = false
+                end
             else
-                if Connections_Manager['Triggerbot'] then
-                    Connections_Manager['Triggerbot']:Disconnect()
-                    Connections_Manager['Triggerbot'] = nil
+                if value then
+                    StartTriggerbot()
+                else
+                    StopTriggerbot()
                 end
             end
         end
@@ -4747,6 +4807,55 @@ do
         section = 'left',
         callback = function(value: boolean)
             getgenv().HotkeyParryType = value
+            
+            if isMobile then
+                if value then
+                    if not SpamSystem.__properties.__mobile_guis.hotkey then
+                        local btn = create_mobile_button('Type: ' .. (Selected_Parry_Type or 'Camera'), 0.5, Color3.fromRGB(0, 100, 255))
+                        SpamSystem.__properties.__mobile_guis.hotkey = btn
+                        
+                        local parry_types = {'Camera', 'Random', 'Backwards', 'Straight', 'High', 'Left', 'Right', 'Random Target'}
+                        local touch_start = 0
+                        local was_dragged = false
+
+                         btn.button.InputBegan:Connect(function(input) 
+                            if input.UserInputType == Enum.UserInputType.Touch then touch_start = tick(); was_dragged = false end 
+                        end)
+                        
+                        btn.button.InputChanged:Connect(function(input) 
+                            if input.UserInputType == Enum.UserInputType.Touch and (tick() - touch_start) > 0.1 then was_dragged = true end 
+                        end)
+                        
+                        btn.button.InputEnded:Connect(function(input)
+                            if input.UserInputType == Enum.UserInputType.Touch and not was_dragged then
+                                -- Cycle functionality
+                                local current_index = table.find(parry_types, Selected_Parry_Type) or 1
+                                local next_index = (current_index % #parry_types) + 1
+                                local next_type = parry_types[next_index]
+                                
+                                Selected_Parry_Type = next_type
+                                btn.text.Text = 'Type: ' .. next_type
+                                
+                                -- Update the main dropdown if possible (assuming 'dropdown' is visible or we just set the global)
+                                -- Note: 'dropdown' is local in the create_dropdown scope. We might not be able to update it UI-wise, but the logic updates.
+                                
+                                if getgenv().HotkeyParryTypeNotify then
+                                    Library.SendNotification({
+                                        title = "Module Notification",
+                                        text = "Parry Type changed to " .. next_type,
+                                        duration = 2
+                                    })
+                                end
+                            end
+                        end)
+                    end
+                else
+                    if SpamSystem.__properties.__mobile_guis.hotkey then
+                        destroy_mobile_gui(SpamSystem.__properties.__mobile_guis.hotkey)
+                        SpamSystem.__properties.__mobile_guis.hotkey = nil
+                    end
+                end
+            end
         end
     })
 
