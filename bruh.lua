@@ -1,4 +1,4 @@
---UI fix ap
+--UI seliware fix
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -182,7 +182,12 @@ function AcrylicBlur.new(object: GuiObject)
         _root = nil
     }, AcrylicBlur)
 
-    self:setup()
+    -- Disable for Seliware to prevent crashes
+    if not isSeliware then
+        pcall(function()
+            self:setup()
+        end)
+    end
 
     return self
 end
@@ -6384,21 +6389,29 @@ do
     })
 
     local hue = 0
+    local frame_counter = 0
+    local update_interval = isSeliware and 3 or 1 -- Update every 3 frames on Seliware, every frame otherwise
+    
     game:GetService("RunService").Heartbeat:Connect(function()
+        frame_counter = frame_counter + 1
+        if frame_counter % update_interval ~= 0 then return end
+        
         if getgenv().BallTrailEnabled then
-            for _, ball in pairs(Auto_Parry.Get_Balls()) do
-                local trail = ball:FindFirstChild("Trail")
-                if trail then
-                    if getgenv().BallTrailRainbowEnabled then
-                        hue = (hue + 1) % 360
-                        local newColor = Color3.fromHSV(hue / 360, 1, 1)
-                        trail.Color = ColorSequence.new(newColor)
-                        getgenv().BallTrailColor = newColor
-                    else
-                        trail.Color = ColorSequence.new(getgenv().BallTrailColor or Color3.new(1, 1, 1))
+            pcall(function()
+                for _, ball in pairs(Auto_Parry.Get_Balls()) do
+                    local trail = ball:FindFirstChild("Trail")
+                    if trail then
+                        if getgenv().BallTrailRainbowEnabled then
+                            hue = (hue + 1) % 360
+                            local newColor = Color3.fromHSV(hue / 360, 1, 1)
+                            trail.Color = ColorSequence.new(newColor)
+                            getgenv().BallTrailColor = newColor
+                        else
+                            trail.Color = ColorSequence.new(getgenv().BallTrailColor or Color3.new(1, 1, 1))
+                        end
                     end
                 end
-            end
+            end)
         end
     end)
 
@@ -6406,21 +6419,22 @@ do
 
     function qolPlayerNameVisibility()
         local function createBillboardGui(p)
-            local character = p.Character
-    
-            while (not character) or (not character.Parent) do
-                task.wait()
-                character = p.Character
-            end
-    
-            local head = character:WaitForChild("Head")
-    
-            local billboardGui = Instance.new("BillboardGui")
-            billboardGui.Adornee = head
-            billboardGui.Size = UDim2.new(0, 200, 0, 50)
-            billboardGui.StudsOffset = Vector3.new(0, 3, 0)
-            billboardGui.AlwaysOnTop = true
-            billboardGui.Parent = head
+            pcall(function()
+                local character = p.Character
+        
+                while (not character) or (not character.Parent) do
+                    task.wait()
+                    character = p.Character
+                end
+        
+                local head = character:WaitForChild("Head")
+        
+                local billboardGui = Instance.new("BillboardGui")
+                billboardGui.Adornee = head
+                billboardGui.Size = UDim2.new(0, 200, 0, 50)
+                billboardGui.StudsOffset = Vector3.new(0, 3, 0)
+                billboardGui.AlwaysOnTop = true
+                billboardGui.Parent = head
     
             local textLabel = Instance.new("TextLabel")
             textLabel.Size = UDim2.new(1, 0, 1, 0)
@@ -6439,14 +6453,14 @@ do
                 humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
             end
     
-            local heartbeatConnection
-            heartbeatConnection = RunService.Heartbeat:Connect(function()
-                if not (character and character.Parent) then
-                    heartbeatConnection:Disconnect()
-                    billboardGui:Destroy()
-                    billboardLabels[p] = nil
-                    return
-                end
+                local heartbeatConnection
+                heartbeatConnection = RunService.Heartbeat:Connect(function()
+                    if not (character and character.Parent) then
+                        heartbeatConnection:Disconnect()
+                        if billboardGui then pcall(function() billboardGui:Destroy() end) end
+                        billboardLabels[p] = nil
+                        return
+                    end
     
                 if getgenv().AbilityESP then
                     textLabel.Visible = true
@@ -6454,11 +6468,12 @@ do
                     if abilityName then
                         textLabel.Text = p.DisplayName .. " [" .. abilityName .. "]"
                     else
-                        textLabel.Text = p.DisplayName
+                               textLabel.Text = p.DisplayName
+                        end
+                    else
+                        textLabel.Visible = false
                     end
-                else
-                    textLabel.Visible = false
-                end
+                end)
             end)
         end
     
