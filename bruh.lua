@@ -1,4 +1,4 @@
---UI autohotkey fix
+--UI fix ap
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -4249,7 +4249,6 @@ do
                     Auto_Parry.Closest_Player()
 
                     local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
-
                     local Ping_Threshold = math.clamp(Ping / 10, 1, 16)
 
                     local Ball_Target = Ball:GetAttribute('target')
@@ -4262,6 +4261,10 @@ do
                         Entity_Properties = Entity_Properties,
                         Ping = Ping_Threshold
                     })
+                    
+                    if not Closest_Entity or not Closest_Entity.PrimaryPart then
+                        return
+                    end
 
                     local Target_Position = Closest_Entity.PrimaryPart.Position
                     local Target_Distance = Player:DistanceFromCharacter(Target_Position)
@@ -4276,9 +4279,15 @@ do
                     if not Ball_Target then
                         return
                     end
-
+                    
+                    -- Silly.lua inspired logic
+                    local maxSpamDist = (Ping / 5) + math.min(Ball.AssemblyLinearVelocity.Magnitude / 7, 30)
+                    
                     if Target_Distance > Spam_Accuracy or Distance > Spam_Accuracy then
-                        return
+                         -- Allow if within enhanced spam range
+                        if not (Distance < maxSpamDist and Target_Distance < maxSpamDist) then
+                            return
+                        end
                     end
                     
                     local Pulsed = Player.Character:GetAttribute('Pulsed')
@@ -4293,7 +4302,7 @@ do
 
                     local threshold = ParryThreshold
 
-                    if Distance <= Spam_Accuracy and Parries > threshold then
+                    if (Distance <= Spam_Accuracy or Distance <= maxSpamDist) and Parries > threshold then
                         if getgenv().SpamParryKeypress then
                             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
                         else
@@ -4377,6 +4386,10 @@ do
                             Ping = Ping_Threshold
                         })
     
+                        if not Closest_Entity or not Closest_Entity.PrimaryPart then
+                            return
+                        end
+
                         local Target_Position = Closest_Entity.PrimaryPart.Position
                         local Target_Distance = Player:DistanceFromCharacter(Target_Position)
     
@@ -4391,8 +4404,12 @@ do
                             return
                         end
     
+                        local maxSpamDist = (Ping / 5) + math.min(Ball.AssemblyLinearVelocity.Magnitude / 7, 30)
+
                         if Target_Distance > Spam_Accuracy or Distance > Spam_Accuracy then
-                            return
+                            if not (Distance < maxSpamDist and Target_Distance < maxSpamDist) then
+                                return
+                            end
                         end
                         
                         local Pulsed = Player.Character:GetAttribute('Pulsed')
