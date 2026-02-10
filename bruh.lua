@@ -1,4 +1,4 @@
---UI auto parry fix
+--UI mobile optimization
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3312,6 +3312,47 @@ function Auto_Parry:Get_Entity_Properties()
 end
 
 local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+
+-- 🔥 ULTRA MOBILE OPTIMIZATION FOR TRASH PHONES - ELIMINATE MICRO LAGS 🔥
+if isMobile then
+    -- Aggressive garbage collection management to prevent lag spikes
+    task.spawn(function()
+        while task.wait(3) do
+            -- Force GC during safe moments to prevent mid-combat stutters
+            if collectgarbage("count") > 50000 then -- Only if memory high
+                collectgarbage("collect")
+            end
+        end
+    end)
+    
+    -- Set graphics to absolute minimum for performance
+    local function optimizeGraphics()
+        local success = pcall(function()
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+            settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level01
+            
+            -- Disable expensive visual effects
+            for _, effect in ipairs(Lighting:GetChildren()) do
+                if effect:IsA("BloomEffect") or effect:IsA("BlurEffect") or 
+                   effect:IsA("ColorCorrectionEffect") or effect:IsA("SunRaysEffect") then
+                    effect.Enabled = false
+                end
+            end
+        end)
+    end
+    
+    optimizeGraphics()
+    
+    -- Reduce physics overhead
+    task.spawn(function()
+        pcall(function()
+            settings().Physics.AllowSleep = true
+            settings().Physics.ThrottleAdjustTime = 0.1
+        end)
+    end)
+    
+    print("[MOBILE OPTIMIZER] Enabled trash phone optimizations - micro-lag reduction active!")
+end
 
 
 function Auto_Parry.Parry_Data(Parry_Type)
