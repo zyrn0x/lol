@@ -1,4 +1,4 @@
---UI auto spam fix
+--UI auto parry fix
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3899,45 +3899,60 @@ do
             end
             if value then
                 Connections_Manager['Auto Parry'] = RunService.PreSimulation:Connect(function()
+                    -- Early character/primarypart validation for crash prevention
+                    if not Player.Character or not Player.Character.PrimaryPart then
+                        return
+                    end
+                    
                     local One_Ball = Auto_Parry.Get_Ball()
                     local Balls = Auto_Parry.Get_Balls()
 
                     for _, Ball in pairs(Balls) do
-
                         if not Ball then
-                            return
+                            continue
                         end
 
+                        -- Cache ball properties to reduce lookups
                         local Zoomies = Ball:FindFirstChild('zoomies')
                         if not Zoomies then
-                            return
+                            continue
+                        end
+
+                        -- Early parried check
+                        if Parried then
+                            continue
                         end
 
                         Ball:GetAttributeChangedSignal('target'):Once(function()
                             Parried = false
                         end)
 
-                        if Parried then
-                            return
-                        end
-
+                        -- Cache attributes early
                         local Ball_Target = Ball:GetAttribute('target')
-                        local One_Target = One_Ball:GetAttribute('target')
+                        if not Ball_Target then
+                            continue
+                        end
+                        
+                        local One_Target = One_Ball and One_Ball:GetAttribute('target')
 
+                        -- Cache velocity and speed
                         local Velocity = Zoomies.VectorVelocity
-
-                        local Distance = (Player.Character.PrimaryPart.Position - Ball.Position).Magnitude
-
-                        local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue() / 10
-
-                        local Ping_Threshold = math.clamp(Ping / 10, 5, 17)
-
                         local Speed = Velocity.Magnitude
 
-                        local cappedSpeedDiff = math.min(math.max(Speed - 9.5, 0), 650)
+                        -- Cache positions for multiple uses
+                        local PlayerPos = Player.Character.PrimaryPart.Position
+                        local BallPos = Ball.Position
+                        local Distance = (PlayerPos - BallPos).Magnitude
+
+                        -- Optimized ping calculation (divide once, not twice)
+                        local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+                        local Ping_Threshold = math.clamp(Ping / 100, 5, 17)
+
+                        -- Enhanced speed divisor for ultra-high speeds
+                        local cappedSpeedDiff = math.min(math.max(Speed - 9.5, 0), 1000) -- Increased cap for high speeds
                         local speed_divisor_base = 2.4 + cappedSpeedDiff * 0.002
 
-                        local effectiveMultiplier = Speed_Divisor_Multiplier
+                        local effectiveMultiplier = Speed_Divisor_Multiplier or 1.05
                         if getgenv().RandomParryAccuracyEnabled then
                             if Speed < 200 then
                                 effectiveMultiplier = 0.7 + (math.random(40, 100) - 1) * (0.35 / 99)
@@ -3947,10 +3962,19 @@ do
                         end
 
                         local speed_divisor = speed_divisor_base * effectiveMultiplier
-                        local Parry_Accuracy = Ping_Threshold + math.max(Speed / speed_divisor, 9.5)
+                        
+                        -- Enhanced parry accuracy for high speeds
+                        local baseAccuracy = Speed / speed_divisor
+                        local Parry_Accuracy = Ping_Threshold + math.max(baseAccuracy, 9.5)
+                        
+                        -- Boost accuracy for ultra-high speeds
+                        if Speed >= 1000 then
+                            Parry_Accuracy = Parry_Accuracy * 1.15
+                        elseif Speed >= 600 then
+                            Parry_Accuracy = Parry_Accuracy * 1.08
+                        end
 
-                        local Curved = Auto_Parry.Is_Curved()
-
+                        -- Early special effect checks
                         if Ball:FindFirstChild('AeroDynamicSlashVFX') then
                             Debris:AddItem(Ball.AeroDynamicSlashVFX, 0)
                             Tornado_Time = tick()
@@ -3958,52 +3982,61 @@ do
 
                         if Runtime:FindFirstChild('Tornado') then
                             if (tick() - Tornado_Time) < (Runtime.Tornado:GetAttribute("TornadoTime") or 1) + 0.314159 then
-                            return
+                                continue
                             end
                         end
 
+                        -- Check curve detection
+                        local Curved = Auto_Parry.Is_Curved()
+                        
                         if One_Target == tostring(Player) and Curved then
-                            return
+                            continue
                         end
 
+                        -- Early combo counter check
                         if Ball:FindFirstChild("ComboCounter") then
-                            return
+                            continue
                         end
 
-                        local Singularity_Cape = Player.Character.PrimaryPart:FindFirstChild('SingularityCape')
-                        if Singularity_Cape then
-                            return
-                        end 
+                        -- Early singularity check
+                        if Player.Character.PrimaryPart:FindFirstChild('SingularityCape') then
+                            continue
+                        end
 
+                        -- Early detection flags
                         if getgenv().InfinityDetection and Infinity then
-                            return
+                            continue
                         end
 
                         if getgenv().DeathSlashDetection and deathshit then
-                            return
+                            continue
                         end
 
                         if getgenv().TimeHoleDetection and timehole then
-                            return
+                            continue
                         end
 
+                        -- Main parry logic
                         if Ball_Target == tostring(Player) and Distance <= Parry_Accuracy then
+                            -- Auto ability check
                             if getgenv().AutoAbility and AutoAbility() then
-                                return
+                                continue
                             end
-                        end
-
-                        if Ball_Target == tostring(Player) and Distance <= Parry_Accuracy then
+                            
+                            -- Cooldown protection check
                             if getgenv().CooldownProtection and cooldownProtection() then
-                                return
+                                continue
                             end
 
                             local Parry_Time = os.clock()
-                            local Time_View = Parry_Time - (Last_Parry)
+                            local Time_View = Parry_Time - Last_Parry
+                            
+                            -- Play animation if enough time has passed
                             if Time_View > 0.5 then
                                 Auto_Parry.Parry_Animation()
                             end
 
+                            -- Execute parry
                             if getgenv().AutoParryKeypress then
                                 VirtualInputService:SendKeyEvent(true, Enum.KeyCode.F, false, nil)
                             else
@@ -4013,6 +4046,8 @@ do
                             Last_Parry = Parry_Time
                             Parried = true
                         end
+                        
+                        -- Wait for cooldown or parry reset
                         local Last_Parrys = tick()
                         repeat
                             RunService.PreSimulation:Wait()
