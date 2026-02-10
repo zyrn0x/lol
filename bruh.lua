@@ -1,4 +1,4 @@
---UI seliware fix
+--UI auto spam fix
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -3737,8 +3737,15 @@ local function SpamInput(Label)
     if InputTask then return end
     InputTask = task.spawn(function()
         while AutoParry do
+            -- Safety check for low-end devices
+            if not Player.Character or not Player.Character.PrimaryPart then
+                task.wait(0.1)
+                continue
+            end
+            
             Auto_Parry.Parry(Selected_Parry_Type)
-            task.wait(Cooldown)
+            -- Reduced cooldown for faster spam (was 0.02, now 0.01 for ultra-fast response)
+            task.wait(0.01)
         end
         InputTask = nil
     end)
@@ -4239,25 +4246,59 @@ do
 
             if value then
                 Connections_Manager['Auto Spam'] = RunService.PreSimulation:Connect(function()
+                    -- Early character/primarypart check to avoid crashes on low-end devices
+                    if not Player.Character or not Player.Character.PrimaryPart then
+                        return
+                    end
+                    
                     local Ball = Auto_Parry.Get_Ball()
-
                     if not Ball then
                         return
                     end
 
+                    -- Cache ball properties to reduce repeated lookups
                     local Zoomies = Ball:FindFirstChild('zoomies')
-
                     if not Zoomies then
                         return
                     end
+                    
+                    -- Early pulsed check (most common rejection)
+                    if Player.Character:GetAttribute('Pulsed') then
+                        return
+                    end
+
+                    -- Cache velocity for performance
+                    local BallVelocity = Zoomies.VectorVelocity
+                    local Speed = BallVelocity.Magnitude
+                    
+                    -- Early target check
+                    local Ball_Target = Ball:GetAttribute('target')
+                    if not Ball_Target then
+                        return
+                    end
+
+                    -- Cache player position
+                    local PlayerPos = Player.Character.PrimaryPart.Position
+                    local BallPos = Ball.Position
+                    local Distance = (PlayerPos - BallPos).Magnitude
 
                     Auto_Parry.Closest_Player()
+                    
+                    if not Closest_Entity or not Closest_Entity.PrimaryPart then
+                        return
+                    end
 
+                    local Target_Distance = (PlayerPos - Closest_Entity.PrimaryPart.Position).Magnitude
+
+                    -- Optimized ping calculation
                     local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
-                    local Ping_Threshold = math.clamp(Ping / 10, 1, 16)
-
-                    local Ball_Target = Ball:GetAttribute('target')
-
+                    
+                    -- Enhanced spam distance for ultra-high speeds (optimized for 1000+ speed balls)
+                    local speedFactor = Speed >= 1000 and (Speed / 8) or (Speed / 7)
+                    local maxSpamDist = (Ping / 4.5) + math.min(speedFactor, 60)
+                    
+                    -- Enhanced accuracy for high-speed balls
+                    local Ping_Threshold = math.clamp(Ping / 10, 0.5, 16)
                     local Ball_Properties = Auto_Parry:Get_Ball_Properties()
                     local Entity_Properties = Auto_Parry:Get_Entity_Properties()
 
@@ -4267,47 +4308,22 @@ do
                         Ping = Ping_Threshold
                     })
                     
-                    if not Closest_Entity or not Closest_Entity.PrimaryPart then
-                        return
-                    end
-
-                    local Target_Position = Closest_Entity.PrimaryPart.Position
-                    local Target_Distance = Player:DistanceFromCharacter(Target_Position)
-
-                    local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
-                    local Ball_Direction = Zoomies.VectorVelocity.Unit
-
-                    local Dot = Direction:Dot(Ball_Direction)
-
-                    local Distance = Player:DistanceFromCharacter(Ball.Position)
-
-                    if not Ball_Target then
+                    -- Early distance rejection for far targets
+                    if Ball_Target == tostring(Player) and Target_Distance > 35 and Distance > 35 then
                         return
                     end
                     
-                    -- Silly.lua inspired logic
-                    local maxSpamDist = (Ping / 5) + math.min(Ball.AssemblyLinearVelocity.Magnitude / 7, 30)
+                    -- Optimized spam condition check
+                    local inSpamRange = (Distance <= Spam_Accuracy or Distance <= maxSpamDist) and 
+                                       (Target_Distance <= Spam_Accuracy or Target_Distance <= maxSpamDist)
                     
-                    if Target_Distance > Spam_Accuracy or Distance > Spam_Accuracy then
-                         -- Allow if within enhanced spam range
-                        if not (Distance < maxSpamDist and Target_Distance < maxSpamDist) then
-                            return
-                        end
-                    end
-                    
-                    local Pulsed = Player.Character:GetAttribute('Pulsed')
-
-                    if Pulsed then
+                    if not inSpamRange then
                         return
                     end
 
-                    if Ball_Target == tostring(Player) and Target_Distance > 30 and Distance > 30 then
-                        return
-                    end
+                    local threshold = ParryThreshold or 2.5
 
-                    local threshold = ParryThreshold
-
-                    if (Distance <= Spam_Accuracy or Distance <= maxSpamDist) and Parries > threshold then
+                    if Parries > threshold then
                         if getgenv().SpamParryKeypress then
                             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
                         else
@@ -4362,26 +4378,59 @@ do
             callback = function(value: boolean)
                 if value then
                     Connections_Manager['Animation Fix'] = RunService.PreSimulation:Connect(function()
+                        -- Early character/primarypart check
+                        if not Player.Character or not Player.Character.PrimaryPart then
+                            return
+                        end
+                        
                         local Ball = Auto_Parry.Get_Ball()
-    
                         if not Ball then
                             return
                         end
     
+                        -- Cache ball properties
                         local Zoomies = Ball:FindFirstChild('zoomies')
-    
                         if not Zoomies then
                             return
                         end
+                        
+                        -- Early pulsed check
+                        if Player.Character:GetAttribute('Pulsed') then
+                            return
+                        end
+                        
+                        -- Cache velocity
+                        local BallVelocity = Zoomies.VectorVelocity
+                        local Speed = BallVelocity.Magnitude
+                        
+                        -- Early target check
+                        local Ball_Target = Ball:GetAttribute('target')
+                        if not Ball_Target then
+                            return
+                        end
+                        
+                        -- Cache positions
+                        local PlayerPos = Player.Character.PrimaryPart.Position
+                        local BallPos = Ball.Position
+                        local Distance = (PlayerPos - BallPos).Magnitude
     
                         Auto_Parry.Closest_Player()
+                        
+                        if not Closest_Entity or not Closest_Entity.PrimaryPart then
+                            return
+                        end
     
+                        local Target_Distance = (PlayerPos - Closest_Entity.PrimaryPart.Position).Magnitude
+    
+                        -- Optimized ping calculation
                         local Ping = game:GetService('Stats').Network.ServerStatsItem['Data Ping']:GetValue()
+                        
+                        -- Enhanced spam distance for ultra-high speeds
+                        local speedFactor = Speed >= 1000 and (Speed / 8) or (Speed / 7)
+                        local maxSpamDist = (Ping / 4.5) + math.min(speedFactor, 60)
     
-                        local Ping_Threshold = math.clamp(Ping / 10, 10, 16)
-    
-                        local Ball_Target = Ball:GetAttribute('target')
-    
+                        -- Enhanced accuracy
+                        local Ping_Threshold = math.clamp(Ping / 10, 0.5, 16)
                         local Ball_Properties = Auto_Parry:Get_Ball_Properties()
                         local Entity_Properties = Auto_Parry:Get_Entity_Properties()
     
@@ -4391,45 +4440,22 @@ do
                             Ping = Ping_Threshold
                         })
     
-                        if not Closest_Entity or not Closest_Entity.PrimaryPart then
+                        -- Early distance rejection
+                        if Ball_Target == tostring(Player) and Target_Distance > 35 and Distance > 35 then
                             return
-                        end
-
-                        local Target_Position = Closest_Entity.PrimaryPart.Position
-                        local Target_Distance = Player:DistanceFromCharacter(Target_Position)
-    
-                        local Direction = (Player.Character.PrimaryPart.Position - Ball.Position).Unit
-                        local Ball_Direction = Zoomies.VectorVelocity.Unit
-    
-                        local Dot = Direction:Dot(Ball_Direction)
-    
-                        local Distance = Player:DistanceFromCharacter(Ball.Position)
-    
-                        if not Ball_Target then
-                            return
-                        end
-    
-                        local maxSpamDist = (Ping / 5) + math.min(Ball.AssemblyLinearVelocity.Magnitude / 7, 30)
-
-                        if Target_Distance > Spam_Accuracy or Distance > Spam_Accuracy then
-                            if not (Distance < maxSpamDist and Target_Distance < maxSpamDist) then
-                                return
-                            end
                         end
                         
-                        local Pulsed = Player.Character:GetAttribute('Pulsed')
-    
-                        if Pulsed then
+                        -- Optimized spam condition
+                        local inSpamRange = (Distance <= Spam_Accuracy or Distance <= maxSpamDist) and 
+                                           (Target_Distance <= Spam_Accuracy or Target_Distance <= maxSpamDist)
+                        
+                        if not inSpamRange then
                             return
                         end
     
-                        if Ball_Target == tostring(Player) and Target_Distance > 30 and Distance > 30 then
-                            return
-                        end
+                        local threshold = ParryThreshold or 2.5
     
-                        local threshold = ParryThreshold
-    
-                        if Distance <= Spam_Accuracy and Parries > threshold then
+                        if Parries > threshold then
                             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game) 
                         end
                     end)
@@ -4527,9 +4553,17 @@ do
     }
 
     function SpamSystem.manual_spam.start()
-        if Connections_Manager['Manual Spam'] then Connections_Manager['Manual Spam']:Disconnect() end
+        if Connections_Manager['Manual Spam'] then 
+            Connections_Manager['Manual Spam']:Disconnect() 
+        end
         
-        Connections_Manager['Manual Spam'] = RunService.PreSimulation:Connect(function()
+        -- Use Heartbeat instead of PreSimulation for lighter load on mobile
+        Connections_Manager['Manual Spam'] = RunService.Heartbeat:Connect(function()
+             -- Skip if player dead/invalid to reduce overhead
+             if not Player.Character or not Player.Character.PrimaryPart then
+                 return
+             end
+             
              if getgenv().ManualSpamMode == "Keypress" then 
                  VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
              else 
