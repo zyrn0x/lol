@@ -1,4 +1,4 @@
---UI triggerbot an autohotkey
+--UI autohotkey fix
 getgenv().GG = {
     Language = {
         CheckboxEnabled = "Enabled",
@@ -4814,7 +4814,57 @@ do
                         local btn = create_mobile_button('Type: ' .. (Selected_Parry_Type or 'Camera'), 0.5, Color3.fromRGB(0, 100, 255))
                         SpamSystem.__properties.__mobile_guis.hotkey = btn
                         
-                        local parry_types = {'Camera', 'Random', 'Backwards', 'Straight', 'High', 'Left', 'Right', 'Random Target'}
+                        -- Selection Frame (Hidden initially)
+                        local selectionFrame = Instance.new('Frame')
+                        selectionFrame.Name = "SelectionFrame"
+                        selectionFrame.Size = UDim2.new(0, 140, 0, 0) -- Auto-size height
+                        selectionFrame.Position = UDim2.new(0, 0, 1, 5)
+                        selectionFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+                        selectionFrame.BorderSizePixel = 0
+                        selectionFrame.Visible = false
+                        selectionFrame.ZIndex = 5
+                        selectionFrame.Parent = btn.button
+
+                        local corner = Instance.new("UICorner")
+                        corner.CornerRadius = UDim.new(0, 8)
+                        corner.Parent = selectionFrame
+
+                        local layout = Instance.new("UIListLayout")
+                        layout.SortOrder = Enum.SortOrder.LayoutOrder
+                        layout.Padding = UDim.new(0, 2)
+                        layout.Parent = selectionFrame
+                        
+                        -- Populate list (No Random Target)
+                        local parry_types = {'Camera', 'Random', 'Backwards', 'Straight', 'High', 'Left', 'Right'}
+                        
+                        for i, pType in ipairs(parry_types) do
+                            local typeBtn = Instance.new("TextButton")
+                            typeBtn.Size = UDim2.new(1, 0, 0, 30)
+                            typeBtn.BackgroundTransparency = 1
+                            typeBtn.Text = pType
+                            typeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                            typeBtn.Font = Enum.Font.Gotham
+                            typeBtn.TextSize = 14
+                            typeBtn.ZIndex = 6
+                            typeBtn.Parent = selectionFrame
+                            
+                            typeBtn.MouseButton1Click:Connect(function()
+                                Selected_Parry_Type = pType
+                                btn.text.Text = 'Type: ' .. pType
+                                selectionFrame.Visible = false
+                                
+                                if getgenv().HotkeyParryTypeNotify then
+                                    Library.SendNotification({
+                                        title = "Module Notification",
+                                        text = "Parry Type changed to " .. pType,
+                                        duration = 2
+                                    })
+                                end
+                            end)
+                        end
+                        
+                        selectionFrame.Size = UDim2.new(0, 140, 0, #parry_types * 32)
+
                         local touch_start = 0
                         local was_dragged = false
 
@@ -4828,24 +4878,7 @@ do
                         
                         btn.button.InputEnded:Connect(function(input)
                             if input.UserInputType == Enum.UserInputType.Touch and not was_dragged then
-                                -- Cycle functionality
-                                local current_index = table.find(parry_types, Selected_Parry_Type) or 1
-                                local next_index = (current_index % #parry_types) + 1
-                                local next_type = parry_types[next_index]
-                                
-                                Selected_Parry_Type = next_type
-                                btn.text.Text = 'Type: ' .. next_type
-                                
-                                -- Update the main dropdown if possible (assuming 'dropdown' is visible or we just set the global)
-                                -- Note: 'dropdown' is local in the create_dropdown scope. We might not be able to update it UI-wise, but the logic updates.
-                                
-                                if getgenv().HotkeyParryTypeNotify then
-                                    Library.SendNotification({
-                                        title = "Module Notification",
-                                        text = "Parry Type changed to " .. next_type,
-                                        duration = 2
-                                    })
-                                end
+                                selectionFrame.Visible = not selectionFrame.Visible
                             end
                         end)
                     end
